@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Api\Controllers\" />
+    <Folder Include="Api\DTOs\" />
+    <Folder Include="Api\Middleware\" />
+    <Folder Include="Console\Commands\" />
+    <Folder Include="Console\Display\" />
+    <Folder Include="Core\Enums\" />
+    <Folder Include="Core\Interfaces\" />
+    <Folder Include="GrapheneTrace.Api\Controllers\" />
+    <Folder Include="GrapheneTrace.Api\DTOs\" />
+    <Folder Include="GrapheneTrace.Api\Middleware\" />
+    <Folder Include="GrapheneTrace.Console\Commands\" />
+    <Folder Include="GrapheneTrace.Console\Display\" />
+    <Folder Include="GrapheneTrace.Core\Enums\" />
+    <Folder Include="GrapheneTrace.Core\Interfaces\" />
+    <Folder Include="GrapheneTrace.Core\Models\" />
+    <Folder Include="GrapheneTrace.Infrastructure\Caching\" />
+    <Folder Include="GrapheneTrace.Infrastructure\Database\Migrations\" />
+    <Folder Include="GrapheneTrace.Infrastructure\Database\Repositories\" />
+    <Folder Include="GrapheneTrace.Infrastructure\Messaging\EventHandlers\" />
+    <Folder Include="GrapheneTrace.Services\Communication\" />
+    <Folder Include="GrapheneTrace.Services\Ingestion\" />
+    <Folder Include="GrapheneTrace.Services\Processing\" />
+    <Folder Include="GrapheneTrace.Services\Reporting\" />
+    <Folder Include="GrapheneTrace.Tests\Integration\" />
+    <Folder Include="GrapheneTrace.Tests\Performance\" />
+    <Folder Include="GrapheneTrace.Tests\Unit\" />
+    <Folder Include="Infrastructure\Caching\" />
+    <Folder Include="Infrastructure\Database\Migrations\" />
+    <Folder Include="Infrastructure\Database\Repositories\" />
+    <Folder Include="Infrastructure\Messaging\EventHandlers\" />
+    <Folder Include="Services\Communication\" />
+    <Folder Include="Services\Ingestion\" />
+    <Folder Include="Services\Processing\" />
+    <Folder Include="Services\Reporting\" />
+    <Folder Include="Tests\Integration\" />
+    <Folder Include="Tests\Performance\" />
+    <Folder Include="Tests\Unit\" />
+  </ItemGroup>
+
+</Project>
