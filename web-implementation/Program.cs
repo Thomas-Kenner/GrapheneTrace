@@ -1,10 +1,14 @@
 using GrapheneTrace.Web.Components;
+using GrapheneTrace.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Add authentication service as singleton to persist across navigation
+builder.Services.AddSingleton<AuthenticationService>();
 
 var app = builder.Build();
 

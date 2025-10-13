@@ -1,0 +1,352 @@
+@page "/account-creation"
+@layout Layout.AuthLayout
+@using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.UI
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+@*
+    Account Creation Page
+    Author: SID:2412494
+    Route: /account-creation
+
+    Purpose: Multi-step account registration wizard for new users.
+
+    Design Pattern: Wizard pattern with progressive disclosure.
+    Why: Breaks complex form into manageable steps, reducing cognitive load and form abandonment.
+
+    Step 1: Personal information (name, email, password)
+    Step 2: Privacy policy review and acceptance (required for GDPR/legal compliance)
+    Step 3: Success confirmation with account summary
+
+    Implementation: RenderFragment pattern for step rendering.
+    Why: Keeps all step logic in one file while maintaining clean separation between steps.
+    Alternative considered: Separate components per step, rejected for simplicity and state sharing.
+
+    State Management: Local component state (currentStep, formData, acceptedPolicy).
+    Why: No need for global state - data only relevant during registration flow.
+
+    Visual Feedback: Step indicator with progress bar and completed step checkmarks.
+    Why: Users can see their progress and understand how many steps remain.
+
+    Current Implementation: Creates account without database persistence for UI development.
+    Production TODO: Integrate with user registration API, email verification, password strength validation.
+*@
+
+<link rel="stylesheet" href="css/auth.css" />
+
+<div class="auth-container">
+    <div style="width: 100%; max-width: 42rem; padding: 1.5rem;">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step-indicator-inner">
+                @for (int i = 1; i <= 3; i++)
+                {
+                    var stepNum = i;
+                    <div class="step-wrapper">
+                        <div class="step-content">
+                            <div class="step-circle @(GetStepClass(stepNum))">
+                                @if (stepNum < currentStep)
+                                {
+                                    <span>✓</span>
+                                }
+                                else
+                                {
+                                    <span>@stepNum</span>
+                                }
+                            </div>
+                            <span class="step-label">
+                                @(stepNum == 1 ? "Personal Info" : stepNum == 2 ? "Privacy Policy" : "Complete")
+                            </span>
+                        </div>
+                        @if (i < 3)
+                        {
+                            <div class="step-connector @(i < currentStep ? "completed" : "")"></div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: @(progress)%"></div>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <Card>
+            @if (currentStep == 1)
+            {
+                @RenderStep1()
+            }
+            else if (currentStep == 2)
+            {
+                @RenderStep2()
+            }
+            else if (currentStep == 3)
+            {
+                @RenderStep3()
+            }
+        </Card>
+    </div>
+</div>
+
+@code {
+    // Component state for wizard flow
+    private int currentStep = 1;
+    private bool acceptedPolicy = false;
+    private string name = "";
+    private string email = "";
+    private string password = "";
+
+    /// <summary>
+    /// Calculates progress percentage for progress bar (0-100).
+    /// </summary>
+    /// <remarks>
+    /// Formula: (currentStep / totalSteps) * 100
+    /// Why computed property: Automatically updates when currentStep changes without manual calculation.
+    /// </remarks>
+    private double progress => (currentStep / 3.0) * 100;
+
+    /// <summary>
+    /// Determines CSS class for step indicator based on current progress.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="step">Step number to evaluate (1-3)</param>
+    /// <returns>"active" if current step, "completed" if past step, empty string if future step</returns>
+    /// <remarks>
+    /// Visual States:
+    /// - "active": Current step - primary color with border
+    /// - "completed": Past steps - filled primary color with checkmark
+    /// - default: Future steps - neutral color outline
+    /// </remarks>
+    private string GetStepClass(int step)
+    {
+        if (step == currentStep)
+            return "active";
+        if (step < currentStep)
+            return "completed";
+        return "";
+    }
+
+    /// <summary>
+    /// Renders Step 1: Personal information collection (name, email, password).
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Design Pattern: RenderFragment for inline step definition.
+    /// Why: Keeps step logic close to state management while avoiding separate component files.
+    ///
+    /// Navigation: Back button returns to /login, Continue advances to step 2.
+    /// Why back to login: First step should allow users to return to login if they already have an account.
+    ///
+    /// Validation: None at this step for flexibility during UI development.
+    /// Production TODO: Add real-time email format validation, password strength meter,
+    /// duplicate email checking.
+    /// </remarks>
+    private RenderFragment RenderStep1() => @<text>
+        <CardHeader>
+            <h1 class="card-title">Create Your Account</h1>
+            <p class="card-description">Enter your personal information to get started</p>
+        </CardHeader>
+
+        <CardContent>
+            <FormGroup Label="Full Name"
+                       Id="name"
+                       Placeholder="John Doe"
+                       @bind-Value="name" />
+
+            <FormGroup Label="Email Address"
+                       Id="email"
+                       InputType="email"
+                       Placeholder="john@example.com"
+                       @bind-Value="email" />
+
+            <FormGroup Label="Password"
+                       Id="password"
+                       InputType="password"
+                       Placeholder="••••••••"
+                       @bind-Value="password" />
+        </CardContent>
+
+        <CardFooter>
+            <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/login"))">
+                Back
+            </Button>
+            <Button OnClick="@(() => currentStep = 2)">
+                Continue
+            </Button>
+        </CardFooter>
+    </text>;
+
+    /// <summary>
+    /// Renders Step 2: Privacy policy review and acceptance.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Legal Requirement: Privacy policy acceptance is required for GDPR compliance and user consent tracking.
+    ///
+    /// UX Design: Scrollable area with Lorem Ipsum placeholder text.
+    /// Why scrollable: Ensures users can review full policy without page length issues.
+    /// Why Lorem Ipsum: Placeholder for actual legal text to be provided by legal team.
+    ///
+    /// Validation: Continue button disabled until checkbox is checked.
+    /// Why: Prevents accidental progression without explicit policy acceptance.
+    /// Legal implication: Explicit checkbox interaction provides audit trail of consent.
+    ///
+    /// Navigation: Back returns to step 1, Continue requires checkbox and advances to step 3.
+    /// </remarks>
+    private RenderFragment RenderStep2() => @<text>
+        <CardHeader>
+            <h1 class="card-title">Privacy Policy</h1>
+            <p class="card-description">Please review and accept our privacy policy to continue</p>
+        </CardHeader>
+
+        <CardContent>
+            <div class="privacy-scroll-area">
+                <div class="privacy-content">
+                    <div style="margin-bottom: 1rem;">
+                        <h3>1. Introduction</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>2. Information We Collect</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>3. How We Use Your Information</h3>
+                        <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>4. Information Sharing</h3>
+                        <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>5. Data Security</h3>
+                        <p>Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>6. Your Rights</h3>
+                        <p>Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>7. Cookies and Tracking</h3>
+                        <p>Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur.</p>
+                    </div>
+
+                    <div>
+                        <p style="font-size: 0.75rem;">Last Updated: October 13, 2025</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox"
+                       class="checkbox-input"
+                       id="accept-policy"
+                       checked="@acceptedPolicy"
+                       @onchange="@((e) => acceptedPolicy = (bool)e.Value!)" />
+                <label class="checkbox-label" for="accept-policy">
+                    <div>I have read and accept the Privacy Policy</div>
+                    <p class="checkbox-description">
+                        By checking this box, you acknowledge that you have read and understood our privacy practices.
+                    </p>
+                </label>
+            </div>
+        </CardContent>
+
+        <CardFooter>
+            <Button Variant="outline" OnClick="@(() => currentStep = 1)">
+                Back
+            </Button>
+            <Button OnClick="@(() => currentStep = 3)" Disabled="@(!acceptedPolicy)">
+                Accept & Continue
+            </Button>
+        </CardFooter>
+    </text>;
+
+    /// <summary>
+    /// Renders Step 3: Success confirmation with account summary.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Provides positive reinforcement and confirms successful account creation.
+    ///
+    /// UX Pattern: Success state with visual confirmation (checkmark icon) and data summary.
+    /// Why: Reduces user anxiety by explicitly showing what was submitted and confirming success.
+    ///
+    /// Data Display: Shows name, email, and privacy policy acceptance status.
+    /// Why: Allows users to verify their information before proceeding to the application.
+    ///
+    /// Navigation: Single CTA button to proceed to dashboard.
+    /// Why single button: No need for back navigation after successful creation.
+    /// </remarks>
+    private RenderFragment RenderStep3() => @<text>
+        <CardHeader>
+            <div class="text-center">
+                <div class="success-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h1 class="card-title">Account Created Successfully!</h1>
+                <p class="card-description">
+                    Welcome aboard! Your account has been created and you're ready to get started.
+                </p>
+            </div>
+        </CardHeader>
+
+        <CardContent>
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span class="summary-label">Name</span>
+                    <span class="summary-value">@(string.IsNullOrEmpty(name) ? "Not provided" : name)</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Email</span>
+                    <span class="summary-value">@(string.IsNullOrEmpty(email) ? "Not provided" : email)</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Privacy Policy</span>
+                    <span class="summary-value" style="color: var(--primary);">Accepted</span>
+                </div>
+            </div>
+        </CardContent>
+
+        <CardFooter>
+            <Button FullWidth="true" OnClick="HandleAccountCreated">
+                Continue to Dashboard
+            </Button>
+        </CardFooter>
+    </text>;
+
+    /// <summary>
+    /// Handles account creation completion and navigates to main application.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Current Implementation: Logs user in and redirects to dashboard without database persistence.
+    /// Why: Enables UI development and flow testing without database dependency.
+    ///
+    /// Production TODO:
+    /// - Validate all collected data (email format, password strength, name not empty)
+    /// - Hash password using BCrypt with appropriate work factor (12+ rounds)
+    /// - Insert user record into database with role assignment (patient, clinician, admin)
+    /// - Send verification email with confirmation token
+    /// - Create initial session/authentication token
+    /// - Log account creation event for audit trail
+    /// - Handle database errors (duplicate email, connection failures)
+    /// - Consider implementing email verification before full account activation
+    /// </remarks>
+    private void HandleAccountCreated()
+    {
+        // Temporary: Log user in with their email (no database persistence)
+        AuthService.Login(email);
+        Navigation.NavigateTo("/");
+    }
+}

@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'graphenetrace-monitor'
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # GrapheneTrace application metrics
+  # (Add this endpoint once the ASP.NET Core app exposes metrics)
+  - job_name: 'graphenetrace_app'
+    static_configs:
+      - targets: ['host.docker.internal:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL metrics (requires postgres_exporter)
+  # Uncomment when postgres_exporter is added
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres_exporter:9187']
+
+  # Redis metrics (requires redis_exporter)
+  # Uncomment when redis_exporter is added
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis_exporter:9121']

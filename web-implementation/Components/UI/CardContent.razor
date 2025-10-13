@@ -1,0 +1,17 @@
+@namespace GrapheneTrace.Web.Components.UI
+
+@*
+    Card Content Component
+    Author: SID:2412494
+
+    Purpose: Semantic container for main card body content with consistent spacing.
+*@
+
+<div class="card-content">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

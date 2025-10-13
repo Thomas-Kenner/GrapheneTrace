@@ -1,0 +1,119 @@
+@page "/login"
+@layout Layout.AuthLayout
+@using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.UI
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+@*
+    Login Page
+    Author: SID:2412494
+    Route: /login
+
+    Purpose: Provides user authentication entry point for the application.
+
+    Design Pattern: Form with client-side validation before authentication.
+    Why: Reduces unnecessary server calls by validating required fields first.
+
+    Render Mode: InteractiveServer
+    Why: Required for event handlers (@onclick) and two-way data binding (@bind-Value).
+    Server-side rendering enables real-time validation feedback without JavaScript.
+
+    Layout: AuthLayout
+    Why: Uses minimal layout without navigation/sidebar to focus user on authentication task.
+    Main application layout (MainLayout) would redirect unauthenticated users back to /login,
+    creating a redirect loop.
+
+    Current Implementation: Accepts any non-empty email/password for UI development.
+    Production TODO: Integrate with database user validation and proper credential verification.
+*@
+
+<link rel="stylesheet" href="css/auth.css" />
+
+<div class="auth-container">
+    <Card>
+        <CardHeader>
+            <h1 class="card-title">Welcome Back</h1>
+            <p class="card-description">Sign in to access your GrapheneTrace dashboard</p>
+        </CardHeader>
+
+        <CardContent>
+            <FormGroup Label="Email Address"
+                       Id="email"
+                       InputType="email"
+                       Placeholder="john@example.com"
+                       @bind-Value="email" />
+
+            <FormGroup Label="Password"
+                       Id="password"
+                       InputType="password"
+                       Placeholder="••••••••"
+                       @bind-Value="password" />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div style="color: var(--destructive); font-size: 0.875rem; margin-top: 0.5rem;">
+                    @errorMessage
+                </div>
+            }
+        </CardContent>
+
+        <CardFooter>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 1rem;">
+                <Button FullWidth="true" OnClick="HandleLogin">
+                    Sign In
+                </Button>
+                <p class="text-center text-muted">
+                    Don't have an account? <a href="/account-creation" class="link-text">Create one</a>
+                </p>
+            </div>
+        </CardFooter>
+    </Card>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string errorMessage = "";
+
+    /// <summary>
+    /// Handles login form submission with basic validation.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Validation Strategy: Client-side required field checking before authentication.
+    /// Why: Provides immediate user feedback and prevents invalid API calls.
+    ///
+    /// Current Implementation: Accepts any non-empty credentials without database validation.
+    /// Why: Enables UI development and testing without database dependency.
+    ///
+    /// Navigation: Redirects to "/" (home) on successful login.
+    /// Why: NavigationManager.NavigateTo triggers Blazor's routing, which will render
+    /// MainLayout with the authenticated state, displaying the dashboard.
+    ///
+    /// Production TODO:
+    /// - Add email format validation (regex or EmailAddressAttribute)
+    /// - Query database for user with matching email
+    /// - Compare hashed password using BCrypt.Verify()
+    /// - Generate secure session token/cookie
+    /// - Handle login failures with appropriate error messages
+    /// - Add rate limiting to prevent brute force attacks
+    /// </remarks>
+    private void HandleLogin()
+    {
+        // Basic validation: ensure both fields have content
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Please enter both email and password";
+            return;
+        }
+
+        // Clear any previous errors
+        errorMessage = "";
+
+        // Temporary: Accept any non-empty credentials for UI development
+        AuthService.Login(email);
+        Navigation.NavigateTo("/");
+    }
+}

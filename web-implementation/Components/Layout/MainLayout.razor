@@ -1,23 +1,129 @@
 ﻿@inherits LayoutComponentBase
+@using GrapheneTrace.Web.Services
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@*
+    Main Application Layout
+    Author: SID:2412494
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+    Purpose: Primary layout for authenticated application pages with navigation and authentication gate.
+
+    Design Pattern: Layout component with authentication guard.
+    Why: Centralizes authentication checking and prevents code duplication across all protected pages.
+
+    Authentication Flow:
+    1. OnInitialized checks if user is authenticated
+    2. If not authenticated AND not on /login or /account-creation, redirect to /login
+    3. If authenticated, render full layout with sidebar, navigation, and content
+    4. Subscribe to auth state changes to re-render when user logs in/out
+
+    IDisposable Implementation: Unsubscribes from auth state change event.
+    Why: Prevents memory leaks from event handler references when component is destroyed.
+
+    Layout Structure:
+    - Sidebar: Navigation menu (NavMenu component)
+    - Top bar: User greeting and logout button
+    - Main content area: Renders page content via @Body
+
+    Usage: Automatically applied to all pages except those with explicit @layout directive.
+*@
+
+@if (AuthService.IsAuthenticated)
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <main>
+            <div class="top-row px-4">
+                <span>Welcome, @AuthService.UserName</span>
+                <button @onclick="HandleLogout" style="margin-left: 1rem; cursor: pointer;">Logout</button>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    /// <summary>
+    /// Component lifecycle hook: runs once when component is first rendered.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Authentication Gate Logic:
+    /// - Check if user is authenticated via AuthenticationService
+    /// - If NOT authenticated AND current route is NOT /login or /account-creation, redirect to /login
+    /// - Why URI.Contains check: Prevents redirect loop for authentication pages
+    ///
+    /// Event Subscription: Subscribe to authentication state changes.
+    /// Why: Allows component to re-render when user logs in/out, updating the UI automatically.
+    /// StateHasChanged: Blazor method that triggers component re-render.
+    ///
+    /// Edge Case Handling:
+    /// - AuthLayout pages (/login, /account-creation) are excluded from redirect check
+    /// - This prevents infinite redirect loop where MainLayout redirects to /login,
+    ///   which would then redirect back if we didn't have the exclusion check
+    /// </remarks>
+    protected override void OnInitialized()
+    {
+        // Redirect unauthenticated users to login (except those already on auth pages)
+        if (!AuthService.IsAuthenticated &&
+            !Navigation.Uri.Contains("/login") &&
+            !Navigation.Uri.Contains("/account-creation"))
+        {
+            Navigation.NavigateTo("/login");
+        }
+
+        // Subscribe to auth state changes for automatic UI updates
+        AuthService.OnAuthenticationStateChanged += StateHasChanged;
+    }
+
+    /// <summary>
+    /// Handles user logout action.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Logout Flow:
+    /// 1. Call AuthService.Logout() to clear authentication state
+    /// 2. Navigate to /login page
+    ///
+    /// Why this order: Clearing auth state first ensures that if navigation fails,
+    /// the user is still logged out. The MainLayout will redirect to login on next render anyway.
+    ///
+    /// Production TODO: Add confirmation dialog for logout to prevent accidental logouts.
+    /// </remarks>
+    private void HandleLogout()
+    {
+        AuthService.Logout();
+        Navigation.NavigateTo("/login");
+    }
+
+    /// <summary>
+    /// IDisposable implementation: cleanup when component is destroyed.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Memory Leak Prevention: Unsubscribe from event to prevent memory leaks.
+    /// Why necessary: Event handlers create strong references. If not unsubscribed,
+    /// the AuthenticationService would maintain a reference to this component even
+    /// after it's destroyed, preventing garbage collection.
+    ///
+    /// Blazor Lifecycle: Dispose is called when component is removed from render tree.
+    /// </remarks>
+    public void Dispose()
+    {
+        AuthService.OnAuthenticationStateChanged -= StateHasChanged;
+    }
+}

@@ -1,0 +1,17 @@
+@namespace GrapheneTrace.Web.Components.UI
+
+@*
+    Card Header Component
+    Author: SID:2412494
+
+    Purpose: Semantic container for card titles and descriptions with consistent styling.
+*@
+
+<div class="card-header">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
