@@ -5,7 +5,7 @@ A MedTech application for continuous pressure ulcer prevention using e-textile p
 ## Project Structure
 
 ### CLI-demo/
-**⚠️ REFERENCE ONLY - NOT AUTHORITATIVE**
+**REFERENCE ONLY - NOT AUTHORITATIVE**
 
 The `CLI-demo` folder contains a quick proof-of-concept console application that was built to validate core concepts. While it may contain some useful implementation ideas, it should **NOT** be considered authoritative or production-ready.
 
@@ -20,7 +20,7 @@ The `CLI-demo` folder contains a quick proof-of-concept console application that
 - Getting ideas for algorithms (but verify and improve them)
 
 ### web-implementation/
-**✅ ACTIVE DEVELOPMENT - PRIMARY FOCUS**
+**ACTIVE DEVELOPMENT - PRIMARY FOCUS**
 
 All new development should happen in the `web-implementation` folder. This is a Blazor Web App that will become the production application.
 
@@ -282,7 +282,7 @@ git checkout -b feature/dashboard-layout
 
 ### Best Practices
 
-**✅ DO:**
+**DO:**
 - Create a new branch for each feature/task
 - Use descriptive branch names: `feature/login-page`, `fix/database-connection`, `refactor/user-service`
 - Make small, focused commits with clear messages
@@ -292,7 +292,7 @@ git checkout -b feature/dashboard-layout
 - Test your code before pushing
 - Write clear PR descriptions explaining what you built and why
 
-**❌ DON'T:**
+**DON'T:**
 - Work directly on the `main` branch
 - Keep a branch open for weeks - break large features into smaller pieces
 - Merge your own PRs - always get a review
@@ -399,10 +399,10 @@ This approach might feel like extra steps at first, but it helps us:
 
 ---
 
-## 📋 Tracking Progress
+## Tracking Progress
 
 All user stories are tracked in `Requirements/UserStories.md` with:
-- Story assignments by developer (Thomas, Andrei, Rachel)
+- Story assignments by developer
 - Checkboxes to track completion
 - Progress summary table
 - Category groupings (Login, Account Management, Pressure Data, etc.)
