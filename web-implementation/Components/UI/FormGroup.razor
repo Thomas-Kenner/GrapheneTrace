@@ -20,8 +20,10 @@
         class="form-input"
         type="@InputType"
         id="@Id"
+        name="@Name"
         placeholder="@Placeholder"
         value="@Value"
+        required="@Required"
         @oninput="HandleInput" />
 </div>
 
@@ -48,6 +50,18 @@
     /// </summary>
     [Parameter]
     public string InputType { get; set; } = "text";
+
+    /// <summary>
+    /// HTML name attribute for form submission.
+    /// </summary>
+    [Parameter]
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// Whether the input is required.
+    /// </summary>
+    [Parameter]
+    public bool Required { get; set; }
 
     /// <summary>
     /// Placeholder text shown when input is empty.

@@ -11,7 +11,7 @@
     not just plain strings, enabling rich button content.
 *@
 
-<button class="@GetButtonClass()" disabled="@Disabled" @onclick="OnClick">
+<button type="@Type" class="@GetButtonClass()" disabled="@Disabled" @onclick="OnClick">
     @ChildContent
 </button>
 
@@ -46,6 +46,12 @@
     /// </remarks>
     [Parameter]
     public bool FullWidth { get; set; }
+
+    /// <summary>
+    /// HTML button type attribute (button, submit, reset).
+    /// </summary>
+    [Parameter]
+    public string Type { get; set; } = "button";
 
     /// <summary>
     /// Event callback fired when button is clicked.

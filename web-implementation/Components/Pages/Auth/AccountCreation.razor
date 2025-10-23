@@ -1,9 +1,8 @@
 @page "/account-creation"
 @layout Layout.AuthLayout
-@using GrapheneTrace.Web.Services
 @using GrapheneTrace.Web.Components.UI
-@inject AuthenticationService AuthService
 @inject NavigationManager Navigation
+@inject IHttpClientFactory HttpClientFactory
 @rendermode InteractiveServer
 
 @*
@@ -94,9 +93,14 @@
     // Component state for wizard flow
     private int currentStep = 1;
     private bool acceptedPolicy = false;
-    private string name = "";
+    private string firstName = "";
+    private string lastName = "";
     private string email = "";
     private string password = "";
+    private string confirmPassword = "";
+    private string userType = "patient";  // Default to patient
+    private string? errorMessage = null;
+    private bool isLoading = false;
 
     /// <summary>
     /// Calculates progress percentage for progress bar (0-100).
@@ -150,10 +154,15 @@
         </CardHeader>
 
         <CardContent>
-            <FormGroup Label="Full Name"
-                       Id="name"
-                       Placeholder="John Doe"
-                       @bind-Value="name" />
+            <FormGroup Label="First Name"
+                       Id="firstName"
+                       Placeholder="John"
+                       @bind-Value="firstName" />
+
+            <FormGroup Label="Last Name"
+                       Id="lastName"
+                       Placeholder="Doe"
+                       @bind-Value="lastName" />
 
             <FormGroup Label="Email Address"
                        Id="email"
@@ -164,15 +173,39 @@
             <FormGroup Label="Password"
                        Id="password"
                        InputType="password"
-                       Placeholder="••••••••"
+                       Placeholder="••••••••••••"
                        @bind-Value="password" />
+
+            <FormGroup Label="Confirm Password"
+                       Id="confirmPassword"
+                       InputType="password"
+                       Placeholder="••••••••••••"
+                       @bind-Value="confirmPassword" />
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">
+                    Account Type
+                </label>
+                <select @bind="userType" style="width: 100%; padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;">
+                    <option value="patient">Patient</option>
+                    <option value="clinician">Clinician</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div style="color: var(--destructive); font-size: 0.875rem; margin-top: 0.5rem;">
+                    @errorMessage
+                </div>
+            }
         </CardContent>
 
         <CardFooter>
             <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/login"))">
                 Back
             </Button>
-            <Button OnClick="@(() => currentStep = 2)">
+            <Button OnClick="@(() => currentStep = 2)" Disabled="@isLoading">
                 Continue
             </Button>
         </CardFooter>
@@ -305,11 +338,15 @@
             <div class="summary-box">
                 <div class="summary-row">
                     <span class="summary-label">Name</span>
-                    <span class="summary-value">@(string.IsNullOrEmpty(name) ? "Not provided" : name)</span>
+                    <span class="summary-value">@firstName @lastName</span>
                 </div>
                 <div class="summary-row">
                     <span class="summary-label">Email</span>
-                    <span class="summary-value">@(string.IsNullOrEmpty(email) ? "Not provided" : email)</span>
+                    <span class="summary-value">@email</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Account Type</span>
+                    <span class="summary-value">@(userType switch { "admin" => "Administrator", "clinician" => "Clinician", "patient" => "Patient", _ => userType })</span>
                 </div>
                 <div class="summary-row">
                     <span class="summary-label">Privacy Policy</span>
@@ -319,34 +356,113 @@
         </CardContent>
 
         <CardFooter>
-            <Button FullWidth="true" OnClick="HandleAccountCreated">
-                Continue to Dashboard
+            <Button FullWidth="true" OnClick="HandleAccountCreated" Disabled="@isLoading">
+                @(isLoading ? "Creating Account..." : "Continue to Dashboard")
             </Button>
         </CardFooter>
     </text>;
 
     /// <summary>
-    /// Handles account creation completion and navigates to main application.
+    /// Handles account creation completion via HTTP POST to controller endpoint.
     /// Author: SID:2412494
     /// </summary>
     /// <remarks>
-    /// Current Implementation: Logs user in and redirects to dashboard without database persistence.
-    /// Why: Enables UI development and flow testing without database dependency.
+    /// Why Controller Endpoint:
+    /// Blazor Server components run over SignalR WebSocket. Calling SignInManager directly
+    /// throws "Headers are read-only" because cookies can't be set after response starts.
     ///
-    /// Production TODO:
-    /// - Validate all collected data (email format, password strength, name not empty)
-    /// - Hash password using BCrypt with appropriate work factor (12+ rounds)
-    /// - Insert user record into database with role assignment (patient, clinician, admin)
+    /// Solution: POST to /account/register controller endpoint via traditional HTTP,
+    /// which can set cookies before the response starts.
+    ///
+    /// Flow:
+    /// 1. Validate required fields
+    /// 2. POST form data to /account/register
+    /// 3. Controller creates user and signs them in
+    /// 4. Redirect to dashboard on success
+    ///
+    /// Future Enhancements:
     /// - Send verification email with confirmation token
-    /// - Create initial session/authentication token
-    /// - Log account creation event for audit trail
-    /// - Handle database errors (duplicate email, connection failures)
-    /// - Consider implementing email verification before full account activation
+    /// - Log account creation event for audit trail (HIPAA requirement)
+    /// - Add CAPTCHA to prevent automated account creation
     /// </remarks>
-    private void HandleAccountCreated()
+    private async Task HandleAccountCreated()
     {
-        // Temporary: Log user in with their email (no database persistence)
-        AuthService.Login(email);
-        Navigation.NavigateTo("/");
+        errorMessage = null;
+
+        // Client-side validation
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        {
+            errorMessage = "First name and last name are required";
+            currentStep = 1;  // Go back to step 1
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "Passwords do not match";
+            currentStep = 1;  // Go back to step 1
+            return;
+        }
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Create form data
+            var formData = new MultipartFormDataContent
+            {
+                { new StringContent(firstName), "FirstName" },
+                { new StringContent(lastName), "LastName" },
+                { new StringContent(email), "Email" },
+                { new StringContent(password), "Password" },
+                { new StringContent(confirmPassword), "ConfirmPassword" },
+                { new StringContent(userType), "UserType" }
+            };
+
+            // POST to controller endpoint
+            var httpClient = HttpClientFactory.CreateClient();
+            httpClient.BaseAddress = new Uri(Navigation.BaseUri);
+            var response = await httpClient.PostAsync("/account/register", formData);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Parse redirect URL from response
+                var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
+                if (result?.RedirectUrl != null)
+                {
+                    // Force full page reload to pick up authentication cookie
+                    Navigation.NavigateTo(result.RedirectUrl, forceLoad: true);
+                }
+            }
+            else
+            {
+                // Parse error message
+                var errorResult = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                errorMessage = errorResult?.Error ?? "An error occurred while creating your account";
+                currentStep = 1;  // Go back to step 1
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while creating your account. Please try again.";
+            currentStep = 1;  // Go back to step 1
+            Console.WriteLine($"Account Creation Exception: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private class RegisterResponse
+    {
+        public string? RedirectUrl { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Error { get; set; }
     }
 }
