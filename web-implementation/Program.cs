@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
+builder.Services.AddControllers();  // For AccountController
+builder.Services.AddHttpClient();  // For auth form posts
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -49,8 +51,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;  // HTTPS only
-    options.Cookie.SameSite = SameSiteMode.Strict;
+    // In production, set to CookieSecurePolicy.Always for HTTPS only
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest  // Allow HTTP in development
+        : CookieSecurePolicy.Always;  // HTTPS only in production
+    options.Cookie.SameSite = SameSiteMode.Lax;  // Changed from Strict for better compatibility
     options.Cookie.Name = ".GrapheneTrace.Auth";
 
     // Session timeout (HIPAA recommended: 20 minutes)
@@ -66,10 +71,6 @@ builder.Services.ConfigureApplicationCookie(options =>
 // Author: SID:2412494
 builder.Services.AddScoped<AuthenticationStateProvider,
     RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
-
-// Keep old AuthenticationService for backward compatibility during migration
-// TODO: Remove this once all components are migrated to use Identity
-builder.Services.AddSingleton<AuthenticationService>();
 
 var app = builder.Build();
 
@@ -92,5 +93,7 @@ app.UseAuthorization();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapControllers();  // Map controller endpoints
 
 app.Run();
