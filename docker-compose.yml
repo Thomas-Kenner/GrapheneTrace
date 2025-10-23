@@ -5,12 +5,12 @@ services:
     image: postgres:16-alpine
     container_name: graphenetrace_postgres
     environment:
-      POSTGRES_DB: graphenetrace
-      POSTGRES_USER: graphene_user
-      POSTGRES_PASSWORD: graphene_password
+      POSTGRES_DB: ${POSTGRES_DB:-graphenetrace}
+      POSTGRES_USER: ${POSTGRES_USER:-graphene_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_REPLICATION_MODE: master
-      POSTGRES_REPLICATION_USER: replicator
-      POSTGRES_REPLICATION_PASSWORD: replicator_password
+      POSTGRES_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-replicator}
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-changeme}
     ports:
       - "5432:5432"
     volumes:
@@ -18,7 +18,7 @@ services:
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U graphene_user -d graphenetrace"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-graphene_user} -d ${POSTGRES_DB:-graphenetrace}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -29,12 +29,12 @@ services:
     image: postgres:16-alpine
     container_name: graphenetrace_postgres_replica
     environment:
-      POSTGRES_USER: graphene_user
-      POSTGRES_PASSWORD: graphene_password
+      POSTGRES_USER: ${POSTGRES_USER:-graphene_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_MASTER_SERVICE_HOST: postgres
       POSTGRES_REPLICATION_MODE: slave
-      POSTGRES_REPLICATION_USER: replicator
-      POSTGRES_REPLICATION_PASSWORD: replicator_password
+      POSTGRES_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-replicator}
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-changeme}
     ports:
       - "5433:5432"
     volumes:
@@ -44,7 +44,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U graphene_user"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-graphene_user}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -90,8 +90,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
     volumes:
       - grafana_data:/var/lib/grafana
