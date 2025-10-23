@@ -1,6 +1,21 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+﻿@*
+    Routes Configuration
+    Author: SID:2412494
+
+    CascadingAuthenticationState: Required for Blazor Server with Identity.
+    Makes authentication state available to all child components via cascade parameter.
+    Without this, AuthenticationStateProvider cannot flow state to components.
+
+    AuthorizeRouteView: Handles [Authorize] attribute on pages.
+    Automatically redirects unauthorized users or shows NotAuthorized content.
+*@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>
