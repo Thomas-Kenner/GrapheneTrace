@@ -249,7 +249,8 @@ public class AccountController : ControllerBase
         {
             await _signInManager.SignOutAsync();
             _logger.LogInformation("User logged out successfully");
-            return Ok(new { redirectUrl = "/login" });
+            // Redirect via HTTP 302 so browser clears authentication cookie
+            return Redirect("/login");
         }
         catch (Exception ex)
         {
