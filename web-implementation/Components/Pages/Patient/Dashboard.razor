@@ -1,5 +1,5 @@
 @page "/patient/dashboard"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
@@ -14,8 +14,8 @@
 
     Purpose: Main dashboard for patient users.
 
-    Authorization: Requires authenticated user (Authorize attribute).
-    Future: Add role-based authorization to restrict to patient users only.
+    Authorization: Restricted to Patient role only using [Authorize(Roles = "Patient")].
+    Users without the Patient role will receive a 403 Forbidden and be redirected to /access-denied.
 
     Current Implementation: Simple placeholder for testing authentication flow.
     Production TODO: Add patient-specific features (personal pressure data, alerts, settings, etc.)
@@ -66,8 +66,8 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
-        // TODO: Add role verification to ensure user is actually a patient
-        // Redirect non-patient users to their appropriate dashboard
+        // Role verification is handled by [Authorize(Roles = "Patient")] attribute
+        // Non-patient users are automatically redirected to /access-denied
     }
 
     /// <summary>
