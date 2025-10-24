@@ -294,11 +294,11 @@
         </CardContent>
 
         <CardFooter>
-            <Button Variant="outline" OnClick="@(() => currentStep = 1)">
+            <Button Variant="outline" OnClick="@(() => currentStep = 1)" Disabled="@isLoading">
                 Back
             </Button>
-            <Button OnClick="@(() => currentStep = 3)" Disabled="@(!acceptedPolicy)">
-                Accept & Continue
+            <Button OnClick="HandleAccountCreation" Disabled="@(!acceptedPolicy || isLoading)">
+                @(isLoading ? "Creating Account..." : "Accept & Continue")
             </Button>
         </CardFooter>
     </text>;
@@ -316,8 +316,8 @@
     /// Data Display: Shows name, email, and privacy policy acceptance status.
     /// Why: Allows users to verify their information before proceeding to the application.
     ///
-    /// Navigation: Single CTA button to proceed to dashboard.
-    /// Why single button: No need for back navigation after successful creation.
+    /// Navigation: Form POST to /account/login to sign in with the newly created credentials.
+    /// Why form POST: Sets authentication cookie properly (can't be done via SignalR/Blazor component).
     /// </remarks>
     private RenderFragment RenderStep3() => @<text>
         <CardHeader>
@@ -356,36 +356,44 @@
         </CardContent>
 
         <CardFooter>
-            <Button FullWidth="true" OnClick="HandleAccountCreated" Disabled="@isLoading">
-                @(isLoading ? "Creating Account..." : "Continue to Dashboard")
-            </Button>
+            <form method="post" action="/account/login" style="width: 100%;">
+                <input type="hidden" name="Email" value="@email" />
+                <input type="hidden" name="Password" value="@password" />
+                <input type="hidden" name="RememberMe" value="false" />
+                <Button FullWidth="true" Type="submit">
+                    Continue to Dashboard
+                </Button>
+            </form>
         </CardFooter>
     </text>;
 
     /// <summary>
-    /// Handles account creation completion via HTTP POST to controller endpoint.
+    /// Handles account creation via HTTP POST to controller endpoint.
     /// Author: SID:2412494
     /// </summary>
     /// <remarks>
-    /// Why Controller Endpoint:
-    /// Blazor Server components run over SignalR WebSocket. Calling SignInManager directly
-    /// throws "Headers are read-only" because cookies can't be set after response starts.
+    /// Two-Phase Account Creation:
+    /// Phase 1 (This method): Create account in database without signing in
+    ///   - POST to /account/register with X-Requested-With header
+    ///   - Controller creates user, assigns role, returns JSON
+    ///   - On success, display step 3 (success overlay)
     ///
-    /// Solution: POST to /account/register controller endpoint via traditional HTTP,
-    /// which can set cookies before the response starts.
+    /// Phase 2 (Step 3 form): Sign in with newly created credentials
+    ///   - Traditional HTML form POST to /account/login
+    ///   - Sets authentication cookie properly
+    ///   - Redirects to role-specific dashboard
     ///
-    /// Flow:
-    /// 1. Validate required fields
-    /// 2. POST form data to /account/register
-    /// 3. Controller creates user and signs them in
-    /// 4. Redirect to dashboard on success
+    /// Why Two Phases:
+    /// Blazor Server components run over SignalR WebSocket. SignInManager can't set cookies
+    /// after the response starts. This approach lets us show a success overlay in the Blazor
+    /// component, then use a traditional form POST to complete authentication with cookies.
     ///
     /// Future Enhancements:
     /// - Send verification email with confirmation token
     /// - Log account creation event for audit trail (HIPAA requirement)
     /// - Add CAPTCHA to prevent automated account creation
     /// </remarks>
-    private async Task HandleAccountCreated()
+    private async Task HandleAccountCreation()
     {
         errorMessage = null;
 
@@ -393,6 +401,13 @@
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
         {
             errorMessage = "First name and last name are required";
+            currentStep = 1;  // Go back to step 1
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Email and password are required";
             currentStep = 1;  // Go back to step 1
             return;
         }
@@ -420,20 +435,20 @@
                 { new StringContent(userType), "UserType" }
             };
 
-            // POST to controller endpoint
+            // POST to controller endpoint with custom header
+            // X-Requested-With signals this is from Blazor component, not traditional form
             var httpClient = HttpClientFactory.CreateClient();
             httpClient.BaseAddress = new Uri(Navigation.BaseUri);
+            httpClient.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
+
             var response = await httpClient.PostAsync("/account/register", formData);
 
             if (response.IsSuccessStatusCode)
             {
-                // Parse redirect URL from response
+                // Account created successfully - move to step 3 (success overlay)
                 var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
-                if (result?.RedirectUrl != null)
-                {
-                    // Force full page reload to pick up authentication cookie
-                    Navigation.NavigateTo(result.RedirectUrl, forceLoad: true);
-                }
+                Console.WriteLine("Account created successfully, showing success overlay");
+                currentStep = 3;
             }
             else
             {
@@ -458,7 +473,8 @@
 
     private class RegisterResponse
     {
-        public string? RedirectUrl { get; set; }
+        public bool Success { get; set; }
+        public string? Message { get; set; }
     }
 
     private class ErrorResponse

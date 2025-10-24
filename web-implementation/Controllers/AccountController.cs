@@ -98,7 +98,6 @@ public class AccountController : ControllerBase
 
             // Ensure user has a role assigned (for existing users created before role system)
             var userRoles = await _userManager.GetRolesAsync(user);
-            var roleAssigned = false;
             if (!userRoles.Any())
             {
                 // Assign role based on UserType
@@ -119,7 +118,6 @@ public class AccountController : ControllerBase
 
                 // Add user to role
                 await _userManager.AddToRoleAsync(user, roleName);
-                roleAssigned = true;
                 _logger.LogInformation("Assigned role {RoleName} to existing user {UserId}", roleName, user.Id);
             }
 
@@ -203,7 +201,17 @@ public class AccountController : ControllerBase
                 await _userManager.AddToRoleAsync(user, roleName);
                 _logger.LogInformation("User {UserId} assigned to role {RoleName}", user.Id, roleName);
 
-                // Sign in the user
+                // Check if this is a JSON request (from Blazor component via HttpClient)
+                // If so, return JSON without signing in - the component will handle sign-in via form POST
+                var contentType = Request.ContentType ?? "";
+                if (contentType.Contains("multipart/form-data") && Request.Headers.ContainsKey("X-Requested-With"))
+                {
+                    // Return success JSON for Blazor component to show success overlay
+                    // The component will then submit a traditional form POST to /account/login
+                    return Ok(new { success = true, message = "Account created successfully" });
+                }
+
+                // Traditional form POST - sign in and redirect immediately
                 await _signInManager.SignInAsync(user, isPersistent: false);
 
                 // Determine redirect path
