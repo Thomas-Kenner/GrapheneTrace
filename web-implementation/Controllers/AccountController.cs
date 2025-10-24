@@ -33,13 +33,17 @@ public class AccountController : ControllerBase
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly ILogger<AccountController> _logger;
 
+    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+
     public AccountController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
+        RoleManager<IdentityRole<Guid>> roleManager,
         ILogger<AccountController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
+        _roleManager = roleManager;
         _logger = logger;
     }
 
@@ -72,45 +76,69 @@ public class AccountController : ControllerBase
                 return Unauthorized(new { error = "This account has been deactivated. Please contact support." });
             }
 
-            // Attempt sign in
-            var result = await _signInManager.PasswordSignInAsync(
-                user.UserName!,
-                request.Password,
-                isPersistent: request.RememberMe,
-                lockoutOnFailure: true
-            );
-
-            if (result.Succeeded)
+            // Check if account is locked out
+            if (await _userManager.IsLockedOutAsync(user))
             {
-                _logger.LogInformation("User {UserId} logged in successfully", user.Id);
-
-                // Determine redirect path based on user type
-                var redirectPath = user.UserType switch
-                {
-                    "admin" => "/admin/dashboard",
-                    "clinician" => "/clinician/dashboard",
-                    "patient" => "/patient/dashboard",
-                    _ => "/patient/dashboard"
-                };
-
-                // Redirect via HTTP 302 so browser picks up authentication cookie
-                return Redirect(redirectPath);
-            }
-
-            if (result.IsLockedOut)
-            {
-                _logger.LogWarning("User {UserId} account locked out", user.Id);
+                _logger.LogWarning("Login attempt for locked out user: {UserId}", user.Id);
                 return Unauthorized(new { error = "Account locked due to multiple failed login attempts. Please try again in 15 minutes." });
             }
 
-            if (result.IsNotAllowed)
+            // Validate password first
+            var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+            if (!passwordValid)
             {
-                _logger.LogWarning("User {UserId} login not allowed", user.Id);
-                return Unauthorized(new { error = "Login not allowed. Please confirm your email address." });
+                // Record failed attempt for lockout
+                await _userManager.AccessFailedAsync(user);
+                _logger.LogWarning("Failed login attempt for user: {Email}", request.Email);
+                return Unauthorized(new { error = "Invalid email or password" });
             }
 
-            _logger.LogWarning("Failed login attempt for user: {Email}", request.Email);
-            return Unauthorized(new { error = "Invalid email or password" });
+            // Reset access failed count on successful password validation
+            await _userManager.ResetAccessFailedCountAsync(user);
+
+            // Ensure user has a role assigned (for existing users created before role system)
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var roleAssigned = false;
+            if (!userRoles.Any())
+            {
+                // Assign role based on UserType
+                var roleName = user.UserType switch
+                {
+                    "admin" => "Admin",
+                    "clinician" => "Clinician",
+                    "patient" => "Patient",
+                    _ => "Patient"
+                };
+
+                // Ensure role exists
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                    _logger.LogInformation("Created role: {RoleName}", roleName);
+                }
+
+                // Add user to role
+                await _userManager.AddToRoleAsync(user, roleName);
+                roleAssigned = true;
+                _logger.LogInformation("Assigned role {RoleName} to existing user {UserId}", roleName, user.Id);
+            }
+
+            // Sign in the user (this will include role claims in the authentication cookie)
+            await _signInManager.SignInAsync(user, isPersistent: request.RememberMe);
+
+            _logger.LogInformation("User {UserId} logged in successfully", user.Id);
+
+            // Determine redirect path based on user type
+            var redirectPath = user.UserType switch
+            {
+                "admin" => "/admin/dashboard",
+                "clinician" => "/clinician/dashboard",
+                "patient" => "/patient/dashboard",
+                _ => "/patient/dashboard"
+            };
+
+            // Redirect via HTTP 302 so browser picks up authentication cookie
+            return Redirect(redirectPath);
         }
         catch (Exception ex)
         {
@@ -154,6 +182,26 @@ public class AccountController : ControllerBase
             if (result.Succeeded)
             {
                 _logger.LogInformation("User {UserId} created successfully", user.Id);
+
+                // Assign user to role based on UserType
+                var roleName = user.UserType switch
+                {
+                    "admin" => "Admin",
+                    "clinician" => "Clinician",
+                    "patient" => "Patient",
+                    _ => "Patient"
+                };
+
+                // Ensure role exists, create if needed
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                    _logger.LogInformation("Created role: {RoleName}", roleName);
+                }
+
+                // Add user to role
+                await _userManager.AddToRoleAsync(user, roleName);
+                _logger.LogInformation("User {UserId} assigned to role {RoleName}", user.Id, roleName);
 
                 // Sign in the user
                 await _signInManager.SignInAsync(user, isPersistent: false);

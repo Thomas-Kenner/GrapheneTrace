@@ -1,5 +1,5 @@
 @page "/clinician/dashboard"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
 @using GrapheneTrace.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
@@ -14,8 +14,8 @@
 
     Purpose: Main dashboard for clinician users.
 
-    Authorization: Requires authenticated user (Authorize attribute).
-    Future: Add role-based authorization to restrict to clinician users only.
+    Authorization: Restricted to Clinician role only using [Authorize(Roles = "Clinician")].
+    Users without the Clinician role will receive a 403 Forbidden and be redirected to /access-denied.
 
     Current Implementation: Simple placeholder for testing authentication flow.
     Production TODO: Add clinician-specific features (patient list, alerts, data visualization, etc.)
@@ -66,8 +66,8 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
-        // TODO: Add role verification to ensure user is actually a clinician
-        // Redirect non-clinician users to their appropriate dashboard
+        // Role verification is handled by [Authorize(Roles = "Clinician")] attribute
+        // Non-clinician users are automatically redirected to /access-denied
     }
 
     /// <summary>

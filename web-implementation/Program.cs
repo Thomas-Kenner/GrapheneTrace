@@ -44,6 +44,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
     options.SignIn.RequireConfirmedEmail = false;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
+.AddRoles<IdentityRole<Guid>>()  // Add role manager support
 .AddDefaultTokenProviders();
 
 // Configure authentication cookie (HIPAA compliance)
