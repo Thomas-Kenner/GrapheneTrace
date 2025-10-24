@@ -1,5 +1,5 @@
 @page "/admin/dashboard"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 @using GrapheneTrace.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
@@ -14,8 +14,8 @@
 
     Purpose: Main dashboard for administrator users.
 
-    Authorization: Requires authenticated user (Authorize attribute).
-    Future: Add role-based authorization to restrict to admin users only.
+    Authorization: Restricted to Admin role only using [Authorize(Roles = "Admin")].
+    Users without the Admin role will receive a 403 Forbidden and be redirected to /access-denied.
 
     Current Implementation: Simple placeholder for testing authentication flow.
     Production TODO: Add admin-specific features (user management, system settings, etc.)
@@ -66,8 +66,8 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
-        // TODO: Add role verification to ensure user is actually an admin
-        // Redirect non-admin users to their appropriate dashboard
+        // Role verification is handled by [Authorize(Roles = "Admin")] attribute
+        // Non-admin users are automatically redirected to /access-denied
     }
 
     /// <summary>

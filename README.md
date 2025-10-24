@@ -399,6 +399,138 @@ This approach might feel like extra steps at first, but it helps us:
 
 ---
 
+## Database Setup and Interaction
+
+GrapheneTrace uses PostgreSQL for data storage, running in a Docker container. The database schema is managed through **Entity Framework Core migrations** (not SQL scripts).
+
+### Quick Start
+
+```bash
+# Start the database
+docker-compose up -d postgres
+
+# Stop the database
+docker-compose down
+
+# Stop and wipe all data (fresh start)
+docker-compose down -v
+```
+
+### Connection Details
+
+| Property | Value |
+|----------|-------|
+| Host | `localhost` (127.0.0.1) |
+| Port | `5432` |
+| Database | `graphenetrace` |
+| Username | `graphene_user` |
+| Password | `changeme` |
+
+**Connection String:**
+```
+Host=127.0.0.1;Port=5432;Database=graphenetrace;Username=graphene_user;Password=changeme
+```
+
+### Running Migrations
+
+The database schema is created and updated using EF Core migrations:
+
+```bash
+# Navigate to web project
+cd web-implementation
+
+# Apply all pending migrations (run this after starting the database)
+dotnet ef database update
+
+# Create a new migration (after changing models)
+dotnet ef migrations add MigrationName
+
+# Remove the last migration (if not yet applied)
+dotnet ef migrations remove
+```
+
+**Important:** The first time you set up the database, you MUST run `dotnet ef database update` to create the tables.
+
+### Connecting with psql
+
+#### From Inside the Docker Container
+```bash
+# Interactive shell
+docker exec -it graphenetrace_postgres psql -U graphene_user -d graphenetrace
+
+# Run a single query
+docker exec graphenetrace_postgres psql -U graphene_user -d graphenetrace -c "SELECT * FROM \"AspNetUsers\";"
+```
+
+#### From Your Host Machine
+```bash
+# Interactive shell (password: changeme)
+PGPASSWORD=changeme psql -h 127.0.0.1 -p 5432 -U graphene_user -d graphenetrace
+
+# Run a single query
+PGPASSWORD=changeme psql -h 127.0.0.1 -p 5432 -U graphene_user -d graphenetrace -c "\dt"
+```
+
+### Useful psql Commands
+
+Once connected to the database:
+
+```sql
+\dt                    -- List all tables
+\d "TableName"         -- Describe a table structure
+\l                     -- List all databases
+\du                    -- List all users
+\q                     -- Quit psql
+
+-- View users
+SELECT * FROM "AspNetUsers";
+
+-- Check migrations history
+SELECT * FROM "__EFMigrationsHistory";
+```
+
+### Database Tables
+
+After running migrations, you'll have these tables:
+
+- **AspNetUsers** - User accounts (with custom fields: FirstName, LastName, UserType, DeactivatedAt)
+- **AspNetRoles** - Role definitions
+- **AspNetUserRoles** - User-role mappings
+- **AspNetUserClaims** - Custom user claims
+- **AspNetUserLogins** - External login providers
+- **AspNetUserTokens** - Password reset/2FA tokens
+- **AspNetRoleClaims** - Role-based claims
+- **__EFMigrationsHistory** - Tracks which migrations have been applied
+
+### Troubleshooting
+
+**"Connection refused" error?**
+- Make sure the database container is running: `docker ps | grep postgres`
+- Wait a few seconds after `docker-compose up` for the database to initialize
+- Check container health: `docker logs graphenetrace_postgres`
+
+**"No tables found"?**
+- You need to run migrations: `cd web-implementation && dotnet ef database update`
+
+**"Password authentication failed"?**
+- Make sure you're using password `changeme`
+- Check your connection string in `appsettings.Development.json`
+
+**Need to reset the database?**
+```bash
+# Stop container and delete all data
+docker-compose down -v
+
+# Start fresh container
+docker-compose up -d postgres
+
+# Wait a few seconds, then run migrations
+cd web-implementation
+dotnet ef database update
+```
+
+---
+
 ## Tracking Progress
 
 All user stories are tracked in `Requirements/UserStories.md` with:
