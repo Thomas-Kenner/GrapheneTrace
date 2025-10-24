@@ -58,7 +58,7 @@ public class AccountController : ControllerBase
             // Validate input
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
-                return BadRequest(new { error = "Please enter both email and password" });
+                return Redirect("/login?error=" + Uri.EscapeDataString("Please enter both email and password"));
             }
 
             // Find user
@@ -66,21 +66,21 @@ public class AccountController : ControllerBase
             if (user == null)
             {
                 _logger.LogWarning("Login attempt for non-existent user: {Email}", request.Email);
-                return Unauthorized(new { error = "Invalid email or password" });
+                return Redirect("/login?error=" + Uri.EscapeDataString("Invalid email or password"));
             }
 
             // Check if deactivated
             if (user.DeactivatedAt != null)
             {
                 _logger.LogWarning("Login attempt for deactivated user: {UserId}", user.Id);
-                return Unauthorized(new { error = "This account has been deactivated. Please contact support." });
+                return Redirect("/login?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
             }
 
             // Check if account is locked out
             if (await _userManager.IsLockedOutAsync(user))
             {
                 _logger.LogWarning("Login attempt for locked out user: {UserId}", user.Id);
-                return Unauthorized(new { error = "Account locked due to multiple failed login attempts. Please try again in 15 minutes." });
+                return Redirect("/login?error=" + Uri.EscapeDataString("Account locked due to multiple failed login attempts. Please try again in 15 minutes."));
             }
 
             // Validate password first
@@ -90,7 +90,7 @@ public class AccountController : ControllerBase
                 // Record failed attempt for lockout
                 await _userManager.AccessFailedAsync(user);
                 _logger.LogWarning("Failed login attempt for user: {Email}", request.Email);
-                return Unauthorized(new { error = "Invalid email or password" });
+                return Redirect("/login?error=" + Uri.EscapeDataString("Invalid email or password"));
             }
 
             // Reset access failed count on successful password validation
@@ -141,7 +141,7 @@ public class AccountController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during login for email: {Email}", request.Email);
-            return StatusCode(500, new { error = "An error occurred during login. Please try again." });
+            return Redirect("/login?error=" + Uri.EscapeDataString("An error occurred during login. Please try again."));
         }
     }
 
