@@ -2,10 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 @using GrapheneTrace.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
 @inject AuthenticationStateProvider AuthStateProvider
-@inject SignInManager<ApplicationUser> SignInManager
-@inject NavigationManager Navigation
 
 @*
     Admin Dashboard Page
@@ -46,10 +43,12 @@
             <p style="color: #6b7280; margin-bottom: 1rem;">
                 Admin features coming soon: User management, system configuration, audit logs, etc.
             </p>
-            <button @onclick="HandleLogout"
-                    style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
-                Logout
-            </button>
+            <form method="post" action="/account/logout">
+                <button type="submit"
+                        style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
+                    Logout
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -68,15 +67,5 @@
 
         // Role verification is handled by [Authorize(Roles = "Admin")] attribute
         // Non-admin users are automatically redirected to /access-denied
-    }
-
-    /// <summary>
-    /// Handles user logout using ASP.NET Core Identity.
-    /// Author: SID:2412494
-    /// </summary>
-    private async Task HandleLogout()
-    {
-        await SignInManager.SignOutAsync();
-        Navigation.NavigateTo("/login", forceLoad: true);
     }
 }
