@@ -1,0 +1,18 @@
+@namespace GrapheneTrace.Web.Components.UI
+
+@*
+    Card Container Component
+    Author: SID:2412494
+
+    Purpose: Provides consistent card styling for authentication pages.
+    Pattern: Simple container component for semantic markup and consistent styling.
+*@
+
+<div class="auth-card">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

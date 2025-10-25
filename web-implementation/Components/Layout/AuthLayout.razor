@@ -1,0 +1,26 @@
+@inherits LayoutComponentBase
+
+@*
+    Authentication Layout
+    Author: SID:2412494
+
+    Purpose: Minimal layout for login and account creation pages.
+
+    Design Decision: No navigation, sidebar, or header components.
+    Why: Reduces distractions during authentication flow, focusing user attention
+    on the critical task of logging in or creating an account.
+
+    Usage: Applied to /login and /account-creation pages via @layout directive.
+
+    Alternative Considered: Reuse MainLayout with conditional rendering.
+    Rejected because: MainLayout redirects unauthenticated users to /login,
+    creating an infinite redirect loop for auth pages.
+*@
+
+@Body
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

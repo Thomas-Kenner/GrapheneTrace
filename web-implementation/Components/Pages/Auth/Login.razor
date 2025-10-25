@@ -1,0 +1,109 @@
+@page "/login"
+@layout Layout.AuthLayout
+@using GrapheneTrace.Web.Components.UI
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+@*
+    Login Page
+    Author: SID:2412494
+    Route: /login
+
+    Purpose: Provides user authentication entry point for the application.
+
+    Design Pattern: Traditional HTML form POST to controller endpoint.
+    Why: Blazor Server components run over SignalR WebSocket. Calling SignInManager directly
+    throws "Headers are read-only" because cookies can't be set after response starts.
+    Using HttpClient also doesn't share cookies with the browser properly.
+
+    Solution: Traditional HTML form that POSTs directly to /account/login controller endpoint.
+    The browser handles the entire flow, including cookie storage and redirect.
+
+    Error Handling: Controller redirects back to /login with error message in query parameter.
+    Component displays error and clears it from URL for better UX.
+
+    Layout: AuthLayout
+    Why: Uses minimal layout without navigation/sidebar to focus user on authentication task.
+
+    InteractiveServer render mode: Needed to read query parameters and display error messages.
+*@
+
+<link rel="stylesheet" href="css/auth.css" />
+
+<div class="auth-container">
+    <Card>
+        <CardHeader>
+            <h1 class="card-title">Welcome Back</h1>
+            <p class="card-description">Sign in to access your GrapheneTrace dashboard</p>
+        </CardHeader>
+
+        <form method="post" action="/account/login">
+            <CardContent>
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 1rem;">
+                        <strong>Error:</strong> @errorMessage
+                    </div>
+                }
+
+                <FormGroup Label="Email Address"
+                           Id="email"
+                           InputType="email"
+                           Name="Email"
+                           Required="true"
+                           Placeholder="john@example.com" />
+
+                <FormGroup Label="Password"
+                           Id="password"
+                           InputType="password"
+                           Name="Password"
+                           Required="true"
+                           Placeholder="••••••••" />
+
+                <div class="checkbox-container" style="margin-bottom: 1rem;">
+                    <input type="checkbox"
+                           class="checkbox-input"
+                           id="remember-me"
+                           name="RememberMe"
+                           value="true" />
+                    <label class="checkbox-label" for="remember-me">
+                        <div>Remember me</div>
+                    </label>
+                </div>
+            </CardContent>
+
+            <CardFooter>
+                <div style="width: 100%; display: flex; flex-direction: column; gap: 1rem;">
+                    <Button FullWidth="true" Type="submit">
+                        Sign In
+                    </Button>
+                    <p class="text-center text-muted">
+                        Don't have an account? <a href="/account-creation" class="link-text">Create one</a>
+                    </p>
+                </div>
+            </CardFooter>
+        </form>
+    </Card>
+</div>
+
+@code {
+    private string? errorMessage = null;
+
+    /// <summary>
+    /// Component initialization: reads error message from query parameter if present.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// When login fails, the controller redirects back to /login?error=message.
+    /// This method reads that parameter and displays it.
+    ///
+    /// The error remains in the URL, which is acceptable as it allows the user to see
+    /// what went wrong even after a refresh, and it will be cleared on successful login.
+    /// </remarks>
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        errorMessage = query["error"];
+    }
+}
