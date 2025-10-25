@@ -1,0 +1,208 @@
+@page "/admin/settings"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManagementService UserManagementService
+@inject NavigationManager Navigation
+
+@*
+    Admin Settings Page
+    Author: SID:2402513
+    Route: /admin/settings
+
+    Purpose: Manage admin profile settings - name, email, password.
+
+    Authorization: Restricted to Admin role only using [Authorize(Roles = "Admin")].
+    Users without the Admin role will receive a 403 Forbidden and be redirected to /access-denied.
+
+    Features: Edit admin name/email, change password.
+*@
+
+<div class="admin-container">
+    <!-- Header/Navigation -->
+    <div class="admin-header">
+        <div class="header-left">
+            <span class="header-brand">Admin Dashboard</span>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab" @onclick="GoToDashboard">Dashboard</button>
+            <button class="nav-tab" @onclick="GoToUsers">Users</button>
+            <button class="nav-tab active">Settings</button>
+            <button class="nav-tab">Support</button>
+        </div>
+
+        <div class="header-right">
+            <input type="text" class="search-input" placeholder="Search..." />
+            <div class="user-avatar"></div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <h2 class="section-title">Settings</h2>
+
+        <!-- Profile Settings Card -->
+        <div class="settings-card">
+            <div class="settings-section-header">
+                <h3>Profile Settings</h3>
+                <p class="settings-description">Update your name and email address</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">First Name</label>
+                <input type="text" class="form-input" @bind="adminUser.FirstName" placeholder="First name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Last Name</label>
+                <input type="text" class="form-input" @bind="adminUser.LastName" placeholder="Last name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-input" @bind="adminUser.Email" placeholder="email@example.com" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(profileMessage))
+            {
+                <div class="alert" style="background-color: @(profileSuccess ? "#d4edda" : "#f8d7da"); color: @(profileSuccess ? "#155724" : "#721c24"); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                    @profileMessage
+                </div>
+            }
+
+            <button class="btn btn-primary" @onclick="SaveProfileSettings">Save Profile Settings</button>
+        </div>
+
+        <!-- Password Settings Card -->
+        <div class="settings-card">
+            <div class="settings-section-header">
+                <h3>Change Password</h3>
+                <p class="settings-description">Update your password (min 12 characters, uppercase, lowercase, number, special character)</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-input" @bind="currentPassword" placeholder="Enter current password" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-input" @bind="newPassword" placeholder="Enter new password" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" class="form-input" @bind="confirmPassword" placeholder="Confirm new password" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(passwordMessage))
+            {
+                <div class="alert" style="background-color: @(passwordSuccess ? "#d4edda" : "#f8d7da"); color: @(passwordSuccess ? "#155724" : "#721c24"); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                    @passwordMessage
+                </div>
+            }
+
+            <button class="btn btn-primary" @onclick="ChangePassword" disabled="@(string.IsNullOrEmpty(currentPassword) || string.IsNullOrEmpty(newPassword) || string.IsNullOrEmpty(confirmPassword))">
+                Change Password
+            </button>
+        </div>
+
+        <!-- Coming Soon Card -->
+        <div class="settings-card coming-soon">
+            <div class="settings-section-header">
+                <h3>Support</h3>
+                <p class="settings-description">Coming soon...</p>
+            </div>
+            <p style="color: var(--muted-foreground); margin: 0;">Support features will be available in a future update.</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@code {
+    private ApplicationUser adminUser = new();
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string profileMessage = "";
+    private string passwordMessage = "";
+    private bool profileSuccess = false;
+    private bool passwordSuccess = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var guidUserId))
+        {
+            var user = await UserManagementService.GetUserByIdAsync(guidUserId);
+            if (user != null)
+            {
+                adminUser = new ApplicationUser
+                {
+                    Id = user.Id,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email,
+                    UserName = user.UserName,
+                    UserType = user.UserType,
+                    DeactivatedAt = user.DeactivatedAt
+                };
+            }
+        }
+    }
+
+    private async Task SaveProfileSettings()
+    {
+        var (success, message) = await UserManagementService.UpdateUserAsync(adminUser);
+        profileSuccess = success;
+        profileMessage = message;
+    }
+
+    private async Task ChangePassword()
+    {
+        if (newPassword != confirmPassword)
+        {
+            passwordSuccess = false;
+            passwordMessage = "Passwords do not match";
+            return;
+        }
+
+        var guidUserId = adminUser.Id;
+        var (success, message) = await UserManagementService.ChangePasswordAsync(
+            guidUserId,
+            currentPassword,
+            newPassword);
+
+        passwordSuccess = success;
+        passwordMessage = message;
+
+        if (success)
+        {
+            currentPassword = "";
+            newPassword = "";
+            confirmPassword = "";
+            await Task.Delay(2000);
+            passwordMessage = "";
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/admin/dashboard");
+    }
+
+    private void GoToUsers()
+    {
+        Navigation.NavigateTo("/admin/users");
+    }
+}
