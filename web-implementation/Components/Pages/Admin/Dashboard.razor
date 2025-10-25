@@ -1,0 +1,71 @@
+@page "/admin/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+
+@*
+    Admin Dashboard Page
+    Author: SID:2412494
+    Route: /admin/dashboard
+
+    Purpose: Main dashboard for administrator users.
+
+    Authorization: Restricted to Admin role only using [Authorize(Roles = "Admin")].
+    Users without the Admin role will receive a 403 Forbidden and be redirected to /access-denied.
+
+    Current Implementation: Simple placeholder for testing authentication flow.
+    Production TODO: Add admin-specific features (user management, system settings, etc.)
+*@
+
+<div style="padding: 2rem;">
+    <div style="max-width: 64rem; margin: 0 auto;">
+        <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">
+            Admin Dashboard
+        </h1>
+
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem;">
+            <p style="margin-bottom: 0.5rem;">
+                <strong>Welcome, @userName!</strong>
+            </p>
+            <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                Role: <strong>Administrator</strong>
+            </p>
+            <p style="color: #6b7280;">
+                You have access to all system features and settings.
+            </p>
+        </div>
+
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
+                Quick Actions
+            </h2>
+            <p style="color: #6b7280; margin-bottom: 1rem;">
+                Admin features coming soon: User management, system configuration, audit logs, etc.
+            </p>
+            <form method="post" action="/account/logout">
+                <button type="submit"
+                        style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
+                    Logout
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string userName = "";
+
+    /// <summary>
+    /// Component initialization: loads user information from authentication state.
+    /// Author: SID:2412494
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        userName = authState.User.Identity?.Name ?? "Unknown";
+
+        // Role verification is handled by [Authorize(Roles = "Admin")] attribute
+        // Non-admin users are automatically redirected to /access-denied
+    }
+}

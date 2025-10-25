@@ -1,0 +1,89 @@
+@namespace GrapheneTrace.Web.Components.UI
+
+@*
+    Reusable Button Component
+    Author: SID:2412494
+
+    Purpose: Provides consistent button styling across authentication pages.
+    Design Pattern: Composite pattern for flexible content rendering via ChildContent.
+
+    Why RenderFragment: Allows buttons to contain any markup (text, icons, etc.),
+    not just plain strings, enabling rich button content.
+*@
+
+<button type="@Type" class="@GetButtonClass()" disabled="@Disabled" @onclick="OnClick">
+    @ChildContent
+</button>
+
+@code {
+    /// <summary>
+    /// Button content (can include text, icons, or other markup).
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Visual style variant: "primary" (filled) or "outline" (bordered).
+    /// </summary>
+    /// <remarks>
+    /// Default: "primary" for primary actions (submit, continue).
+    /// Use "outline" for secondary actions (back, cancel).
+    /// </remarks>
+    [Parameter]
+    public string Variant { get; set; } = "primary";
+
+    /// <summary>
+    /// Whether the button is disabled (non-interactive).
+    /// </summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>
+    /// Whether the button should expand to fill its container width.
+    /// </summary>
+    /// <remarks>
+    /// Use for mobile-friendly full-width CTAs or form submit buttons.
+    /// </remarks>
+    [Parameter]
+    public bool FullWidth { get; set; }
+
+    /// <summary>
+    /// HTML button type attribute (button, submit, reset).
+    /// </summary>
+    [Parameter]
+    public string Type { get; set; } = "button";
+
+    /// <summary>
+    /// Event callback fired when button is clicked.
+    /// </summary>
+    /// <remarks>
+    /// Design Decision: EventCallback instead of Action for proper Blazor async support.
+    /// Why: EventCallback handles StateHasChanged automatically and supports async methods.
+    /// </remarks>
+    [Parameter]
+    public EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> OnClick { get; set; }
+
+    /// <summary>
+    /// Computes CSS classes based on button configuration.
+    /// </summary>
+    /// <returns>Space-separated CSS class string</returns>
+    /// <remarks>
+    /// Algorithm: Builds class list conditionally to avoid unnecessary CSS specificity.
+    /// Pattern matching: Uses switch expression for clean variant mapping.
+    /// </remarks>
+    private string GetButtonClass()
+    {
+        var classes = new List<string> { "btn" };
+
+        classes.Add(Variant switch
+        {
+            "outline" => "btn-outline",
+            _ => "btn-primary"  // Default to primary for any unrecognized variant
+        });
+
+        if (FullWidth)
+            classes.Add("btn-full");
+
+        return string.Join(" ", classes);
+    }
+}

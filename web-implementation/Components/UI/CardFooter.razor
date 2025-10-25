@@ -1,0 +1,17 @@
+@namespace GrapheneTrace.Web.Components.UI
+
+@*
+    Card Footer Component
+    Author: SID:2412494
+
+    Purpose: Semantic container for card action buttons (Back, Continue, Submit, etc.).
+*@
+
+<div class="card-footer">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

@@ -2,23 +2,114 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: graphenetrace_postgres
     environment:
-      POSTGRES_DB: graphenetrace
-      POSTGRES_USER: graphene_user
-      POSTGRES_PASSWORD: graphene_password
+      POSTGRES_DB: ${POSTGRES_DB:-graphenetrace}
+      POSTGRES_USER: ${POSTGRES_USER:-graphene_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_REPLICATION_MODE: master
+      POSTGRES_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-replicator}
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-changeme}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      # Commented out: EF Core migrations manage schema instead
+      # - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U graphene_user -d graphenetrace"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-graphene_user} -d ${POSTGRES_DB:-graphenetrace}"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - graphenetrace_network
+
+  postgres_replica:
+    image: postgres:16-alpine
+    container_name: graphenetrace_postgres_replica
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-graphene_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_MASTER_SERVICE_HOST: postgres
+      POSTGRES_REPLICATION_MODE: slave
+      POSTGRES_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-replicator}
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-changeme}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-graphene_user}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - graphenetrace_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: graphenetrace_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - graphenetrace_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: graphenetrace_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    networks:
+      - graphenetrace_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: graphenetrace_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - graphenetrace_network
 
 volumes:
   postgres_data:
+  postgres_replica_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  graphenetrace_network:
+    driver: bridge

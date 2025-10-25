@@ -1,23 +1,169 @@
 ﻿@inherits LayoutComponentBase
+@using GrapheneTrace.Web.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+@implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@*
+    Main Application Layout
+    Author: SID:2412494
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+    Purpose: Primary layout for authenticated application pages with navigation and authentication gate.
+
+    Design Pattern: Layout component with authentication guard.
+    Why: Centralizes authentication checking and prevents code duplication across all protected pages.
+
+    Authentication Flow:
+    1. OnInitialized checks if user is authenticated
+    2. If not authenticated AND not on /login or /account-creation, redirect to /login
+    3. If authenticated, render full layout with sidebar, navigation, and content
+    4. Subscribe to auth state changes to re-render when user logs in/out
+
+    IDisposable Implementation: Unsubscribes from auth state change event.
+    Why: Prevents memory leaks from event handler references when component is destroyed.
+
+    Layout Structure:
+    - Sidebar: Navigation menu (NavMenu component)
+    - Top bar: User greeting and logout button
+    - Main content area: Renders page content via @Body
+
+    Usage: Automatically applied to all pages except those with explicit @layout directive.
+*@
+
+@if (isAuthenticated)
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <main>
+            <div class="top-row px-4">
+                <span>Welcome, @userName</span>
+                <button @onclick="HandleLogout" style="margin-left: 1rem; cursor: pointer;">Logout</button>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool isAuthenticated = false;
+    private string userName = "";
+
+    /// <summary>
+    /// Component lifecycle hook: runs once when component is first rendered.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Updated to use ASP.NET Core Identity's AuthenticationStateProvider.
+    ///
+    /// Authentication Gate Logic:
+    /// - Check authentication state via GetAuthenticationStateAsync()
+    /// - Extract user identity and name from ClaimsPrincipal
+    /// - Redirect unauthenticated users to /login (except those on auth pages)
+    /// - Subscribe to authentication state changes
+    ///
+    /// Why AuthenticationStateProvider: Identity's built-in mechanism for tracking
+    /// authentication state in Blazor. Automatically updated by Identity on login/logout.
+    ///
+    /// Edge Case Handling:
+    /// - Auth pages (/login, /account-creation) excluded from redirect
+    /// - Prevents infinite redirect loop
+    /// </remarks>
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAuthenticationState();
+
+        // Subscribe to auth state changes for automatic UI updates
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+    }
+
+    /// <summary>
+    /// Checks current authentication state and updates component state.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task CheckAuthenticationState()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        isAuthenticated = user.Identity?.IsAuthenticated ?? false;
+        userName = user.Identity?.Name ?? "Unknown";
+
+        // Redirect unauthenticated users to login (except those already on auth pages)
+        if (!isAuthenticated && !IsAuthPage())
+        {
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+    }
+
+    /// <summary>
+    /// Handles authentication state change events.
+    /// Author: SID:2412494
+    /// </summary>
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await CheckAuthenticationState();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Checks if current page is an authentication page.
+    /// Author: SID:2412494
+    /// </summary>
+    private bool IsAuthPage()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath;
+        return path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
+               path.Equals("/account-creation", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Handles user logout action using ASP.NET Core Identity.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Uses SignInManager.SignOutAsync() to:
+    /// - Invalidate authentication cookie
+    /// - Clear session
+    /// - Update AuthenticationStateProvider automatically
+    ///
+    /// Identity's SignOutAsync triggers AuthenticationStateChanged event,
+    /// which updates all subscribed components.
+    /// </remarks>
+    private async Task HandleLogout()
+    {
+        await SignInManager.SignOutAsync();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+
+    /// <summary>
+    /// IDisposable implementation: cleanup when component is destroyed.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Memory Leak Prevention: Unsubscribe from event to prevent memory leaks.
+    /// Why necessary: Event handlers create strong references. If not unsubscribed,
+    /// the AuthenticationStateProvider would maintain a reference to this component
+    /// even after it's destroyed, preventing garbage collection.
+    ///
+    /// Blazor Lifecycle: Dispose is called when component is removed from render tree.
+    /// </remarks>
+    public void Dispose()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+    }
+}

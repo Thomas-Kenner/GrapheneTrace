@@ -1,0 +1,101 @@
+@namespace GrapheneTrace.Web.Components.UI
+
+@*
+    Form Input Component with Label
+    Author: SID:2412494
+
+    Purpose: Provides labeled form inputs with two-way data binding for authentication forms.
+    Design Pattern: Controlled component pattern with @bind-Value support.
+
+    Why separate component: Ensures consistent label/input pairing and styling,
+    reduces markup duplication across forms.
+*@
+
+<div class="form-group">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="form-label" for="@Id">@Label</label>
+    }
+    <input
+        class="form-input"
+        type="@InputType"
+        id="@Id"
+        name="@Name"
+        placeholder="@Placeholder"
+        value="@Value"
+        required="@Required"
+        @oninput="HandleInput" />
+</div>
+
+@code {
+    /// <summary>
+    /// Optional label text displayed above the input.
+    /// </summary>
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// HTML id attribute for the input (auto-generated if not provided).
+    /// </summary>
+    /// <remarks>
+    /// Design Decision: Auto-generate unique ID using Guid.
+    /// Why: Ensures label 'for' attribute correctly associates with input for accessibility,
+    /// even when multiple instances exist on the same page.
+    /// </remarks>
+    [Parameter]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    /// <summary>
+    /// HTML input type (text, email, password, etc.).
+    /// </summary>
+    [Parameter]
+    public string InputType { get; set; } = "text";
+
+    /// <summary>
+    /// HTML name attribute for form submission.
+    /// </summary>
+    [Parameter]
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// Whether the input is required.
+    /// </summary>
+    [Parameter]
+    public bool Required { get; set; }
+
+    /// <summary>
+    /// Placeholder text shown when input is empty.
+    /// </summary>
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    /// <summary>
+    /// Current input value (supports @bind-Value two-way binding).
+    /// </summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    /// <summary>
+    /// Event callback for value changes (required for @bind-Value pattern).
+    /// </summary>
+    /// <remarks>
+    /// Blazor Convention: Parameter named "Value" + EventCallback named "ValueChanged"
+    /// enables @bind-Value="variable" syntax in parent components.
+    /// </remarks>
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>
+    /// Handles input events and propagates value changes to parent.
+    /// </summary>
+    /// <remarks>
+    /// Design Decision: Use @oninput instead of @onchange for real-time updates.
+    /// Why: @oninput fires on every keystroke, enabling immediate validation.
+    /// @onchange only fires when input loses focus, creating poor UX.
+    /// </remarks>
+    private async Task HandleInput(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(Value);
+    }
+}
