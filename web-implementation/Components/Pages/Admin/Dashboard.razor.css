@@ -1,0 +1,547 @@
+/* Admin Dashboard Scoped Styles */
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --border: rgba(0, 0, 0, 0.1);
+  --input-background: #f3f3f5;
+  --radius: 0.625rem;
+}
+
+::deep .admin-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+::deep .admin-header {
+  background: var(--background);
+  border-bottom: 2px solid #e5e7eb;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+::deep .header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+::deep .header-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+::deep .header-brand {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+::deep .nav-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  justify-content: center;
+}
+
+::deep .nav-tab {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--muted-foreground);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+::deep .nav-tab.active {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border: 2px solid var(--primary);
+  font-weight: 600;
+}
+
+::deep .nav-tab:hover:not(.active) {
+  background: var(--accent);
+  border: 2px solid #e5e7eb;
+  color: var(--foreground);
+}
+
+::deep .header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+::deep .search-input {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  background: var(--input-background);
+  font-size: 0.95rem;
+  color: var(--foreground);
+  width: 200px;
+  transition: all 0.2s ease;
+}
+
+::deep .search-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+::deep .search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(3, 2, 19, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+::deep .search-input:hover {
+  border-color: #d1d5db;
+}
+
+::deep .user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+::deep .user-avatar:hover {
+  transform: scale(1.05);
+}
+
+::deep .admin-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+::deep .section-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+}
+
+/* Stats Grid */
+::deep .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+::deep .stat-card {
+  background: var(--card);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+::deep .stat-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+::deep .stat-card:active {
+  transform: translateY(0);
+}
+
+::deep .stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+::deep .stat-header h3 {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+::deep .stat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+::deep .stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+/* Charts Section */
+::deep .charts-section {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+  ::deep .charts-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+::deep .chart-card {
+  background: var(--card);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+::deep .chart-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+::deep .chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+::deep .chart-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+::deep .chart-dropdown {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--input-background);
+  color: var(--foreground);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+::deep .chart-dropdown:hover {
+  border-color: var(--primary);
+}
+
+::deep .chart-dropdown:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(3, 2, 19, 0.1);
+}
+
+::deep .chart-placeholder {
+  width: 100%;
+  height: 250px;
+  background: linear-gradient(to bottom, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.02));
+  border-radius: calc(var(--radius) - 2px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+::deep .chart-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 500px;
+  max-height: 200px;
+}
+
+/* Activity Card */
+::deep .activity-card {
+  background: var(--card);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+::deep .activity-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+::deep .activity-card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 1.5rem 0;
+}
+
+::deep .activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+::deep .activity-item {
+  padding: 1rem;
+  background: var(--muted);
+  border-radius: calc(var(--radius) - 2px);
+  transition: all 0.2s;
+}
+
+::deep .activity-item:hover {
+  background: rgba(236, 236, 240, 0.7);
+}
+
+::deep .activity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+::deep .activity-main {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--foreground);
+  margin: 0;
+}
+
+::deep .activity-time {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+/* Alerts Section */
+::deep .alerts-section {
+  background: var(--card);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+::deep .alerts-section:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+::deep .alerts-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 1.5rem 0;
+}
+
+::deep .alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+::deep .alert-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--muted);
+  border-radius: calc(var(--radius) - 2px);
+  transition: all 0.2s;
+}
+
+::deep .alert-item:hover {
+  background: rgba(236, 236, 240, 0.7);
+}
+
+::deep .alert-text p {
+  font-size: 0.95rem;
+  color: var(--foreground);
+  margin: 0;
+  font-weight: 500;
+}
+
+::deep .alert-view-btn {
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+::deep .alert-view-btn:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+/* Footer */
+::deep .admin-footer {
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+::deep .admin-footer p {
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  ::deep .admin-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  ::deep .nav-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  ::deep .nav-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  ::deep .header-right {
+    justify-content: space-between;
+  }
+
+  ::deep .search-input {
+    width: 100%;
+  }
+
+  ::deep .admin-content {
+    padding: 1rem;
+  }
+
+  ::deep .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  ::deep .charts-section {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  ::deep .alert-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  ::deep .alert-view-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  ::deep .admin-header {
+    padding: 1rem;
+  }
+
+  ::deep .admin-content {
+    padding: 0.5rem;
+  }
+
+  ::deep .section-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  ::deep .stat-value {
+    font-size: 2rem;
+  }
+
+  ::deep .search-input {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  ::deep .user-avatar {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Utility Classes */
+::deep .text-center {
+  text-align: center;
+}
+
+::deep .mt-2 {
+  margin-top: 0.5rem;
+}
+
+::deep .mt-4 {
+  margin-top: 1rem;
+}
+
+::deep .mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+::deep .mb-4 {
+  margin-bottom: 1rem;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::deep .stat-card,
+::deep .chart-card,
+::deep .activity-card,
+::deep .alerts-section {
+  animation: fadeIn 0.3s ease-out;
+}

@@ -73,6 +73,14 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<AuthenticationStateProvider,
     RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
 
+// Add Dashboard Service
+// Author: SID:2402513
+builder.Services.AddScoped<DashboardService>();
+
+// Add User Management Service
+// Author: SID:2402513
+builder.Services.AddScoped<UserManagementService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
