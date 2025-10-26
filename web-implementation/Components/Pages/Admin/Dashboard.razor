@@ -1,3 +1,27 @@
+@*
+    ========================================
+    ADMIN DASHBOARD PAGE
+    ========================================
+    Author: 2402513
+
+    Purpose:
+    Main administrative dashboard providing system-wide overview, user statistics,
+    activity monitoring, and navigation to other admin features.
+
+    How it works:
+    - Uses Blazor's @page directive to map to /admin/dashboard route
+    - Implements InteractiveServer render mode for real-time server-side updates
+    - Authorization attribute restricts access to Admin role only
+    - Injects authentication state, dashboard service, and navigation manager
+    - Fetches and displays dashboard statistics on component initialization
+
+    Why it was done this way:
+    - InteractiveServer chosen over InteractiveWebAssembly for better security
+      (admin data stays server-side, no client-side exposure)
+    - Role-based authorization at page level ensures security before component renders
+    - Service injection pattern allows testability and separation of concerns
+*@
+
 @page "/admin/dashboard"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
@@ -8,22 +32,27 @@
 @inject DashboardService DashboardService
 @inject NavigationManager Navigation
 
-@*
-    Admin Dashboard Page
-    Author: SID:2412494
-    Route: /admin/dashboard
-
-    Purpose: Main dashboard for administrator users.
-
-    Authorization: Restricted to Admin role only using [Authorize(Roles = "Admin")].
-    Users without the Admin role will receive a 403 Forbidden and be redirected to /access-denied.
-
-    Current Implementation: Simple placeholder for testing authentication flow.
-    Production TODO: Add admin-specific features (user management, system settings, etc.)
-*@
-
 <div class="admin-container">
-    <!-- Header/Navigation -->
+    @*
+        HEADER AND NAVIGATION SECTION
+        Author: 2402513
+
+        Purpose:
+        Provides consistent navigation bar across all admin pages with branding,
+        tab navigation, search functionality, and user profile indicator.
+
+        How it works:
+        - header-left: Contains branding/logo
+        - nav-tabs: Navigation buttons with @onclick event handlers for routing
+        - header-right: Search input and user avatar placeholder
+        - Active tab styling indicates current page
+
+        Why it was done this way:
+        - Horizontal tab navigation provides clear visual hierarchy
+        - @onclick handlers use NavigationManager for client-side routing (no page reload)
+        - Search input placeholder for future implementation
+        - Avatar div placeholder for future user profile integration
+    *@
     <div class="admin-header">
         <div class="header-left">
             <span class="header-brand">Admin Dashboard</span>
@@ -44,7 +73,25 @@
 
     <!-- Main Content -->
     <div class="admin-content">
-        <!-- Welcome Section with User Info -->
+        @*
+            WELCOME SECTION
+            Author: 2402513
+
+            Purpose:
+            Personalizes the dashboard by displaying the logged-in admin's name
+            and confirming their role permissions.
+
+            How it works:
+            - @userName variable is populated from authentication state during OnInitializedAsync
+            - Razor syntax @userName injects the value into the HTML
+            - Displays static role confirmation and permission statement
+
+            Why it was done this way:
+            - Inline styles used for rapid prototyping (should migrate to CSS classes)
+            - Personal greeting improves UX and confirms correct user is logged in
+            - Role display provides immediate context about permission level
+            - Simple card layout makes information easily scannable
+        *@
         <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
             <p style="margin-bottom: 0.5rem;">
                 <strong>Welcome, @userName!</strong>
@@ -57,7 +104,30 @@
             </p>
         </div>
 
-        <!-- Overview Section -->
+        @*
+            STATISTICS OVERVIEW SECTION
+            Author: 2402513
+
+            Purpose:
+            Displays key system metrics at a glance using a grid of stat cards.
+            Provides quick insight into total users, user type breakdown, and pending actions.
+
+            How it works:
+            - stats-grid creates a responsive card layout
+            - Each stat-card contains a header (label + color-coded dot) and value
+            - @stats object is populated by DashboardService.GetDashboardStatsAsync()
+            - Razor binding (@stats.TotalUsers, @stats.Clinicians, @stats.Patients)
+              automatically displays fetched values
+            - Color-coded dots (black, green, blue, orange) provide visual categorization
+
+            Why it was done this way:
+            - Grid layout allows cards to stack responsively on smaller screens
+            - Color coding makes different metrics immediately distinguishable
+            - Service layer abstraction (DashboardService) separates data fetching
+              from presentation logic, making it easier to test and modify
+            - "Pending Requests" shows N/A as placeholder for future implementation
+            - Real-time data binding ensures stats update without manual DOM manipulation
+        *@
         <h2 class="section-title">Overview</h2>
 
         <div class="stats-grid">
@@ -94,8 +164,39 @@
             </div>
         </div>
 
-        <!-- Charts and Activity Section -->
+        @*
+            CHARTS AND ACTIVITY SECTION
+            Author: 2402513
+
+            Purpose:
+            Visualizes user growth trends over time and displays recent system activity
+            in a side-by-side layout for comprehensive monitoring.
+        *@
         <div class="charts-section">
+            @*
+                USER GROWTH CHART CARD
+                Author: 2402513
+
+                Purpose:
+                Displays visual trend of new user registrations over time period.
+
+                How it works:
+                - chart-header contains title and time period dropdown selector
+                - SVG element creates inline area chart visualization
+                - linearGradient creates gradient fill from blue (top) to transparent (bottom)
+                - polyline draws the line connecting data points
+                - polygon creates filled area under the line using gradient
+                - Hard-coded points represent placeholder data showing upward trend
+
+                Why it was done this way:
+                - Inline SVG chosen for lightweight rendering without external dependencies
+                - Dropdown provides UI for future implementation of different time ranges
+                - Area chart (vs bar/line) better shows cumulative growth trends
+                - Gradient fill improves visual appeal and data readability
+                - viewBox makes SVG responsive to container size
+                - Currently static placeholder - will be replaced with dynamic data
+                  from DashboardService when charting library integrated
+            *@
             <div class="chart-card">
                 <div class="chart-header">
                     <h3>New Users (Last 30 Days)</h3>
@@ -121,6 +222,29 @@
                 </div>
             </div>
 
+            @*
+                RECENT ACTIVITY FEED
+                Author: 2402513
+
+                Purpose:
+                Shows chronological list of recent system events and user actions
+                for quick monitoring and audit trail visibility.
+
+                How it works:
+                - activity-list contains vertically stacked activity-item elements
+                - Each item displays action description (activity-main) and timestamp (activity-time)
+                - Items ordered chronologically from most recent to oldest
+                - Currently displays static placeholder data
+
+                Why it was done this way:
+                - Simple list layout makes activity easy to scan
+                - Relative timestamps ("2h ago", "yesterday") more intuitive than absolute dates
+                - Compact format allows multiple items visible without scrolling
+                - Static placeholder demonstrates UI - will be replaced with real-time
+                  activity feed from ActivityService/audit logging system
+                - Activity types include user management, patient updates, system actions
+                  to show variety of trackable events
+            *@
             <div class="activity-card">
                 <h3>Recent Activity</h3>
                 <div class="activity-list">
@@ -152,7 +276,31 @@
             </div>
         </div>
 
-        <!-- System Alerts Section -->
+        @*
+            SYSTEM ALERTS SECTION
+            Author: 2402513
+
+            Purpose:
+            Highlights actionable items requiring administrator attention,
+            providing quick access to pending tasks and system issues.
+
+            How it works:
+            - alerts-list displays alert-item elements as horizontal cards
+            - Each alert shows description text and action button
+            - "View" buttons provide navigation to detailed views (currently non-functional)
+            - Static placeholder alerts demonstrate different alert types
+
+            Why it was done this way:
+            - Separate section from activity feed distinguishes passive monitoring
+              from actionable items requiring intervention
+            - Horizontal card layout with buttons emphasizes interactivity
+            - Alert types chosen based on common admin responsibilities:
+              - Clinician approvals: access control workflow
+              - Inactive accounts: security and data hygiene
+            - View buttons will be wired up to navigate to specific management pages
+            - Currently static - will integrate with notification/alert service
+              to display real-time system-generated alerts
+        *@
         <div class="alerts-section">
             <h3>System Alerts</h3>
             <div class="alerts-list">
@@ -171,7 +319,27 @@
             </div>
         </div>
 
-        <!-- Logout Section -->
+        @*
+            LOGOUT SECTION
+            Author: 2402513
+
+            Purpose:
+            Provides secure logout functionality to end admin session.
+
+            How it works:
+            - HTML <form> with POST method targets /account/logout endpoint
+            - Submit button triggers form post to server-side logout handler
+            - Server-side endpoint clears authentication cookies and redirects
+            - method="post" ensures CSRF protection (GET logout vulnerable to attacks)
+
+            Why it was done this way:
+            - Form POST (not link/GET) follows security best practices for logout
+            - Direct form post to /account/logout reuses existing authentication infrastructure
+            - Red button styling (#dc2626) follows UI conventions for destructive actions
+            - Inline styles used for rapid prototyping (should move to CSS)
+            - Placed at bottom of dashboard for discoverability without accidental clicks
+            - Server-side logout ensures cookies cleared on server, not just client
+        *@
         <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-top: 2rem;">
             <form method="post" action="/account/logout">
                 <button type="submit"
@@ -182,20 +350,66 @@
         </div>
     </div>
 
-    <!-- Footer -->
+    @*
+        FOOTER SECTION
+        Author: 2402513
+
+        Purpose:
+        Provides global navigation links for help, information, and support resources.
+
+        How it works:
+        - Simple text paragraph with middot separators between links
+        - Currently static text - links not yet functional
+
+        Why it was done this way:
+        - Standard footer pattern familiar to users
+        - Minimal design doesn't distract from main dashboard content
+        - Placeholder for future implementation of help/support pages
+        - Consistent footer across admin pages improves navigation
+    *@
     <div class="admin-footer">
         <p>Contact us · About · FAQ</p>
     </div>
 </div>
 
 @code {
-    private string userName = "";
-    private DashboardStats stats = new();
+    /*
+     * ========================================
+     * CODE-BEHIND SECTION
+     * ========================================
+     * Author: 2402513
+     *
+     * Purpose:
+     * Contains component state, initialization logic, and event handlers
+     * for the admin dashboard page.
+     */
 
-    /// <summary>
-    /// Component initialization: loads user information from authentication state and dashboard stats.
-    /// Author: SID:2412494
-    /// </summary>
+    // Component state variables
+    private string userName = "";           // Stores authenticated user's display name
+    private DashboardStats stats = new();   // Holds dashboard statistics (users, clinicians, patients)
+
+    /*
+     * COMPONENT INITIALIZATION METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Loads user information and dashboard statistics when component first renders.
+     * Executes once on component mount before UI displays.
+     *
+     * How it works:
+     * 1. Retrieves authentication state from AuthenticationStateProvider
+     * 2. Extracts user's name from ClaimsPrincipal identity
+     * 3. Calls DashboardService.GetDashboardStatsAsync() to fetch stats from database
+     * 4. Populates stats object with TotalUsers, Clinicians, Patients counts
+     * 5. Component re-renders with populated data
+     *
+     * Why it was done this way:
+     * - OnInitializedAsync lifecycle method ensures data loads before render
+     * - Async/await pattern prevents UI blocking during database queries
+     * - Null-coalescing operator (??) handles case where Identity.Name is null
+     * - Authorization already enforced by [Authorize] attribute, so no manual checks needed
+     * - Service injection pattern keeps data access logic separate from UI
+     */
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -208,6 +422,24 @@
         // Non-admin users are automatically redirected to /access-denied
     }
 
+    /*
+     * NAVIGATION EVENT HANDLERS
+     * Author: 2402513
+     *
+     * Purpose:
+     * Handle button click events from navigation tabs to route to different admin pages.
+     *
+     * How it works:
+     * - Methods bound to @onclick events in navigation buttons
+     * - Use NavigationManager.NavigateTo() for client-side routing
+     * - No parameters needed as destination routes are hard-coded
+     *
+     * Why it was done this way:
+     * - NavigationManager provides SPA-style navigation without full page reload
+     * - Separate methods (vs inline lambda) improves readability and testability
+     * - Could be refactored to single method with parameter, but kept simple
+     *   for clarity and future customization (e.g., different pre-navigation logic)
+     */
     private void GoToUsers()
     {
         Navigation.NavigateTo("/admin/users");
