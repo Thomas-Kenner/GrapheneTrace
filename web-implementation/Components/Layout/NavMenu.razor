@@ -1,30 +1,44 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">GrapheneTrace.Web</a>
+﻿@rendermode InteractiveServer
+
+<header class="app-header">
+    <div class="header-content">
+        <div class="header-left">
+            <a class="header-brand" href="">GrapheneTrace.Web</a>
+        </div>
+
+        <div class="header-right">
+            <span class="user-greeting">@UserName</span>
+            <div class="profile-dropdown">
+                <button class="profile-icon" type="button" title="User menu" @onclick="ToggleMenu">
+                    <span class="bi bi-person-circle"></span>
+                </button>
+                @if (isMenuOpen)
+                {
+                    <div class="profile-menu">
+                        <form method="post" action="/account/logout" style="margin: 0;">
+                            <button type="submit" class="profile-menu-item">
+                                <span class="bi bi-box-arrow-right"></span> Sign Out
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
     </div>
-</div>
+</header>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+@code {
+    [Parameter]
+    public string UserName { get; set; } = "";
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    private bool isMenuOpen = false;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+    /// <summary>
+    /// Toggles the profile menu visibility.
+    /// Author: 2402513
+    /// </summary>
+    private void ToggleMenu()
+    {
+        isMenuOpen = !isMenuOpen;
+    }
+}
