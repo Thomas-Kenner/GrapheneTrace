@@ -51,6 +51,17 @@ public class ApplicationUser : IdentityUser<Guid>
     public string UserType { get; set; } = string.Empty;
 
     /// <summary>
+    /// Timestamp when the user account was created.
+    /// </summary>
+    /// <remarks>
+    /// Author: 2402513
+    /// Purpose: Track user registration date for analytics and reporting.
+    /// Set automatically during user creation.
+    /// Used for dashboard graphs showing user signup trends over time.
+    /// </remarks>
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
     /// Soft deletion timestamp. Null indicates active account.
     /// </summary>
     /// <remarks>
