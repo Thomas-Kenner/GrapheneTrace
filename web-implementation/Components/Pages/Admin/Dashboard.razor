@@ -28,6 +28,7 @@
 @using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Text
 @inject AuthenticationStateProvider AuthStateProvider
 @inject DashboardService DashboardService
 @inject NavigationManager Navigation
@@ -197,28 +198,89 @@
                 - Currently static placeholder - will be replaced with dynamic data
                   from DashboardService when charting library integrated
             *@
-            <div class="chart-card">
+            <div class="chart-card modern-chart">
                 <div class="chart-header">
-                    <h3>New Users (Last 30 Days)</h3>
-                    <select class="chart-dropdown">
-                        <option>30 days</option>
-                        <option>60 days</option>
-                        <option>90 days</option>
+                    <div>
+                        <h3 class="chart-title">User Growth</h3>
+                        <p class="chart-subtitle">Last @chartDays days</p>
+                    </div>
+                    <select class="chart-dropdown" @onchange="OnTimeRangeChanged">
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
                     </select>
                 </div>
-                <div class="chart-placeholder">
-                    <svg viewBox="0 0 500 200" class="chart-svg">
-                        <defs>
-                            <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.3" />
-                                <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.05" />
-                            </linearGradient>
-                        </defs>
-                        <polyline points="20,150 60,130 100,120 140,110 180,90 220,80 260,85 300,70 340,75 380,60 420,50 460,45"
-                                  fill="none" stroke="#3b82f6" stroke-width="2" />
-                        <polygon points="20,150 60,130 100,120 140,110 180,90 220,80 260,85 300,70 340,75 380,60 420,50 460,45 460,200 20,200"
-                                 fill="url(#chartGradient)" />
-                    </svg>
+                <div class="chart-container">
+                    @if (chartData != null && chartData.Any())
+                    {
+                        <svg viewBox="0 0 1000 400" class="modern-line-chart" preserveAspectRatio="xMidYMid meet">
+                            <defs>
+                                <linearGradient id="modernGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.25" />
+                                    <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:0.08" />
+                                    <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0" />
+                                </linearGradient>
+                                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Light background -->
+                            <rect width="1000" height="400" fill="#f8fafc" />
+
+                            <!-- Subtle grid lines -->
+                            <g stroke="#e2e8f0" stroke-width="0.5" opacity="0.6">
+                                @for (int i = 0; i <= 5; i++)
+                                {
+                                    <line x1="80" y1="@(60 + i * 56)" x2="950" y2="@(60 + i * 56)" />
+                                }
+                            </g>
+
+                            <!-- Y-axis label text -->
+                            <text x="35" y="45" font-size="12" fill="#64748b" font-weight="500" text-anchor="end">Users</text>
+
+                            <!-- Y-axis -->
+                            <line x1="80" y1="40" x2="80" y2="340" stroke="#cbd5e1" stroke-width="1.5" />
+
+                            <!-- X-axis -->
+                            <line x1="80" y1="340" x2="950" y2="340" stroke="#cbd5e1" stroke-width="1.5" />
+
+                            <!-- Y-axis and X-axis labels generated from helper methods -->
+                            @((MarkupString)GetChartAxisLabels())
+
+                            <!-- Gradient fill area under the line -->
+                            <polygon points="@GetChartPolygonPointsModern()" fill="url(#modernGradient)" />
+
+                            <!-- Smooth line chart with gradient -->
+                            <polyline points="@GetChartPolylinePointsModern()" fill="none" stroke="url(#lineGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+                            <!-- Small, subtle data points -->
+                            @for (int i = 0; i < chartData.Count; i++)
+                            {
+                                var (x, y) = GetChartPointCoordinatesModern(i);
+                                <circle cx="@x" cy="@y" r="2.5" fill="#3b82f6" stroke="white" stroke-width="2" class="modern-data-point" opacity="0.8"
+                                    @onmouseover="() => ShowTooltip(i)"
+                                    @onmouseout="HideTooltip"
+                                    style="cursor: pointer;" />
+                            }
+                        </svg>
+
+                        <!-- Interactive tooltip -->
+                        @if (showTooltip)
+                        {
+                            <div class="modern-tooltip" style="left: @(tooltipPixelX)px; top: @(tooltipPixelY)px;">
+                                <div class="tooltip-date">@tooltipDate</div>
+                                <div class="tooltip-value">@tooltipCount <span class="tooltip-label">new users</span></div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="chart-empty-state">
+                            <p>No signup data available for the selected period.</p>
+                        </div>
+                    }
                 </div>
             </div>
 
@@ -248,30 +310,27 @@
             <div class="activity-card">
                 <h3>Recent Activity</h3>
                 <div class="activity-list">
-                    <div class="activity-item">
-                        <div class="activity-text">
-                            <p class="activity-main">Clinician Rachel Green added 3 patients</p>
-                            <p class="activity-time">2h ago</p>
+                    @if (recentActivities != null && recentActivities.Any())
+                    {
+                        @foreach (var activity in recentActivities)
+                        {
+                            <div class="activity-item">
+                                <div class="activity-text">
+                                    <p class="activity-main">@activity.UserName created an account</p>
+                                    <p class="activity-time">@activity.GetRelativeTime()</p>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="activity-item">
+                            <div class="activity-text">
+                                <p class="activity-main">No recent activity</p>
+                                <p class="activity-time">-</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-text">
-                            <p class="activity-main">Admin approved clinician request</p>
-                            <p class="activity-time">5h ago</p>
-                        </div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-text">
-                            <p class="activity-main">Patient Andrei updated threshold</p>
-                            <p class="activity-time">yesterday</p>
-                        </div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-text">
-                            <p class="activity-main">2 users invited</p>
-                            <p class="activity-time">yesterday</p>
-                        </div>
-                    </div>
+                    }
                 </div>
             </div>
         </div>
@@ -304,50 +363,14 @@
         <div class="alerts-section">
             <h3>System Alerts</h3>
             <div class="alerts-list">
-                <div class="alert-item">
+                <div class="alert-item coming-soon">
                     <div class="alert-text">
-                        <p>3 clinician requests awaiting approval</p>
+                        <p>Coming soon</p>
                     </div>
-                    <button class="alert-view-btn">View</button>
-                </div>
-                <div class="alert-item">
-                    <div class="alert-text">
-                        <p>2 inactive accounts over 30 days</p>
-                    </div>
-                    <button class="alert-view-btn">View</button>
                 </div>
             </div>
         </div>
 
-        @*
-            LOGOUT SECTION
-            Author: 2402513
-
-            Purpose:
-            Provides secure logout functionality to end admin session.
-
-            How it works:
-            - HTML <form> with POST method targets /account/logout endpoint
-            - Submit button triggers form post to server-side logout handler
-            - Server-side endpoint clears authentication cookies and redirects
-            - method="post" ensures CSRF protection (GET logout vulnerable to attacks)
-
-            Why it was done this way:
-            - Form POST (not link/GET) follows security best practices for logout
-            - Direct form post to /account/logout reuses existing authentication infrastructure
-            - Red button styling (#dc2626) follows UI conventions for destructive actions
-            - Inline styles used for rapid prototyping (should move to CSS)
-            - Placed at bottom of dashboard for discoverability without accidental clicks
-            - Server-side logout ensures cookies cleared on server, not just client
-        *@
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-top: 2rem;">
-            <form method="post" action="/account/logout">
-                <button type="submit"
-                        style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
-                    Logout
-                </button>
-            </form>
-        </div>
     </div>
 
     @*
@@ -385,23 +408,34 @@
      */
 
     // Component state variables
-    private string userName = "";           // Stores authenticated user's display name
-    private DashboardStats stats = new();   // Holds dashboard statistics (users, clinicians, patients)
+    private string userName = "";                      // Stores authenticated user's display name
+    private DashboardStats stats = new();              // Holds dashboard statistics (users, clinicians, patients)
+    private List<ChartDataPoint> chartData = new();    // User signup data for chart visualization
+    private List<RecentActivity> recentActivities = new(); // Recent user account creations
+    private int chartDays = 30;                        // Number of days to display in chart
+
+    // Tooltip state
+    private bool showTooltip = false;                  // Controls tooltip visibility
+    private double tooltipPixelX = 0;                  // Tooltip X position (pixels)
+    private double tooltipPixelY = 0;                  // Tooltip Y position (pixels)
+    private string tooltipDate = "";                   // Date text for tooltip
+    private int tooltipCount = 0;                      // Count value for tooltip
 
     /*
      * COMPONENT INITIALIZATION METHOD
      * Author: 2402513
      *
      * Purpose:
-     * Loads user information and dashboard statistics when component first renders.
+     * Loads user information, dashboard statistics, and chart data when component first renders.
      * Executes once on component mount before UI displays.
      *
      * How it works:
      * 1. Retrieves authentication state from AuthenticationStateProvider
      * 2. Extracts user's name from ClaimsPrincipal identity
      * 3. Calls DashboardService.GetDashboardStatsAsync() to fetch stats from database
-     * 4. Populates stats object with TotalUsers, Clinicians, Patients counts
-     * 5. Component re-renders with populated data
+     * 4. Calls DashboardService.GetUserSignupDataAsync() to fetch chart data
+     * 5. Populates stats and chartData objects
+     * 6. Component re-renders with populated data
      *
      * Why it was done this way:
      * - OnInitializedAsync lifecycle method ensures data loads before render
@@ -409,14 +443,17 @@
      * - Null-coalescing operator (??) handles case where Identity.Name is null
      * - Authorization already enforced by [Authorize] attribute, so no manual checks needed
      * - Service injection pattern keeps data access logic separate from UI
+     * - Parallel data loading improves performance
      */
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
-        // Load dashboard statistics
+        // Load dashboard statistics, chart data, and recent activities in parallel
         stats = await DashboardService.GetDashboardStatsAsync();
+        chartData = await DashboardService.GetUserSignupDataAsync(chartDays);
+        recentActivities = await DashboardService.GetRecentActivitiesAsync(5);
 
         // Role verification is handled by [Authorize(Roles = "Admin")] attribute
         // Non-admin users are automatically redirected to /access-denied
@@ -449,4 +486,621 @@
     {
         Navigation.NavigateTo("/admin/settings");
     }
+
+    /// <summary>
+    /// Handles time range selection change on the chart dropdown.
+    /// Author: 2402513
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Updates chart data when user selects a different time period (30, 60, or 90 days).
+    ///
+    /// How it works:
+    /// 1. Captures selected value from dropdown
+    /// 2. Parses to integer (30, 60, or 90)
+    /// 3. Updates chartDays state variable
+    /// 4. Calls DashboardService.GetUserSignupDataAsync() with new days value
+    /// 5. Updates chartData list
+    /// 6. Calls StateHasChanged() to re-render component with new chart
+    /// </remarks>
+    private async Task OnTimeRangeChanged(ChangeEventArgs e)
+    {
+        if (e.Value != null && int.TryParse(e.Value.ToString(), out int days))
+        {
+            chartDays = days;
+            chartData = await DashboardService.GetUserSignupDataAsync(chartDays);
+            StateHasChanged();
+        }
+    }
+
+    /*
+     * CHART RENDERING HELPER METHODS
+     * Author: 2402513
+     *
+     * Purpose:
+     * Generate SVG path strings, polygon points, and axis labels from chart data for visualization.
+     */
+
+    /// <summary>
+    /// Generates complete SVG chart markup as string.
+    /// Author: 2402513
+    /// </summary>
+    /// <returns>SVG markup string with chart lines, axes, and labels</returns>
+    /// <remarks>
+    /// Purpose: Renders SVG as string to avoid Blazor's <text> element compilation errors.
+    ///
+    /// How it works:
+    /// - Builds SVG markup as string using StringBuilder
+    /// - Includes grid lines, axes, axis labels, and interactive circles
+    /// - Data points include onclick/onmouseover event handlers
+    /// - Returns as MarkupString-compatible string
+    ///
+    /// Why it was done this way:
+    /// - Blazor Razor compiler treats <text> as component, not SVG element
+    /// - String-based rendering avoids compilation errors
+    /// - Allows full SVG functionality without Razor restrictions
+    /// - More control over final HTML output
+    /// </remarks>
+    private string GetChartSvgMarkup()
+    {
+        var sb = new StringBuilder();
+
+        // Chart dimensions - optimized for better scaling
+        var svgWidth = 800;
+        var svgHeight = 350;
+        var marginLeft = 60;
+        var marginRight = 40;
+        var marginTop = 30;
+        var marginBottom = 50;
+        var chartWidth = svgWidth - marginLeft - marginRight;
+        var chartHeight = svgHeight - marginTop - marginBottom;
+
+        // Start SVG with proper sizing
+        sb.AppendLine($"<svg viewBox=\"0 0 {svgWidth} {svgHeight}\" class=\"chart-svg\" style=\"width: 100%; height: auto; max-height: 400px;\">");
+        sb.AppendLine($"  <defs>");
+        sb.AppendLine($"    <linearGradient id=\"chartGradient\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\">");
+        sb.AppendLine($"      <stop offset=\"0%\" style=\"stop-color:#3b82f6;stop-opacity:0.3\" />");
+        sb.AppendLine($"      <stop offset=\"100%\" style=\"stop-color:#3b82f6;stop-opacity:0.05\" />");
+        sb.AppendLine($"    </linearGradient>");
+        sb.AppendLine($"  </defs>");
+
+        // Grid lines
+        sb.AppendLine($"  <g class=\"grid-lines\" stroke=\"#e5e7eb\" stroke-width=\"0.5\" opacity=\"0.5\">");
+        for (int i = 0; i <= 5; i++)
+        {
+            var y = marginTop + (i * chartHeight / 5);
+            sb.AppendLine($"    <line x1=\"{marginLeft}\" y1=\"{y}\" x2=\"{svgWidth - marginRight}\" y2=\"{y}\" />");
+        }
+        sb.AppendLine($"  </g>");
+
+        // Y-axis labels
+        sb.AppendLine($"  <g class=\"y-axis-labels\" font-size=\"11\" fill=\"#6b7280\" text-anchor=\"end\">");
+        var yLabels = GetYAxisLabels();
+        foreach (var yLabel in yLabels)
+        {
+            var y = marginTop + yLabel.Y;
+            sb.AppendLine($"    <text x=\"{marginLeft - 10}\" y=\"{y + 4}\">{yLabel.Value}</text>");
+        }
+        sb.AppendLine($"  </g>");
+
+        // Chart area and line
+        sb.AppendLine($"  <polygon points=\"{GetChartAreaPointsScaled(marginLeft, marginTop, chartWidth, chartHeight)}\" fill=\"url(#chartGradient)\" />");
+        sb.AppendLine($"  <polyline points=\"{GetChartLinePointsScaled(marginLeft, marginTop, chartWidth, chartHeight)}\" fill=\"none\" stroke=\"#3b82f6\" stroke-width=\"2\" />");
+
+        // Data points with hover
+        sb.AppendLine($"  <g class=\"data-points\">");
+        for (int i = 0; i < chartData.Count; i++)
+        {
+            var point = GetChartPointCoordinatesScaled(i, marginLeft, marginTop, chartWidth, chartHeight);
+            var dataPoint = chartData[i];
+            var dateStr = dataPoint.Date.ToString("MMM dd, yyyy");
+            var countStr = $"{dataPoint.Count} user{(dataPoint.Count == 1 ? "" : "s")}";
+            var tooltipId = $"tooltip-{i}";
+
+            // Invisible rect for better hover area
+            sb.AppendLine($"    <g class=\"data-point-group\" data-tooltip=\"{dateStr} - {countStr}\">");
+            sb.AppendLine($"      <rect x=\"{point.X - 8}\" y=\"{point.Y - 8}\" width=\"16\" height=\"16\" fill=\"transparent\" style=\"cursor: pointer;\" />");
+            sb.AppendLine($"      <circle cx=\"{point.X:F1}\" cy=\"{point.Y:F1}\" r=\"5\" fill=\"#3b82f6\" stroke=\"white\" stroke-width=\"2\" class=\"chart-data-point\" />");
+            sb.AppendLine($"    </g>");
+        }
+        sb.AppendLine($"  </g>");
+
+        // X-axis labels
+        sb.AppendLine($"  <g class=\"x-axis-labels\" font-size=\"10\" fill=\"#6b7280\" text-anchor=\"middle\">");
+        var xLabels = GetXAxisLabels();
+        foreach (var xLabel in xLabels)
+        {
+            var scaledX = marginLeft + (xLabel.X * chartWidth / 460.0);
+            sb.AppendLine($"    <text x=\"{scaledX:F1}\" y=\"{svgHeight - marginBottom + 20}\">{xLabel.Date}</text>");
+        }
+        sb.AppendLine($"  </g>");
+
+        // Axis lines
+        sb.AppendLine($"  <line x1=\"{marginLeft}\" y1=\"{marginTop}\" x2=\"{marginLeft}\" y2=\"{svgHeight - marginBottom}\" stroke=\"#374151\" stroke-width=\"1.5\" />");
+        sb.AppendLine($"  <line x1=\"{marginLeft}\" y1=\"{svgHeight - marginBottom}\" x2=\"{svgWidth - marginRight}\" y2=\"{svgHeight - marginBottom}\" stroke=\"#374151\" stroke-width=\"1.5\" />");
+
+        sb.AppendLine($"</svg>");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Gets Y-axis label data (count values and positions).
+    /// Author: 2402513
+    /// </summary>
+    /// <returns>List of tuples containing (Y position, Value)</returns>
+    /// <remarks>
+    /// Purpose: Generates Y-axis labels without using @for with attributes (fixes Blazor compilation error).
+    ///
+    /// How it works:
+    /// - Calculates max value from chart data
+    /// - Generates 6 evenly-spaced labels from max down to 0
+    /// - Computes Y position for each label
+    /// - Returns as list of tuples
+    ///
+    /// Why it was done this way:
+    /// - Blazor doesn't allow @for with <text> element attributes
+    /// - Moving calculation to C# method avoids compilation errors
+    /// - Cleaner separation of data calculation from rendering
+    /// </remarks>
+    private List<(double Y, int Value)> GetYAxisLabels()
+    {
+        var labels = new List<(double Y, int Value)>();
+
+        if (chartData == null || !chartData.Any()) return labels;
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        for (int i = 0; i <= 5; i++)
+        {
+            var value = maxValue - (i * maxValue / 5);
+            var y = 30 + (i * 30) + 3;
+            labels.Add((y, value));
+        }
+
+        return labels;
+    }
+
+    /// <summary>
+    /// Gets X-axis label data (dates and positions).
+    /// Author: 2402513
+    /// </summary>
+    /// <returns>List containing X position and date string for each label</returns>
+    /// <remarks>
+    /// Purpose: Generates X-axis labels without using @for with attributes (fixes Blazor compilation error).
+    ///
+    /// How it works:
+    /// - Samples every Nth data point to avoid crowding
+    /// - Calculates X position based on data point index
+    /// - Formats date as "MMM dd"
+    /// - Returns as list for iteration
+    ///
+    /// Why it was done this way:
+    /// - Blazor doesn't allow @for with <text> element attributes
+    /// - Moving calculation to C# method avoids compilation errors
+    /// - Cleaner separation of data calculation from rendering
+    /// </remarks>
+    private List<(double X, string Date)> GetXAxisLabels()
+    {
+        var labels = new List<(double X, string Date)>();
+
+        if (chartData == null || !chartData.Any()) return labels;
+
+        var interval = Math.Max(chartData.Count / 6, 1);
+
+        for (int i = 0; i < chartData.Count; i += interval)
+        {
+            var x = 60 + (i * 460.0 / (chartData.Count - 1));
+            var dateLabel = chartData[i].Date.ToString("MMM dd");
+            labels.Add((x, dateLabel));
+        }
+
+        return labels;
+    }
+
+    /// <summary>
+    /// Generates SVG polyline points string for the chart line.
+    /// Author: 2402513
+    /// </summary>
+    /// <returns>Space-separated coordinate pairs for SVG polyline</returns>
+    /// <remarks>
+    /// How it works:
+    /// - Maps each data point to X,Y coordinates
+    /// - X: Evenly distributed across 500px width
+    /// - Y: Scaled based on max value (inverted because SVG Y increases downward)
+    /// - Returns format: "x1,y1 x2,y2 x3,y3 ..."
+    ///
+    /// Why it was done this way:
+    /// - SVG polyline requires specific coordinate format
+    /// - Scaling ensures graph uses full vertical space
+    /// - Inverted Y-axis makes graph display correctly (low values at bottom)
+    /// - Falls back to empty string if no data (prevents rendering errors)
+    /// </remarks>
+    private string GetChartLinePoints()
+    {
+        if (chartData == null || !chartData.Any()) return "";
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1; // Prevent division by zero
+
+        var points = new List<string>();
+        var width = 550.0;
+        var height = 250.0;
+        var padding = 60.0;
+        var paddingTop = 30.0;
+        var paddingBottom = 60.0;
+
+        for (int i = 0; i < chartData.Count; i++)
+        {
+            var x = padding + (i * (width - padding - 30) / (chartData.Count - 1));
+            var y = paddingTop + ((maxValue - chartData[i].Count) / (double)maxValue) * (height - paddingTop - paddingBottom);
+            points.Add($"{x:F1},{y:F1}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    /// <summary>
+    /// Generates SVG polygon points string for the filled area under the chart line.
+    /// Author: 2402513
+    /// </summary>
+    /// <returns>Space-separated coordinate pairs for SVG polygon</returns>
+    /// <remarks>
+    /// How it works:
+    /// - Starts with chart line points
+    /// - Adds bottom-right corner (end of chart, bottom edge)
+    /// - Adds bottom-left corner (start of chart, bottom edge)
+    /// - Creates closed shape for gradient fill
+    ///
+    /// Why it was done this way:
+    /// - Polygon requires closed shape (vs polyline)
+    /// - Bottom corners close the shape for area fill
+    /// - Reuses line points calculation for consistency
+    /// - Gradient fill creates visual depth
+    /// </remarks>
+    private string GetChartAreaPoints()
+    {
+        var linePoints = GetChartLinePoints();
+        if (string.IsNullOrEmpty(linePoints)) return "";
+
+        var width = 550.0;
+        var height = 250.0;
+        var padding = 60.0;
+        var paddingBottom = 60.0;
+
+        // Add bottom corners to close the polygon
+        var bottomRight = $"{width - padding + 60},{height - paddingBottom}";
+        var bottomLeft = $"{padding},{height - paddingBottom}";
+
+        return $"{linePoints} {bottomRight} {bottomLeft}";
+    }
+
+    /// <summary>
+    /// Gets the X,Y coordinates for a specific chart data point.
+    /// Author: 2402513
+    /// </summary>
+    /// <param name="index">Index of the data point in chartData list</param>
+    /// <returns>Tuple containing X and Y coordinates</returns>
+    /// <remarks>
+    /// Purpose: Calculates exact position of data points for interactive elements (hover circles).
+    ///
+    /// How it works:
+    /// - Uses same scaling logic as GetChartLinePoints() for consistency
+    /// - Maps data index to X position across chart width
+    /// - Maps data count to Y position (inverted for SVG coordinate system)
+    ///
+    /// Why it was done this way:
+    /// - Reuses same coordinate calculation ensures alignment with line/area
+    /// - Separate method allows reuse for hover circles and tooltips
+    /// - Returns tuple for clean syntax at call site
+    /// </remarks>
+    private (double X, double Y) GetChartPointCoordinates(int index)
+    {
+        if (chartData == null || !chartData.Any() || index >= chartData.Count)
+            return (0, 0);
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var width = 550.0;
+        var height = 250.0;
+        var padding = 60.0;
+        var paddingTop = 30.0;
+        var paddingBottom = 60.0;
+
+        var x = padding + (index * (width - padding - 30) / (chartData.Count - 1));
+        var y = paddingTop + ((maxValue - chartData[index].Count) / (double)maxValue) * (height - paddingTop - paddingBottom);
+
+        return (x, y);
+    }
+
+    /// <summary>
+    /// Gets scaled chart line points for rendering.
+    /// Author: 2402513
+    /// </summary>
+    private string GetChartLinePointsScaled(double marginLeft, double marginTop, double chartWidth, double chartHeight)
+    {
+        if (chartData == null || !chartData.Any()) return "";
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var points = new List<string>();
+
+        for (int i = 0; i < chartData.Count; i++)
+        {
+            var x = marginLeft + (i * chartWidth / (chartData.Count - 1));
+            var y = marginTop + ((maxValue - chartData[i].Count) / (double)maxValue) * chartHeight;
+            points.Add($"{x:F1},{y:F1}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    /// <summary>
+    /// Gets scaled chart area points for rendering.
+    /// Author: 2402513
+    /// </summary>
+    private string GetChartAreaPointsScaled(double marginLeft, double marginTop, double chartWidth, double chartHeight)
+    {
+        var linePoints = GetChartLinePointsScaled(marginLeft, marginTop, chartWidth, chartHeight);
+        if (string.IsNullOrEmpty(linePoints)) return "";
+
+        var bottomRight = $"{marginLeft + chartWidth},{marginTop + chartHeight}";
+        var bottomLeft = $"{marginLeft},{marginTop + chartHeight}";
+
+        return $"{linePoints} {bottomRight} {bottomLeft}";
+    }
+
+    /// <summary>
+    /// Gets scaled coordinates for a specific data point.
+    /// Author: 2402513
+    /// </summary>
+    private (double X, double Y) GetChartPointCoordinatesScaled(int index, double marginLeft, double marginTop, double chartWidth, double chartHeight)
+    {
+        if (chartData == null || !chartData.Any() || index >= chartData.Count)
+            return (0, 0);
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var x = marginLeft + (index * chartWidth / (chartData.Count - 1));
+        var y = marginTop + ((maxValue - chartData[index].Count) / (double)maxValue) * chartHeight;
+
+        return (x, y);
+    }
+
+    /// <summary>
+    /// Gets polyline points string for the chart line using 0-100 viewBox coordinates.
+    /// Author: 2402513
+    /// </summary>
+    private string GetChartPolylinePoints()
+    {
+        if (chartData == null || !chartData.Any()) return "";
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var points = new List<string>();
+
+        for (int i = 0; i < chartData.Count; i++)
+        {
+            var x = 5 + (i * 90.0 / (chartData.Count - 1));
+            var y = 85 - ((chartData[i].Count / (double)maxValue) * 70);
+            points.Add($"{x:F1},{y:F1}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    /// <summary>
+    /// Gets polygon points string for the filled area under the chart.
+    /// Author: 2402513
+    /// </summary>
+    private string GetChartPolygonPoints()
+    {
+        var linePoints = GetChartPolylinePoints();
+        if (string.IsNullOrEmpty(linePoints)) return "";
+
+        return $"{linePoints} 95,85 5,85";
+    }
+
+    /// <summary>
+    /// Gets coordinates for a specific data point using 0-100 viewBox system.
+    /// Author: 2402513
+    /// </summary>
+    private (double X, double Y) GetChartPointPercent(int index)
+    {
+        if (chartData == null || !chartData.Any() || index >= chartData.Count)
+            return (0, 0);
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var x = 5 + (index * 90.0 / (chartData.Count - 1));
+        var y = 85 - ((chartData[index].Count / (double)maxValue) * 70);
+
+        return (x, y);
+    }
+
+    /// <summary>
+    /// Shows tooltip for a data point.
+    /// Author: 2402513
+    ///
+    /// Purpose:
+    /// Displays a popup tooltip above the hovered data point showing date and count.
+    ///
+    /// How it works:
+    /// - Gets the data point and its SVG coordinates (0-1000 viewBox)
+    /// - Converts viewBox coordinates to screen pixels based on container width
+    /// - Positions tooltip above the data point with proper offset
+    /// - Tooltip positioned absolutely within the chart container
+    ///
+    /// Why it was done this way:
+    /// - ViewBox (0-1000) maps to container width for responsive scaling
+    /// - Pixel-based positioning allows for smooth tooltip placement
+    /// - Offset ensures tooltip doesn't overlap with the data point
+    /// - Centered horizontally using transform
+    /// </summary>
+    private void ShowTooltip(int dataIndex)
+    {
+        if (dataIndex >= chartData.Count) return;
+
+        var dataPoint = chartData[dataIndex];
+        var (svgX, svgY) = GetChartPointCoordinatesModern(dataIndex);
+
+        tooltipDate = dataPoint.Date.ToString("MMM dd, yyyy");
+        tooltipCount = dataPoint.Count;
+
+        // Convert SVG viewBox coordinates (0-1000) to pixel positions
+        // Assuming SVG container scales to fit its parent
+        // We'll use percentage of viewBox for responsive positioning
+        tooltipPixelX = svgX;
+        tooltipPixelY = svgY - 40;  // Offset above the point
+
+        showTooltip = true;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Hides the tooltip.
+    /// Author: 2402513
+    /// </summary>
+    private void HideTooltip()
+    {
+        showTooltip = false;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Gets polyline points string for the modern chart line (viewBox 0-1000).
+    /// Author: 2402513
+    /// </summary>
+    private string GetChartPolylinePointsModern()
+    {
+        if (chartData == null || !chartData.Any()) return "";
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var points = new List<string>();
+        var startX = 80;
+        var endX = 950;
+        var startY = 40;
+        var endY = 340;
+        var chartWidth = endX - startX;
+        var chartHeight = endY - startY;
+
+        for (int i = 0; i < chartData.Count; i++)
+        {
+            var x = startX + (i * chartWidth / (chartData.Count - 1));
+            var y = endY - ((chartData[i].Count / (double)maxValue) * chartHeight);
+            points.Add($"{x:F1},{y:F1}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    /// <summary>
+    /// Gets polygon points string for the modern chart fill area.
+    /// Author: 2402513
+    /// </summary>
+    private string GetChartPolygonPointsModern()
+    {
+        var linePoints = GetChartPolylinePointsModern();
+        if (string.IsNullOrEmpty(linePoints)) return "";
+
+        return $"{linePoints} 950,340 80,340";
+    }
+
+    /// <summary>
+    /// Gets coordinates for a specific data point in the modern chart.
+    /// Author: 2402513
+    /// </summary>
+    private (double X, double Y) GetChartPointCoordinatesModern(int index)
+    {
+        if (chartData == null || !chartData.Any() || index >= chartData.Count)
+            return (0, 0);
+
+        var maxValue = chartData.Max(d => d.Count);
+        if (maxValue == 0) maxValue = 1;
+
+        var startX = 80;
+        var endX = 950;
+        var startY = 40;
+        var endY = 340;
+        var chartWidth = endX - startX;
+        var chartHeight = endY - startY;
+
+        var x = startX + (index * chartWidth / (chartData.Count - 1));
+        var y = endY - ((chartData[index].Count / (double)maxValue) * chartHeight);
+
+        return (x, y);
+    }
+
+    /// <summary>
+    /// Generates SVG text elements for Y-axis and X-axis labels.
+    /// Author: 2402513
+    ///
+    /// Purpose:
+    /// Avoids Blazor compilation error by generating SVG text elements as string
+    /// instead of using @for with <text> element attributes.
+    ///
+    /// How it works:
+    /// - Builds SVG markup as string using StringBuilder
+    /// - Generates Y-axis labels (user counts) on left side
+    /// - Generates X-axis labels (dates) on bottom
+    /// - Returns as SVG-compatible string
+    ///
+    /// Why it was done this way:
+    /// - Blazor compiler treats <text> as component, not SVG element
+    /// - String-based rendering avoids RZ1023 compilation errors
+    /// - Allows full SVG functionality without Razor restrictions
+    /// </summary>
+    private string GetChartAxisLabels()
+    {
+        var sb = new StringBuilder();
+
+        // Y-axis labels
+        sb.AppendLine("<!-- Y-axis label values -->");
+        sb.AppendLine("<g font-size=\"11\" fill=\"#94a3b8\" text-anchor=\"end\" font-weight=\"500\">");
+
+        if (chartData != null && chartData.Any())
+        {
+            var maxVal = chartData.Max(d => d.Count);
+            if (maxVal == 0) maxVal = 1;
+
+            for (int i = 0; i <= 5; i++)
+            {
+                var val = maxVal - (i * maxVal / 5);
+                var yPos = 60 + i * 56 + 4;
+                sb.AppendLine($"  <text x=\"70\" y=\"{yPos}\">{val}</text>");
+            }
+        }
+
+        sb.AppendLine("</g>");
+
+        // X-axis labels
+        sb.AppendLine("<!-- X-axis labels (dates) -->");
+        sb.AppendLine("<g font-size=\"11\" fill=\"#94a3b8\" text-anchor=\"middle\" font-weight=\"500\">");
+
+        if (chartData != null && chartData.Any())
+        {
+            var interval = Math.Max(chartData.Count / 6, 1);
+            for (int i = 0; i < chartData.Count; i += interval)
+            {
+                if (i < chartData.Count)
+                {
+                    var xPos = 80 + (i * 870.0 / (chartData.Count - 1));
+                    var dateStr = chartData[i].Date.ToString("MMM dd");
+                    sb.AppendLine($"  <text x=\"{xPos:F1}\" y=\"365\">{dateStr}</text>");
+                }
+            }
+        }
+
+        sb.AppendLine("</g>");
+
+        return sb.ToString();
+    }
+
 }

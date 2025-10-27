@@ -1,5 +1,38 @@
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/*
+ * Layout Structure Fix
+ * Author: SID:2412494
+ *
+ * Purpose: Override default scoped CSS to create full-width header layout
+ * Ensures header spans full width at top, content flows below
+ */
+
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column !important;
+    min-height: 100vh;
+}
+
+.page > header {
+    order: -1;
+    width: 100%;
+}
+
+.page > main {
+    flex: 1;
+    width: 100%;
+}
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: column !important;
+    }
 }
 
 a, .btn-link {
@@ -17,7 +50,9 @@ a, .btn-link {
 }
 
 .content {
-    padding-top: 1.1rem;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    max-width: 100%;
 }
 
 h1:focus {
@@ -57,4 +92,453 @@ h1:focus {
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
+}
+
+/*
+ * Chart Card Styles
+ * Author: 2402513
+ *
+ * Purpose: Modern styling for the chart card container
+ *
+ * How it works:
+ * - White background with subtle shadow for depth
+ * - Rounded corners for modern appearance
+ * - Padding provides comfortable spacing
+ * - Responsive design adapts to container
+ *
+ * Why it was done this way:
+ * - Card layout is modern and clean
+ * - Subtle shadow creates visual hierarchy
+ * - Consistent spacing improves readability
+ */
+.chart-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #f0f1f3;
+    transition: box-shadow 0.3s ease;
+}
+
+.chart-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #f3f4f6;
+    padding-bottom: 16px;
+}
+
+.chart-dropdown {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #6b7280;
+    transition: all 0.2s ease;
+}
+
+.chart-dropdown:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+.chart-dropdown:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: #f9fafb;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/*
+ * Chart Point Hover Effects
+ * Author: 2402513
+ *
+ * Purpose: Smooth interactive effects for data point circles
+ *
+ * How it works:
+ * - Transition smooth scale animation on hover
+ * - Glow effect using drop-shadow filter
+ * - Maintains visual hierarchy and responsiveness
+ *
+ * Why it was done this way:
+ * - Smooth transitions improve user experience
+ * - Drop-shadow creates premium glow effect
+ * - Subtle animation provides visual feedback
+ */
+.chart-point {
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chart-point:hover {
+    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.6));
+    opacity: 1 !important;
+}
+
+/*
+ * Chart Point Animation
+ * Author: 2402513
+ */
+@keyframes chartPointPulse {
+    0% {
+        filter: drop-shadow(0 0 0 rgba(99, 102, 241, 0.4));
+    }
+    50% {
+        filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.6));
+    }
+    100% {
+        filter: drop-shadow(0 0 0 rgba(99, 102, 241, 0.4));
+    }
+}
+
+/*
+ * Modern Chart Styles
+ * Author: 2402513
+ *
+ * Purpose: Professional, clean styling for modern line chart
+ *
+ * Design:
+ * - Clean, minimal aesthetic with subtle shadows
+ * - Responsive layout with proper spacing
+ * - Professional color palette with blue/cyan gradient
+ * - Smooth interactions and transitions
+ *
+ * Why it was done this way:
+ * - Modern design follows dashboard best practices
+ * - Subtle shadows add depth without being distracting
+ * - Gradient line provides visual interest while maintaining readability
+ * - Small data points prevent visual clutter
+ */
+
+.modern-chart {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #f0f1f3;
+}
+
+.chart-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    letter-spacing: -0.3px;
+}
+
+.chart-subtitle {
+    margin: 4px 0 0 0;
+    font-size: 13px;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 420px;
+    margin-top: 16px;
+}
+
+.modern-line-chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Modern data points with subtle hover effect */
+.modern-data-point {
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modern-data-point:hover {
+    r: 4;
+    filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.4));
+    opacity: 1 !important;
+}
+
+/* Modern tooltip styling */
+.modern-tooltip {
+    position: absolute;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05);
+    pointer-events: none;
+    z-index: 100;
+    transform: translateX(-50%) translateY(-100%);
+    margin-top: -12px;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+    animation: tooltipFadeIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tooltip-date {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+.tooltip-value {
+    font-size: 14px;
+    color: #111827;
+    font-weight: 600;
+    margin-top: 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.tooltip-label {
+    font-size: 12px;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+/* Tooltip animation */
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-110%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-100%);
+    }
+}
+
+/* Empty state styling */
+.chart-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+    font-size: 14px;
+    text-align: center;
+}
+
+.chart-empty-state p {
+    margin: 0;
+    color: #9ca3af;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chart-container {
+        height: 300px;
+    }
+
+    .chart-title {
+        font-size: 16px;
+    }
+
+    .chart-subtitle {
+        font-size: 12px;
+    }
+}
+
+/*
+ * Application Header
+ * Author: SID:2412494
+ *
+ * Purpose: Modern, clean header with branding and user profile menu
+ *
+ * Design:
+ * - Horizontal layout with brand on left and user menu on right
+ * - Profile dropdown with sign out option
+ * - Proper semantic HTML using <header> element
+ *
+ * Why it was done this way:
+ * - Clean, minimal header design
+ * - Profile dropdown is modern UX pattern
+ * - Semantic HTML improves accessibility
+ */
+
+.app-header {
+    background: #f5f5f7;
+    color: #333;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    margin: 0;
+    border-bottom: 1px solid #e5e5e7;
+    overflow: visible;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    max-width: 100%;
+    overflow: visible;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.header-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+}
+
+.header-brand:hover {
+    opacity: 0.8;
+    text-decoration: none;
+    color: #1a1a1a;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.user-greeting {
+    font-size: 0.95rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.profile-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+    z-index: 1002;
+}
+
+.profile-icon {
+    background: #667eea;
+    border: 2px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    font-size: 1.5rem;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.profile-icon:hover {
+    background: #764ba2;
+    border-color: #764ba2;
+    transform: scale(1.05);
+}
+
+.profile-icon:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.profile-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+    z-index: 1001;
+    overflow: hidden;
+    animation: slideDown 0.2s ease;
+}
+
+.profile-menu-item {
+    width: 100%;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+
+.profile-menu-item:hover {
+    background: #f5f5f5;
+    color: #667eea;
+}
+
+.profile-menu-item:first-child {
+    border-top: none;
+}
+
+.profile-menu-item .bi {
+    font-size: 1.1rem;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive header */
+@media (max-width: 768px) {
+    .header-content {
+        padding: 0.75rem 1rem;
+        gap: 1rem;
+    }
+
+    .header-left {
+        gap: 1rem;
+        flex: 1;
+    }
+
+    .header-brand {
+        font-size: 1.25rem;
+    }
+
+    .user-greeting {
+        display: none;
+    }
+
+    .header-right {
+        gap: 0.5rem;
+    }
+
+    .profile-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+    }
+
+    .profile-menu {
+        min-width: 160px;
+    }
 }
