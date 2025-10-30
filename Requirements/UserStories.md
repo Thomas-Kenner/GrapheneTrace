@@ -9,9 +9,9 @@
 ### Thomas
 
 #### Login & Authentication
-- [ ] **Story #1**: As a user, I want to have an account I can login to so I can access the features and data that are relevant to me without unauthorised people having access to my data.
-- [ ] **Story #34**: As a user, I want to stay logged in across browser sessions so I don't have to re-authenticate constantly.
-- [ ] **Story #35**: As a user, I want to log out securely so that others using my device cannot access my account.
+- [X] **Story #1**: As a user, I want to have an account I can login to so I can access the features and data that are relevant to me without unauthorised people having access to my data.
+- [X] **Story #34**: As a user, I want to stay logged in across browser sessions so I don't have to re-authenticate constantly.
+- [X] **Story #35**: As a user, I want to log out securely so that others using my device cannot access my account.
 - [ ] **Story #36**: As a user, I want my session to automatically expire after a period of inactivity so my account remains secure if I forget to log out.
 
 #### Pressure Data & Notifications
@@ -27,22 +27,22 @@
 - [ ] **Story #38**: As a clinician, I want the app to automatically identify and highlight high-pressure regions in patient data so I can quickly spot areas of concern.
 
 #### Legal & Compliance
-- [ ] **Story #21**: As a patient, I want to view a privacy policy so I can understand how my data will be used and consent to it so I can be treated and monitored.
+- [X] **Story #21**: As a patient, I want to view a privacy policy so I can understand how my data will be used and consent to it so I can be treated and monitored.
 
 ---
 
 ### Andrei
 
 #### Account Management
-- [ ] **Story #2**: As an admin, I want to create a clinician account that can access certain patient data so that they can track how their patients are doing.
+- [X] **Story #2**: As an admin, I want to create a clinician account that can access certain patient data so that they can track how their patients are doing.
 - [ ] **Story #33**: As a clinician, I want to create a clinician account that an admin can approve to be able to use the app.
-- [ ] **Story #3**: As an admin, I want to create a patient account that can access only their own summarised data so patient data is kept to the specific patient.
+- [X] **Story #3**: As an admin, I want to create a patient account that can access only their own summarised data so patient data is kept to the specific patient.
 - [ ] **Story #A**: As a patient, I want to create an account to be able to use the app.
   - *Note: Initially admin creates all accounts while in early release medical equipment. Need to clarify if patients should be able to self-register.*
 - [ ] **Story #16**: As a patient, I want to request updates to my personal information so that I can be addressed correctly when using the system.
 - [ ] **Story #23**: As a patient, I want to update my personal details such as my mailing address so communication can be addressed to me properly.
-- [ ] **Story #4**: As an admin, I want to be able to add/update patient and clinician personal information to keep it accurate and up-to-date.
-- [ ] **Story #5**: As an admin, I want to delete clinician accounts if they are no longer practising/working at the company to keep patient records available only to those that should have access to them.
+- [X] **Story #4**: As an admin, I want to be able to add/update patient and clinician personal information to keep it accurate and up-to-date.
+- [X] **Story #5**: As an admin, I want to delete clinician accounts if they are no longer practising/working at the company to keep patient records available only to those that should have access to them.
 - [ ] **Story #15**: As an admin, I want to add patients to a clinician's list to keep the correct people accessing the correct data.
 - [ ] **Story #6**: As a clinician, I want to request to add patients to my list of patients so I can access their information and data to treat them better.
   - *Note: Combined with Story #19 "As a clinician, I want to request access to a patient's past data so I can use it to better treat them"*
@@ -68,9 +68,7 @@
 
 ---
 
-## 🚧 Unassigned Stories
-
-> **Note**: These stories need to be assigned before implementation begins.
+### Awais
 
 #### Account Management / User Data
 - [ ] **Story #32**: As an admin, I want to have a list of users who are inactive for certain period of time so that I can check if they still want the account or not.
@@ -126,4 +124,4 @@ These stories are explicitly marked as out of scope for the current implementati
 
 ---
 
-*Last updated: 2025-10-12*
+*Last updated: 2025-10-30*
