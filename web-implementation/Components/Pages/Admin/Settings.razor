@@ -31,46 +31,26 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 @using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.Layout
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManagementService UserManagementService
-@inject NavigationManager Navigation
 
 <div class="admin-container">
     @*
-        HEADER AND NAVIGATION SECTION
+        CONSOLIDATED ADMIN HEADER
         Author: 2402513
 
         Purpose:
-        Provides consistent navigation bar across all admin pages.
-
-        How it works:
-        - Reuses same header structure as Dashboard
-        - "Settings" tab marked as active to show current page
-        - @onclick handlers navigate to other admin sections
+        Unified header component for all admin pages combining branding, navigation, and user controls.
+        Replaces separate headers for cleaner visual hierarchy.
 
         Why it was done this way:
-        - Consistent header across all admin pages improves UX
-        - Active state visual feedback helps user orientation
-        - Client-side navigation prevents page reload
+        - Single consolidated header reduces redundancy
+        - AdminHeader component handles all navigation and user profile display
+        - Maintains consistent styling across all admin pages
     *@
-    <div class="admin-header">
-        <div class="header-left">
-            <span class="header-brand">Admin Dashboard</span>
-        </div>
-
-        <div class="nav-tabs">
-            <button class="nav-tab" @onclick="GoToDashboard">Dashboard</button>
-            <button class="nav-tab" @onclick="GoToUsers">Users</button>
-            <button class="nav-tab active">Settings</button>
-            <button class="nav-tab">Support</button>
-        </div>
-
-        <div class="header-right">
-            <input type="text" class="search-input" placeholder="Search..." />
-            <div class="user-avatar"></div>
-        </div>
-    </div>
+    <AdminHeader />
 
     <!-- Main Content -->
     <div class="admin-content">
@@ -195,30 +175,6 @@
             </button>
         </div>
 
-        @*
-            FUTURE FEATURES PLACEHOLDER CARD
-            Author: 2402513
-
-            Purpose:
-            Placeholder card indicating planned support features for future development.
-
-            How it works:
-            - Static card with "coming-soon" CSS class for visual distinction
-            - Informational text only, no interactive elements
-
-            Why it was done this way:
-            - Shows users that support features are planned (sets expectations)
-            - "coming-soon" class can apply different styling (e.g., opacity, cursor)
-            - Maintains consistent page layout for future feature additions
-            - Better UX than empty space or no mention of future features
-        *@
-        <div class="settings-card coming-soon">
-            <div class="settings-section-header">
-                <h3>Support</h3>
-                <p class="settings-description">Coming soon...</p>
-            </div>
-            <p style="color: var(--muted-foreground); margin: 0;">Support features will be available in a future update.</p>
-        </div>
     </div>
 
     @*
@@ -305,7 +261,9 @@
                     Email = user.Email,
                     UserName = user.UserName,
                     UserType = user.UserType,
-                    DeactivatedAt = user.DeactivatedAt
+                    DeactivatedAt = user.DeactivatedAt,
+                    SecurityStamp = user.SecurityStamp,
+                    ConcurrencyStamp = user.ConcurrencyStamp
                 };
             }
         }
@@ -406,13 +364,4 @@
      * - NavigationManager provides SPA-style navigation without page reload
      * - Separate methods improve readability and testability
      */
-    private void GoToDashboard()
-    {
-        Navigation.NavigateTo("/admin/dashboard");
-    }
-
-    private void GoToUsers()
-    {
-        Navigation.NavigateTo("/admin/users");
-    }
 }

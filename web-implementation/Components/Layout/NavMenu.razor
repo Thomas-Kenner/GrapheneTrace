@@ -3,18 +3,21 @@
 <header class="app-header">
     <div class="header-content">
         <div class="header-left">
-            <a class="header-brand" href="">GrapheneTrace.Web</a>
+            <a class="header-brand" href="/">GrapheneTrace.Web</a>
         </div>
 
         <div class="header-right">
-            <span class="user-greeting">@UserName</span>
+            <span class="user-email">@UserName</span>
             <div class="profile-dropdown">
-                <button class="profile-icon" type="button" title="User menu" @onclick="ToggleMenu">
-                    <span class="bi bi-person-circle"></span>
+                <button class="user-avatar" type="button" title="User menu" @onclick="ToggleMenu">
                 </button>
                 @if (isMenuOpen)
                 {
                     <div class="profile-menu">
+                        <div class="profile-menu-header">
+                            <p class="profile-name">@UserName</p>
+                            <p class="profile-email">@UserName</p>
+                        </div>
                         <form method="post" action="/account/logout" style="margin: 0;">
                             <button type="submit" class="profile-menu-item">
                                 <span class="bi bi-box-arrow-right"></span> Sign Out
