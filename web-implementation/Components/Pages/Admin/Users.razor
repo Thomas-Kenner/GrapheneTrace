@@ -1,0 +1,752 @@
+@*
+    ========================================
+    ADMIN USERS MANAGEMENT PAGE
+    ========================================
+    Author: 2402513
+
+    Purpose:
+    Comprehensive user management interface allowing administrators to view,
+    create, edit, and delete system users. Provides searchable table view
+    with modal dialogs for create/edit operations.
+
+    How it works:
+    - Uses Blazor's @page directive to map to /admin/users route
+    - Implements InteractiveServer render mode for real-time UI updates
+    - Authorization attribute restricts access to Admin role only
+    - Loads all users from database on initialization
+    - Displays users in filterable table with inline actions
+    - Modal overlays for create and edit operations
+    - Search functionality filters users by name or email
+    - Delete operations require JavaScript confirmation
+
+    Why it was done this way:
+    - InteractiveServer enables real-time search filtering without page reloads
+    - Table view provides dense information display for many users
+    - Modal dialogs keep user in context (vs navigating to separate pages)
+    - Search filtering improves usability for large user bases
+    - Role-based authorization ensures only admins can access
+    - Soft delete pattern (DeactivatedAt) preserves data integrity
+    - JavaScript confirmation for delete prevents accidental data loss
+*@
+
+@page "/admin/users"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManagementService UserManagementService
+
+<div class="admin-container">
+    @*
+        CONSOLIDATED ADMIN HEADER
+        Author: 2402513
+
+        Purpose:
+        Unified header component for all admin pages combining branding, navigation, and user controls.
+        Replaces separate headers for cleaner visual hierarchy.
+
+        Why it was done this way:
+        - Single consolidated header reduces redundancy
+        - AdminHeader component handles all navigation and user profile display
+        - Maintains consistent styling across all admin pages
+    *@
+    <AdminHeader />
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        @*
+            PAGE HEADER WITH CREATE BUTTON
+            Author: 2402513
+
+            Purpose:
+            Provides page title and primary action button for creating new users.
+
+            How it works:
+            - Flexbox layout positions title left, button right
+            - Button uses lambda expression to set showCreateModal flag
+            - Flag change triggers modal rendering
+
+            Why it was done this way:
+            - Flexbox ensures responsive layout
+            - Primary action button in prominent position follows UI conventions
+            - Lambda expression avoids creating separate method for simple flag toggle
+            - Modal state managed by boolean flag (simple and efficient)
+        *@
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h2 class="section-title">Users Management</h2>
+            <button class="btn btn-primary" @onclick="() => showCreateModal = true">
+                + Create New User
+            </button>
+        </div>
+
+        @*
+            USERS TABLE WITH LOADING STATES
+            Author: 2402513
+
+            Purpose:
+            Displays all system users in searchable/filterable table format with
+            inline edit and delete actions.
+
+            How it works:
+            - Conditional rendering based on loading and data states:
+              * isLoading: Shows loading message during data fetch
+              * Empty data: Shows "No users found" message
+              * Has data: Renders full table
+            - Table structure: Name, Email, Type, Status, Created (ID), Actions
+            - User type displayed as color-coded badge (admin=black, clinician=green, patient=blue)
+            - Status badge shows Active/Inactive based on DeactivatedAt field
+            - Created column shows first 8 characters of GUID (unique identifier placeholder)
+            - Action buttons: Edit and Delete
+            - Delete button disabled for already-deactivated users
+            - @foreach iterates over filteredUsers (search-filtered list)
+
+            Why it was done this way:
+            - Conditional rendering provides appropriate feedback for all states
+            - Table format efficient for displaying many users with multiple properties
+            - Color-coded badges provide instant visual categorization
+            - Status badges clearly distinguish active vs inactive accounts
+            - GUID prefix in Created column acts as placeholder (ideally would show actual creation date)
+            - Inline action buttons keep actions contextual to each user
+            - Disabling delete for inactive users prevents redundant operations
+            - filteredUsers (not users) ensures search results display correctly
+            - Lambda expressions in @onclick pass user data to handler methods
+        *@
+        @if (isLoading)
+        {
+            <p>Loading users...</p>
+        }
+        else if (users == null || users.Count == 0)
+        {
+            <p style="color: var(--muted-foreground);">No users found</p>
+        }
+        else
+        {
+            <div class="users-table-container">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (filteredUsers != null)
+                        {
+                            @foreach (var user in filteredUsers)
+                            {
+                                <tr>
+                                <td>@user.FullName</td>
+                                <td>@user.Email</td>
+                                <td>
+                                    <span class="user-type-badge" style="background-color: @GetUserTypeColor(user.UserType)">
+                                        @user.UserType
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (user.DeactivatedAt == null)
+                                    {
+                                        <span class="status-badge status-active">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-inactive">Inactive</span>
+                                    }
+                                </td>
+                                <td>@user.Id.ToString().Substring(0, 8)...</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn-action btn-edit" @onclick="() => EditUser(user)">Edit</button>
+                                        <button class="btn-action btn-delete"
+                                                @onclick="() => DeleteUser(user.Id)"
+                                                disabled="@(user.DeactivatedAt != null)">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    @*
+        FOOTER SECTION
+        Author: 2402513
+
+        Purpose:
+        Consistent footer across all admin pages.
+
+        Why it was done this way:
+        - Standard footer pattern with placeholder links
+    *@
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@*
+    CREATE USER MODAL
+    Author: 2402513
+
+    Purpose:
+    Modal dialog for creating new user accounts with all required fields
+    including password and user type selection.
+
+    How it works:
+    - Conditional rendering: only displays when showCreateModal is true
+    - modal-overlay: dark background that closes modal when clicked
+    - modal-content: form container with @onclick:stopPropagation to prevent
+      closing when clicking inside modal
+    - Form fields: First Name, Last Name, Email, Password, User Type
+    - @bind directives for two-way data binding on all inputs
+    - Password field shows requirements hint text
+    - User Type dropdown with admin/clinician/patient options
+    - Validation feedback: createMessage displays success/error
+    - Footer buttons: Cancel (closes modal), Create User (calls CreateUser method)
+    - Create button disabled until email and password filled
+
+    Why it was done this way:
+    - Modal pattern keeps user in context (vs separate page)
+    - Overlay click-to-close provides intuitive exit mechanism
+    - stopPropagation prevents modal closing when clicking inside
+    - Password requirements visible during input (better UX than after-submit errors)
+    - Dropdown for user type prevents typos and ensures valid values
+    - Disabled button provides immediate validation feedback
+    - Alert shows inline for immediate feedback without leaving modal
+    - Two-way binding simplifies form state management
+*@
+@if (showCreateModal)
+{
+    <div class="modal-overlay" @onclick="() => showCreateModal = false">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Create New User</h3>
+                <button class="modal-close" @onclick="() => showCreateModal = false">×</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-input" @bind="newUser.FirstName" placeholder="John" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-input" @bind="newUser.LastName" placeholder="Doe" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" @bind="newUser.Email" placeholder="john@example.com" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" @bind="newUserPassword" placeholder="Enter password" />
+                    <p style="font-size: 0.85rem; color: var(--muted-foreground); margin-top: 0.5rem;">
+                        Min 12 chars, uppercase, lowercase, number, special char
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">User Type</label>
+                    <select class="form-input" @bind="newUser.UserType">
+                        <option value="">Select user type</option>
+                        <option value="admin">Admin</option>
+                        <option value="clinician">Clinician</option>
+                        <option value="patient">Patient</option>
+                    </select>
+                </div>
+
+                @if (!string.IsNullOrEmpty(createMessage))
+                {
+                    <div class="alert" style="background-color: @(createSuccess ? "#d4edda" : "#f8d7da"); color: @(createSuccess ? "#155724" : "#721c24"); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                        @createMessage
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outline" @onclick="() => showCreateModal = false">Cancel</button>
+                <button class="btn btn-primary" @onclick="CreateUser" disabled="@(string.IsNullOrEmpty(newUser.Email) || string.IsNullOrEmpty(newUserPassword))">
+                    Create User
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@*
+    EDIT USER MODAL
+    Author: 2402513
+
+    Purpose:
+    Modal dialog for editing existing user information (name, email, user type).
+    No password field for security reasons - password changes handled separately.
+
+    How it works:
+    - Conditional rendering: displays when showEditModal is true AND editingUser not null
+    - Double condition prevents errors if modal shown before user data loaded
+    - Similar structure to create modal but without password field
+    - Form fields: First Name, Last Name, Email, User Type
+    - Fields pre-populated with editingUser data (set by EditUser method)
+    - @bind directives for two-way data binding
+    - User Type dropdown (no "Select" option - user already has type)
+    - editMessage shows success/error feedback
+    - Footer buttons: Cancel (closes modal), Save Changes (calls SaveUser method)
+    - No disabled state on save button (all fields always valid)
+
+    Why it was done this way:
+    - Separate modal for edit vs create improves UX (different contexts)
+    - No password field in edit for security (prevents accidental exposure)
+    - Password changes require separate flow with current password verification
+    - Pre-populated fields show current values (standard edit pattern)
+    - editingUser is copy of original (prevents modifying table data on cancel)
+    - Double null check (&&) prevents runtime errors
+    - Alert feedback shown inline for immediate validation response
+*@
+@if (showEditModal && editingUser != null)
+{
+    <div class="modal-overlay" @onclick="() => showEditModal = false">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Edit User</h3>
+                <button class="modal-close" @onclick="() => showEditModal = false">×</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-input" @bind="editingUser.FirstName" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-input" @bind="editingUser.LastName" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" @bind="editingUser.Email" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">User Type</label>
+                    <select class="form-input" @bind="editingUser.UserType">
+                        <option value="admin">Admin</option>
+                        <option value="clinician">Clinician</option>
+                        <option value="patient">Patient</option>
+                    </select>
+                </div>
+
+                @if (!string.IsNullOrEmpty(editMessage))
+                {
+                    <div class="alert" style="background-color: @(editSuccess ? "#d4edda" : "#f8d7da"); color: @(editSuccess ? "#155724" : "#721c24"); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                        @editMessage
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outline" @onclick="() => showEditModal = false">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveUser">Save Changes</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /*
+     * ========================================
+     * CODE-BEHIND SECTION
+     * ========================================
+     * Author: 2402513
+     *
+     * Purpose:
+     * Contains component state, user management logic, search filtering,
+     * and modal control for the users management page.
+     */
+
+    // Component state variables
+    private List<ApplicationUser>? users;          // Complete list of all users from database
+    private List<ApplicationUser>? filteredUsers;  // Search-filtered subset of users for display
+    private ApplicationUser? editingUser;          // Copy of user being edited in modal
+    private ApplicationUser newUser = new();       // New user data for creation
+    private string newUserPassword = "";           // Password for new user (separate from user object)
+    private string searchQuery = "";               // Current search query text
+    private bool isLoading = true;                 // Loading state for initial data fetch
+    private bool showCreateModal = false;          // Controls create modal visibility
+    private bool showEditModal = false;            // Controls edit modal visibility
+    private string createMessage = "";             // Success/error message for create operation
+    private string editMessage = "";               // Success/error message for edit operation
+    private bool createSuccess = false;            // Tracks if create operation succeeded
+    private bool editSuccess = false;              // Tracks if edit operation succeeded
+
+    /*
+     * COMPONENT INITIALIZATION METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Loads all users from database when component first renders.
+     *
+     * How it works:
+     * - Calls LoadUsers() method on component initialization
+     * - Async pattern ensures non-blocking UI
+     *
+     * Why it was done this way:
+     * - OnInitializedAsync lifecycle method runs before component displays
+     * - Delegating to LoadUsers() allows reuse for refresh operations
+     */
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    /*
+     * LOAD USERS METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Fetches all users from database and filters to show only active users.
+     *
+     * How it works:
+     * 1. Sets isLoading flag to show loading indicator
+     * 2. Calls UserManagementService.GetAllUsersAsync() to fetch all users
+     * 3. Filters users list to exclude deactivated users (DeactivatedAt == null)
+     * 4. Sets filteredUsers for table display
+     * 5. Clears isLoading flag to hide loading indicator
+     *
+     * Why it was done this way:
+     * - Loading flag provides user feedback during network operation
+     * - Service layer handles database access (separation of concerns)
+     * - Filtering on DeactivatedAt implements soft delete pattern
+     * - Separate method allows reuse after create/edit/delete operations
+     * - LINQ Where clause provides clean filtering syntax
+     */
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        users = await UserManagementService.GetAllUsersAsync();
+        filteredUsers = users.Where(u => u.DeactivatedAt == null).ToList();
+        isLoading = false;
+    }
+
+    /*
+     * SEARCH CHANGE HANDLER
+     * Author: 2402513
+     *
+     * Purpose:
+     * Handles search input changes and triggers real-time filtering.
+     *
+     * How it works:
+     * - Receives ChangeEventArgs from @oninput event
+     * - Extracts search text from event value
+     * - Null-coalescing handles null values (defaults to empty string)
+     * - Calls FilterUsers() to update displayed results
+     *
+     * Why it was done this way:
+     * - ChangeEventArgs standard Blazor pattern for input events
+     * - Null-coalescing prevents null reference exceptions
+     * - Separate FilterUsers() method allows reuse from multiple triggers
+     * - Real-time filtering triggered on every keystroke for immediate feedback
+     */
+    private void OnSearchChange(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        FilterUsers();
+    }
+
+    /*
+     * FILTER USERS METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Filters user list based on search query matching name or email.
+     *
+     * How it works:
+     * - Guards against null users list (early return)
+     * - LINQ Where clause with compound condition:
+     *   * DeactivatedAt == null (only active users)
+     *   * FirstName, LastName, or Email contains search query
+     * - StringComparison.OrdinalIgnoreCase for case-insensitive search
+     * - Email null-coalesced to empty string (handles null emails)
+     * - ToList() materializes filtered results
+     *
+     * Why it was done this way:
+     * - Early return pattern prevents null reference exceptions
+     * - Compound Where condition combines filtering logic efficiently
+     * - Case-insensitive search improves UX (user doesn't need exact case)
+     * - Searching multiple fields (first, last, email) increases match probability
+     * - Null-coalescing on Email prevents crashes if email not set
+     * - Active-only filter maintains soft delete pattern
+     * - LINQ provides clean, readable query syntax
+     */
+    private void FilterUsers()
+    {
+        if (users == null) return;
+
+        filteredUsers = users
+            .Where(u => u.DeactivatedAt == null &&
+                       (u.FirstName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                        u.LastName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                        (u.Email ?? "").Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    /*
+     * EDIT USER METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Prepares user data for editing and opens edit modal.
+     *
+     * How it works:
+     * - Creates new ApplicationUser instance (copy, not reference)
+     * - Copies all relevant properties from selected user
+     * - Sets editingUser to the copy
+     * - Sets showEditModal flag to display modal
+     *
+     * Why it was done this way:
+     * - Creating copy (vs direct reference) prevents modifying original on cancel
+     * - If user cancels, changes to editingUser don't affect table display
+     * - Explicit property copying ensures only intended fields editable
+     * - Modal flag triggers conditional rendering
+     * - Simple pattern that's easy to understand and maintain
+     */
+    private void EditUser(ApplicationUser user)
+    {
+        editingUser = new ApplicationUser
+        {
+            Id = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            UserName = user.UserName,
+            UserType = user.UserType,
+            DeactivatedAt = user.DeactivatedAt,
+            SecurityStamp = user.SecurityStamp,
+            ConcurrencyStamp = user.ConcurrencyStamp
+        };
+        showEditModal = true;
+    }
+
+    /*
+     * SAVE USER METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Persists edited user changes to database and refreshes user list.
+     *
+     * How it works:
+     * 1. Guards against null editingUser (defensive programming)
+     * 2. Calls UserManagementService.UpdateUserAsync() with modified user
+     * 3. Service returns tuple: (bool success, string message)
+     * 4. Updates editSuccess and editMessage for UI feedback
+     * 5. On success:
+     *    - Reloads users list to show updated data
+     *    - Waits 2 seconds (allows user to see success message)
+     *    - Closes modal
+     *
+     * Why it was done this way:
+     * - Null guard prevents errors if method called incorrectly
+     * - Service layer handles validation and database logic
+     * - Tuple return provides both status and message
+     * - Reloading list ensures table shows updated data
+     * - 2-second delay balances feedback visibility with UX flow
+     * - Modal closes automatically on success (completes workflow)
+     * - On failure, modal stays open showing error (allows correction)
+     */
+    private async Task SaveUser()
+    {
+        if (editingUser == null) return;
+
+        var (success, message) = await UserManagementService.UpdateUserAsync(editingUser);
+        editSuccess = success;
+        editMessage = message;
+
+        if (success)
+        {
+            await LoadUsers();
+            await Task.Delay(2000);
+            showEditModal = false;
+        }
+    }
+
+    /*
+     * CREATE USER METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Creates new user account with validation and adds to database.
+     *
+     * How it works:
+     * 1. Validates email and password are not empty
+     * 2. If validation fails, sets error message and returns
+     * 3. Sets UserName to Email (system uses email as username)
+     * 4. Calls UserManagementService.CreateUserAsync() with user data, password, and type
+     * 5. Service handles password hashing, validation, and database insertion
+     * 6. Updates createSuccess and createMessage for UI feedback
+     * 7. On success:
+     *    - Resets newUser to empty instance
+     *    - Clears password field
+     *    - Reloads users list to include new user
+     *    - Waits 2 seconds (shows success message)
+     *    - Closes modal
+     *
+     * Why it was done this way:
+     * - Client-side validation reduces unnecessary server calls
+     * - UserName set to Email simplifies authentication (one credential)
+     * - Service layer handles secure password hashing (never store plaintext)
+     * - Resetting form fields prepares for next user creation
+     * - Password cleared from memory for security
+     * - Reloading list ensures new user appears in table
+     * - 2-second delay allows user to see success before modal closes
+     * - On failure, modal stays open with error (allows correction)
+     */
+    private async Task CreateUser()
+    {
+        if (string.IsNullOrEmpty(newUser.Email) || string.IsNullOrEmpty(newUserPassword))
+        {
+            createMessage = "Email and password are required";
+            createSuccess = false;
+            return;
+        }
+
+        newUser.UserName = newUser.Email;
+
+        var (success, message) = await UserManagementService.CreateUserAsync(
+            newUser,
+            newUserPassword,
+            newUser.UserType);
+
+        createSuccess = success;
+        createMessage = message;
+
+        if (success)
+        {
+            newUser = new();
+            newUserPassword = "";
+            await LoadUsers();
+            await Task.Delay(2000);
+            showCreateModal = false;
+        }
+    }
+
+    /*
+     * DELETE USER METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Soft-deletes user account after confirmation, setting DeactivatedAt timestamp.
+     *
+     * How it works:
+     * 1. Uses JavaScript Interop to show browser confirm dialog
+     * 2. If user cancels, returns immediately without action
+     * 3. If confirmed, calls UserManagementService.DeleteUserAsync()
+     * 4. Service sets DeactivatedAt timestamp (soft delete pattern)
+     * 5. On success, reloads users list (deleted user removed from view)
+     * 6. On failure, shows JavaScript alert with error message
+     *
+     * Why it was done this way:
+     * - JavaScript confirm provides familiar, native browser dialog
+     * - Confirmation prevents accidental deletions (critical for user data)
+     * - Soft delete (DeactivatedAt) preserves data integrity vs hard delete
+     * - Allows data recovery and maintains referential integrity
+     * - Reloading list updates UI to remove deleted user
+     * - Alert on failure provides immediate feedback
+     * - No success message needed (user disappears = obvious success)
+     * - JS Interop used because Blazor doesn't have built-in confirmation dialogs
+     */
+    private async Task DeleteUser(Guid userId)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this user?");
+        if (!confirmed)
+            return;
+
+        var (success, message) = await UserManagementService.DeleteUserAsync(userId);
+
+        if (success)
+        {
+            await LoadUsers();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", message);
+        }
+    }
+
+    /*
+     * GET USER TYPE COLOR METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Returns color hex code for user type badge based on role.
+     *
+     * How it works:
+     * - Uses C# switch expression for pattern matching
+     * - Maps user type string to hex color code
+     * - Returns specific colors: admin=black, clinician=green, patient=blue
+     * - Default gray for unknown types
+     *
+     * Why it was done this way:
+     * - Switch expression provides clean, readable mapping
+     * - Centralized color logic (vs duplicating in markup)
+     * - Color coding improves visual scanning of user types
+     * - Default case handles future user types gracefully
+     * - Hex codes allow precise color matching to design system
+     * - Pure function (no side effects) makes testing easy
+     */
+    private string GetUserTypeColor(string userType)
+    {
+        return userType switch
+        {
+            "admin" => "#030213",
+            "clinician" => "#10b981",
+            "patient" => "#3b82f6",
+            _ => "#6b7280"
+        };
+    }
+
+    /*
+     * NAVIGATION EVENT HANDLERS
+     * Author: 2402513
+     *
+     * Purpose:
+     * Handle navigation tab clicks to route to other admin pages.
+     *
+     * How it works:
+     * - Methods bound to @onclick events in navigation buttons
+     * - Use NavigationManager.NavigateTo() for client-side routing
+     *
+     * Why it was done this way:
+     * - NavigationManager provides SPA-style navigation without page reload
+     * - Separate methods improve readability and testability
+     */
+    /*
+     * JAVASCRIPT INTEROP INJECTION
+     * Author: 2402513
+     *
+     * Purpose:
+     * Injects IJSRuntime for calling JavaScript functions (confirm/alert dialogs).
+     *
+     * How it works:
+     * - @inject directive provides IJSRuntime instance
+     * - Used by DeleteUser method for confirmation dialog
+     *
+     * Why it was done this way:
+     * - Blazor's JavaScript Interop allows calling browser APIs
+     * - Native confirm/alert dialogs provide familiar UX
+     * - Alternative would be custom modal components (more complex)
+     */
+    @inject IJSRuntime JS
+}

@@ -36,20 +36,13 @@
 @if (isAuthenticated)
 {
     <div class="page">
-        <div class="sidebar">
-            <NavMenu />
+        <div class="content-wrapper">
+            <main>
+                <article class="content">
+                    @Body
+                </article>
+            </main>
         </div>
-
-        <main>
-            <div class="top-row px-4">
-                <span>Welcome, @userName</span>
-                <button @onclick="HandleLogout" style="margin-left: 1rem; cursor: pointer;">Logout</button>
-            </div>
-
-            <article class="content px-4">
-                @Body
-            </article>
-        </main>
     </div>
 }
 

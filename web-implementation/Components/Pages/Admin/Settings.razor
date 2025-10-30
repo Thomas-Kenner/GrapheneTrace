@@ -1,0 +1,367 @@
+@*
+    ========================================
+    ADMIN SETTINGS PAGE
+    ========================================
+    Author: 2402513
+
+    Purpose:
+    Provides interface for administrators to manage their personal account settings
+    including profile information (name, email) and password changes.
+
+    How it works:
+    - Uses Blazor's @page directive to map to /admin/settings route
+    - Implements InteractiveServer render mode for real-time form validation
+    - Authorization attribute restricts access to Admin role only
+    - Injects authentication state for user identification
+    - Injects UserManagementService for database operations
+    - Loads current user data on initialization
+    - Provides two separate forms: profile settings and password change
+
+    Why it was done this way:
+    - InteractiveServer chosen for immediate form validation feedback
+    - Separate cards for profile and password follow security best practices
+      (password changes isolated from profile updates)
+    - Role-based authorization at page level prevents unauthorized access
+    - Service injection enables testability and separation of concerns
+    - Two-bind pattern used for real-time form field updates
+*@
+
+@page "/admin/settings"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManagementService UserManagementService
+
+<div class="admin-container">
+    @*
+        CONSOLIDATED ADMIN HEADER
+        Author: 2402513
+
+        Purpose:
+        Unified header component for all admin pages combining branding, navigation, and user controls.
+        Replaces separate headers for cleaner visual hierarchy.
+
+        Why it was done this way:
+        - Single consolidated header reduces redundancy
+        - AdminHeader component handles all navigation and user profile display
+        - Maintains consistent styling across all admin pages
+    *@
+    <AdminHeader />
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <h2 class="section-title">Settings</h2>
+
+        @*
+            PROFILE SETTINGS CARD
+            Author: 2402513
+
+            Purpose:
+            Allows administrator to update their personal profile information
+            (first name, last name, email address).
+
+            How it works:
+            - Form inputs use @bind directive for two-way data binding
+            - @bind="adminUser.FirstName" automatically updates property on input change
+            - adminUser object pre-populated from database in OnInitializedAsync
+            - Save button triggers SaveProfileSettings() method
+            - profileMessage displays success/error feedback after save attempt
+            - Conditional rendering (@if) shows alert only when message exists
+            - Alert color changes based on profileSuccess boolean (green=success, red=error)
+
+            Why it was done this way:
+            - Two-way binding simplifies form state management
+            - Separate profile form from password form follows security best practices
+              (prevents accidental password exposure in form data)
+            - Inline conditional rendering keeps feedback adjacent to form
+            - Color-coded alerts provide immediate visual feedback
+            - Simple form structure without complex validation (basic HTML5 validation)
+            - Email field uses type="email" for browser-native validation
+        *@
+        <div class="settings-card">
+            <div class="settings-section-header">
+                <h3>Profile Settings</h3>
+                <p class="settings-description">Update your name and email address</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">First Name</label>
+                <input type="text" class="form-input" @bind="adminUser.FirstName" placeholder="First name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Last Name</label>
+                <input type="text" class="form-input" @bind="adminUser.LastName" placeholder="Last name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-input" @bind="adminUser.Email" placeholder="email@example.com" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(profileMessage))
+            {
+                <div class="alert" style="background-color: @(profileSuccess ? "#d4edda" : "#f8d7da"); color: @(profileSuccess ? "#155724" : "#721c24"); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                    @profileMessage
+                </div>
+            }
+
+            <button class="btn btn-primary" @onclick="SaveProfileSettings">Save Profile Settings</button>
+        </div>
+
+        @*
+            PASSWORD CHANGE CARD
+            Author: 2402513
+
+            Purpose:
+            Provides secure password change functionality requiring current password
+            verification and new password confirmation.
+
+            How it works:
+            - Three separate password fields: current, new, and confirm
+            - All fields use type="password" to mask input
+            - @bind directives bind to separate string variables (not user object)
+            - Button disabled attribute uses conditional expression checking all fields
+            - disabled="@(...)" prevents submission until all fields filled
+            - ChangePassword() method validates passwords match before calling service
+            - On success, fields cleared and message auto-hides after 2 seconds
+            - passwordMessage shows validation/service errors
+
+            Why it was done this way:
+            - Three-field pattern (current/new/confirm) follows security best practices:
+              * Current password prevents unauthorized changes if session hijacked
+              * Confirmation field prevents typos in new password
+            - Disabled button provides immediate feedback about required fields
+            - Password fields not bound to user object (security - avoid accidental exposure)
+            - Client-side match validation before server call reduces unnecessary requests
+            - Auto-clear on success prevents password reuse and improves UX
+            - 2-second delay allows user to see success message before it disappears
+            - Password requirements shown in description (12 chars, mixed case, etc.)
+        *@
+        <div class="settings-card">
+            <div class="settings-section-header">
+                <h3>Change Password</h3>
+                <p class="settings-description">Update your password (min 12 characters, uppercase, lowercase, number, special character)</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-input" @bind="currentPassword" placeholder="Enter current password" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-input" @bind="newPassword" placeholder="Enter new password" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" class="form-input" @bind="confirmPassword" placeholder="Confirm new password" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(passwordMessage))
+            {
+                <div class="alert" style="background-color: @(passwordSuccess ? "#d4edda" : "#f8d7da"); color: @(passwordSuccess ? "#155724" : "#721c24"); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem;">
+                    @passwordMessage
+                </div>
+            }
+
+            <button class="btn btn-primary" @onclick="ChangePassword" disabled="@(string.IsNullOrEmpty(currentPassword) || string.IsNullOrEmpty(newPassword) || string.IsNullOrEmpty(confirmPassword))">
+                Change Password
+            </button>
+        </div>
+
+    </div>
+
+    @*
+        FOOTER SECTION
+        Author: 2402513
+
+        Purpose:
+        Provides global navigation links (consistent across admin pages).
+
+        How it works:
+        - Simple text links with middot separators
+        - Currently static placeholder
+
+        Why it was done this way:
+        - Maintains consistent footer across all admin pages
+        - Standard web pattern for secondary navigation
+    *@
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@code {
+    /*
+     * ========================================
+     * CODE-BEHIND SECTION
+     * ========================================
+     * Author: 2402513
+     *
+     * Purpose:
+     * Contains component state, form handlers, and navigation logic
+     * for the admin settings page.
+     */
+
+    // Component state variables
+    private ApplicationUser adminUser = new();  // Holds current user's profile data
+    private string currentPassword = "";        // Current password for verification
+    private string newPassword = "";            // New password input
+    private string confirmPassword = "";        // Password confirmation input
+    private string profileMessage = "";         // Success/error message for profile updates
+    private string passwordMessage = "";        // Success/error message for password changes
+    private bool profileSuccess = false;        // Tracks if profile update succeeded
+    private bool passwordSuccess = false;       // Tracks if password change succeeded
+
+    /*
+     * COMPONENT INITIALIZATION METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Loads the currently authenticated admin user's profile data from database
+     * to populate the profile settings form.
+     *
+     * How it works:
+     * 1. Retrieves authentication state from AuthenticationStateProvider
+     * 2. Extracts user ID from NameIdentifier claim
+     * 3. Validates and parses user ID as GUID
+     * 4. Fetches full user object from UserManagementService
+     * 5. Creates new ApplicationUser instance with fetched data
+     * 6. Populates adminUser for form binding
+     *
+     * Why it was done this way:
+     * - Claims-based approach standard for ASP.NET Core authentication
+     * - NameIdentifier claim contains unique user ID
+     * - GUID parsing ensures type safety before database query
+     * - New instance creation (vs direct reference) prevents unintended mutations
+     * - Explicit property mapping ensures only intended fields are editable
+     * - Defensive null checks prevent errors if user not found
+     */
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var guidUserId))
+        {
+            var user = await UserManagementService.GetUserByIdAsync(guidUserId);
+            if (user != null)
+            {
+                adminUser = new ApplicationUser
+                {
+                    Id = user.Id,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email,
+                    UserName = user.UserName,
+                    UserType = user.UserType,
+                    DeactivatedAt = user.DeactivatedAt,
+                    SecurityStamp = user.SecurityStamp,
+                    ConcurrencyStamp = user.ConcurrencyStamp
+                };
+            }
+        }
+    }
+
+    /*
+     * SAVE PROFILE SETTINGS METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Persists changes to admin user's profile information (name, email) to database.
+     *
+     * How it works:
+     * - Calls UserManagementService.UpdateUserAsync() with modified adminUser object
+     * - Service returns tuple: (bool success, string message)
+     * - Updates profileSuccess and profileMessage for UI feedback
+     * - Triggers component re-render to show alert
+     *
+     * Why it was done this way:
+     * - Service layer handles all validation and database logic
+     * - Tuple return pattern provides both status and message in single call
+     * - Component only responsible for UI state management
+     * - No explicit error handling (service returns user-friendly messages)
+     */
+    private async Task SaveProfileSettings()
+    {
+        var (success, message) = await UserManagementService.UpdateUserAsync(adminUser);
+        profileSuccess = success;
+        profileMessage = message;
+    }
+
+    /*
+     * CHANGE PASSWORD METHOD
+     * Author: 2402513
+     *
+     * Purpose:
+     * Validates and processes password change request, with current password verification.
+     *
+     * How it works:
+     * 1. Client-side validation: checks if new password matches confirmation
+     * 2. If mismatch, sets error message and returns early
+     * 3. Calls UserManagementService.ChangePasswordAsync() with user ID and passwords
+     * 4. Service verifies current password and validates new password requirements
+     * 5. Updates passwordSuccess and passwordMessage based on result
+     * 6. On success:
+     *    - Clears all password fields (security best practice)
+     *    - Waits 2 seconds (allows user to see success message)
+     *    - Clears success message
+     *
+     * Why it was done this way:
+     * - Client-side match validation reduces unnecessary server calls
+     * - Early return pattern improves readability
+     * - Current password verification handled server-side (can't trust client)
+     * - Field clearing prevents password lingering in component memory
+     * - 2-second delay balances UX (shows feedback) with security (clears sensitive data)
+     * - Message auto-clear provides clean slate for next password change attempt
+     */
+    private async Task ChangePassword()
+    {
+        if (newPassword != confirmPassword)
+        {
+            passwordSuccess = false;
+            passwordMessage = "Passwords do not match";
+            return;
+        }
+
+        var guidUserId = adminUser.Id;
+        var (success, message) = await UserManagementService.ChangePasswordAsync(
+            guidUserId,
+            currentPassword,
+            newPassword);
+
+        passwordSuccess = success;
+        passwordMessage = message;
+
+        if (success)
+        {
+            currentPassword = "";
+            newPassword = "";
+            confirmPassword = "";
+            await Task.Delay(2000);
+            passwordMessage = "";
+        }
+    }
+
+    /*
+     * NAVIGATION EVENT HANDLERS
+     * Author: 2402513
+     *
+     * Purpose:
+     * Handle navigation tab clicks to route to other admin pages.
+     *
+     * How it works:
+     * - Methods bound to @onclick events in navigation buttons
+     * - Use NavigationManager.NavigateTo() for client-side routing
+     *
+     * Why it was done this way:
+     * - NavigationManager provides SPA-style navigation without page reload
+     * - Separate methods improve readability and testability
+     */
+}
