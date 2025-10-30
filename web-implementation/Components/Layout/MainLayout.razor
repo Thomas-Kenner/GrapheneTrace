@@ -36,12 +36,13 @@
 @if (isAuthenticated)
 {
     <div class="page">
-        <NavMenu UserName="@userName" />
-        <main>
-            <article class="content px-4">
-                @Body
-            </article>
-        </main>
+        <div class="content-wrapper">
+            <main>
+                <article class="content">
+                    @Body
+                </article>
+            </main>
+        </div>
     </div>
 }
 

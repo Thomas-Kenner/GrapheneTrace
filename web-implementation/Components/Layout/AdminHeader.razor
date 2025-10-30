@@ -1,0 +1,193 @@
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@using GrapheneTrace.Web.Services
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManagementService UserManagementService
+@inject IJSRuntime JS
+
+@*
+    CONSOLIDATED ADMIN HEADER COMPONENT
+    Author: 2402513
+
+    Purpose:
+    Unified header for all admin pages combining branding, navigation tabs, and user controls.
+    Replaces the separate top header and admin header for a cleaner, more integrated design.
+
+    How it works:
+    - header-left: App branding (GrapheneTrace.Web)
+    - header-center: Navigation tabs for admin sections
+    - header-right: Search input and user profile dropdown
+    - Shows current user name and email from authentication state
+
+    Why it was done this way:
+    - Single consolidated header improves visual hierarchy
+    - Reduces redundant header elements
+    - Maintains consistent navigation across all admin pages
+    - Authentication state is checked once at layout level
+*@
+
+<header class="admin-header-consolidated" @ref="headerRef">
+    <div class="header-left">
+        <a class="header-brand-link" href="/admin/dashboard">
+            <span class="header-brand">GrapheneTrace.Web</span>
+        </a>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
+        <button class="nav-tab @GetNavClass("users")" @onclick="GoToUsers">Users</button>
+        <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
+        <button class="nav-tab @GetNavClass("support")" @onclick="GoToSupport">Support</button>
+    </div>
+
+    <div class="header-right">
+        <div class="search-container" @onclick:stopPropagation="true">
+            <input
+                type="text"
+                class="search-input"
+                placeholder="Search users..."
+                @bind="searchQuery"
+                @oninput="OnSearchInput"
+            />
+            @if (searchResults.Count > 0 && !string.IsNullOrWhiteSpace(searchQuery))
+            {
+                <div class="search-results">
+                    @foreach (var user in searchResults.Take(5))
+                    {
+                        <div class="search-result-item" @onclick="() => SelectUser(user)">
+                            <div class="result-name">@user.FirstName @user.LastName</div>
+                            <div class="result-email">@user.Email</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="profile-section" @onclick:stopPropagation="true">
+            <span class="user-email">@userEmail</span>
+            <div class="profile-dropdown">
+                <button class="user-avatar" type="button" title="User menu" @onclick="ToggleMenu">
+                </button>
+                @if (isMenuOpen)
+                {
+                    <div class="profile-menu">
+                        <div class="profile-menu-header">
+                            <p class="profile-name">@userName</p>
+                            <p class="profile-email">@userEmail</p>
+                        </div>
+                        <form method="post" action="/account/logout" style="margin: 0;">
+                            <button type="submit" class="profile-menu-item">
+                                <span class="bi bi-box-arrow-right"></span> Sign Out
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</header>
+
+@code {
+    private bool isMenuOpen = false;
+    private string userName = "";
+    private string userEmail = "";
+    private string currentPath = "";
+    private string searchQuery = "";
+    private List<Models.ApplicationUser> searchResults = new();
+    private ElementReference headerRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        userName = authState.User.Identity?.Name ?? "Unknown";
+
+        // Extract email from claims if available
+        var emailClaim = authState.User.FindFirst("email");
+        userEmail = emailClaim?.Value ?? authState.User.Identity?.Name ?? "admin@graphene.com";
+
+        currentPath = new Uri(Navigation.Uri).AbsolutePath;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Add document click listener to close dropdowns when clicking anywhere on the page
+            await JS.InvokeVoidAsync("setupDropdownClickHandler",
+                DotNetObjectReference.Create(this),
+                headerRef);
+        }
+    }
+
+    [JSInvokable]
+    public void CloseDropdownsFromJS()
+    {
+        CloseDropdowns();
+        StateHasChanged();
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            searchResults.Clear();
+            return;
+        }
+
+        // Get all users and filter by search query
+        var allUsers = await UserManagementService.GetAllUsersAsync();
+        searchResults = allUsers
+            .Where(u => u.FirstName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                       u.LastName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                       u.Email.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void SelectUser(Models.ApplicationUser user)
+    {
+        // Navigate to users page with selected user
+        Navigation.NavigateTo("/admin/users");
+        searchQuery = "";
+        searchResults.Clear();
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/admin/dashboard");
+    }
+
+    private void GoToUsers()
+    {
+        Navigation.NavigateTo("/admin/users");
+    }
+
+    private void GoToSettings()
+    {
+        Navigation.NavigateTo("/admin/settings");
+    }
+
+    private void GoToSupport()
+    {
+        Navigation.NavigateTo("/admin/support");
+    }
+
+    private void ToggleMenu()
+    {
+        isMenuOpen = !isMenuOpen;
+    }
+
+    private void CloseDropdowns()
+    {
+        // Close both dropdowns when clicking elsewhere in header
+        isMenuOpen = false;
+        searchQuery = "";
+        searchResults.Clear();
+    }
+
+    private string GetNavClass(string section)
+    {
+        return currentPath.Contains(section) ? "active" : "";
+    }
+}
