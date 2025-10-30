@@ -369,33 +369,75 @@ This approach might feel like extra steps at first, but it helps us:
 
 ## Getting Started
 
+### Prerequisites
+
+- **Docker** and **Docker Compose** installed
+- **.NET 9.0 SDK** installed ([Download here](https://dotnet.microsoft.com/download/dotnet/9.0))
+- **VPN Disabled** - If you use a VPN, disable it before running the application as it can interfere with port mappings and prevent the database connection from working properly
+
+### Setup Instructions
+
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
    cd GrapheneTrace
    ```
 
-2. **Navigate to web-implementation**
+2. **Start the PostgreSQL database container**
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+   Wait a few seconds for the database to initialize. You can check the logs with:
+   ```bash
+   docker logs graphenetrace_postgres
+   ```
+
+3. **Navigate to the web implementation directory**
    ```bash
    cd web-implementation
    ```
 
-3. **Install dependencies**
+4. **Install dependencies**
    ```bash
    dotnet restore
    ```
 
-4. **Run the application**
+5. **Apply database migrations**
+
+   This creates the database schema (tables, indexes, etc.):
+   ```bash
+   dotnet ef database update
+   ```
+
+   You should see output confirming that migrations were applied successfully.
+
+6. **Run the application**
    ```bash
    dotnet watch run
    ```
 
-5. **Open browser to** `https://localhost:5001`
+   Or for production mode without hot reload:
+   ```bash
+   dotnet run
+   ```
 
-6. **Check your assigned user stories**
-   - See `Requirements/UserStories.md` for your story assignments
-   - Reference story numbers in your commits and PRs (e.g., "Implements Story #1")
-   - Check off stories as you complete them
+7. **Open your browser to** `https://localhost:5001`
+
+   The application should now be running and connected to the database.
+
+### Important Notes
+
+- **VPN Warning**: Make sure any VPN is disabled before starting the application. VPNs can mess with port mappings and prevent the application from connecting to the database on `localhost:5432`.
+- **First-time setup**: You only need to run `docker-compose up` and `dotnet ef database update` once. After that, just run `dotnet watch run` to start the application.
+- **Stopping the database**: Use `docker-compose down` to stop the database container.
+- **Resetting the database**: Use `docker-compose down -v` to stop and wipe all data for a fresh start.
+
+### Check Your Assigned User Stories
+
+- See `Requirements/UserStories.md` for your story assignments
+- Reference story numbers in your commits and PRs (e.g., "Implements Story #1")
+- Check off stories as you complete them
 
 ---
 
