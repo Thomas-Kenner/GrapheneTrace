@@ -34,48 +34,26 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 @using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.Layout
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManagementService UserManagementService
-@inject NavigationManager Navigation
 
 <div class="admin-container">
     @*
-        HEADER AND NAVIGATION SECTION
+        CONSOLIDATED ADMIN HEADER
         Author: 2402513
 
         Purpose:
-        Provides consistent navigation bar with integrated search functionality.
-
-        How it works:
-        - Reuses same header structure as other admin pages
-        - "Users" tab marked as active
-        - Search input has @oninput event handler for real-time filtering
-        - OnSearchChange method called on every keystroke
+        Unified header component for all admin pages combining branding, navigation, and user controls.
+        Replaces separate headers for cleaner visual hierarchy.
 
         Why it was done this way:
-        - Consistent header improves navigation UX
-        - @oninput (vs @onchange) provides instant search results as user types
-        - Search input in header keeps it always visible while scrolling table
-        - Real-time filtering improves usability vs button-triggered search
+        - Single consolidated header reduces redundancy
+        - AdminHeader component handles all navigation and user profile display
+        - Maintains consistent styling across all admin pages
     *@
-    <div class="admin-header">
-        <div class="header-left">
-            <span class="header-brand">Admin Dashboard</span>
-        </div>
-
-        <div class="nav-tabs">
-            <button class="nav-tab" @onclick="GoToDashboard">Dashboard</button>
-            <button class="nav-tab active">Users</button>
-            <button class="nav-tab" @onclick="GoToSettings">Settings</button>
-            <button class="nav-tab">Support</button>
-        </div>
-
-        <div class="header-right">
-            <input type="text" class="search-input" placeholder="Search..." @oninput="OnSearchChange" />
-            <div class="user-avatar"></div>
-        </div>
-    </div>
+    <AdminHeader />
 
     <!-- Main Content -->
     <div class="admin-content">
@@ -555,7 +533,9 @@
             Email = user.Email,
             UserName = user.UserName,
             UserType = user.UserType,
-            DeactivatedAt = user.DeactivatedAt
+            DeactivatedAt = user.DeactivatedAt,
+            SecurityStamp = user.SecurityStamp,
+            ConcurrencyStamp = user.ConcurrencyStamp
         };
         showEditModal = true;
     }
@@ -752,16 +732,6 @@
      * - NavigationManager provides SPA-style navigation without page reload
      * - Separate methods improve readability and testability
      */
-    private void GoToDashboard()
-    {
-        Navigation.NavigateTo("/admin/dashboard");
-    }
-
-    private void GoToSettings()
-    {
-        Navigation.NavigateTo("/admin/settings");
-    }
-
     /*
      * JAVASCRIPT INTEROP INJECTION
      * Author: 2402513

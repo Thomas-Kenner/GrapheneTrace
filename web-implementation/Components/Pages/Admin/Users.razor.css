@@ -335,15 +335,16 @@
 }
 
 .modal-content {
-  background: var(--card);
+  background: #ffffff;
   border-radius: var(--radius);
-  border: 2px solid #e5e7eb;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--primary);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
   animation: slideIn 0.3s ease-out;
+  position: relative;
 }
 
 @keyframes slideIn {
@@ -363,12 +364,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: linear-gradient(135deg, var(--primary) 0%, #1a1612 100%);
 }
 
 .modal-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--foreground);
+  color: #ffffff;
   margin: 0;
 }
 
@@ -377,22 +379,26 @@
   border: none;
   font-size: 2rem;
   cursor: pointer;
-  color: var(--muted-foreground);
-  transition: color 0.2s;
+  color: #ffffff;
+  transition: all 0.2s;
   padding: 0;
   width: 2rem;
   height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0.9;
 }
 
 .modal-close:hover {
-  color: var(--foreground);
+  color: #ffffff;
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .modal-body {
   padding: 1.5rem;
+  background: #ffffff;
 }
 
 .modal-footer {
@@ -401,6 +407,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+  background: #f9f9fb;
 }
 
 /* Form Styles */

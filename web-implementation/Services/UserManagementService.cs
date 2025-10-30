@@ -83,11 +83,33 @@ public class UserManagementService
     /// Updates user details (name, email).
     /// Author: SID:2402513
     /// </summary>
+    /// <remarks>
+    /// Implementation Pattern: Fetch-then-update to avoid EF Core tracking conflicts.
+    ///
+    /// Why this approach:
+    /// - Fetches the user from database first (ensures it's tracked by current context)
+    /// - Updates only the editable properties (FirstName, LastName, Email)
+    /// - Avoids detached entity conflicts when user was loaded in another context
+    /// - Preserves Identity-managed fields (SecurityStamp, ConcurrencyStamp, etc.)
+    /// </remarks>
     public async Task<(bool Success, string Message)> UpdateUserAsync(ApplicationUser user)
     {
         try
         {
-            var result = await _userManager.UpdateAsync(user);
+            // Fetch the user from database to ensure it's tracked by the current context
+            var existingUser = await _userManager.FindByIdAsync(user.Id.ToString());
+            if (existingUser == null)
+            {
+                return (false, "User not found");
+            }
+
+            // Update only the editable properties
+            existingUser.FirstName = user.FirstName;
+            existingUser.LastName = user.LastName;
+            existingUser.Email = user.Email;
+            existingUser.UserName = user.Email; // Keep username in sync with email
+
+            var result = await _userManager.UpdateAsync(existingUser);
 
             if (!result.Succeeded)
             {

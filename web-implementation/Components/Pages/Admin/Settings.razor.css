@@ -92,13 +92,13 @@
 
 ::deep .search-input {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
+  border: 2px solid #e5e7eb;
   border-radius: var(--radius);
   background: var(--input-background);
   font-size: 0.95rem;
   color: var(--foreground);
   width: 200px;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 ::deep .search-input::placeholder {
@@ -108,7 +108,11 @@
 ::deep .search-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(3, 2, 19, 0.1);
+  box-shadow: 0 0 0 3px rgba(3, 2, 19, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+::deep .search-input:hover {
+  border-color: #d1d5db;
 }
 
 ::deep .user-avatar {
@@ -142,15 +146,18 @@
 /* Settings Cards */
 .settings-card {
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 2px solid #e5e7eb;
   border-radius: var(--radius);
   padding: 2rem;
   margin-bottom: 2rem;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .settings-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 .settings-card.coming-soon {
@@ -190,13 +197,13 @@
 
 ::deep .form-input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.95rem;
-  border: 1px solid var(--border);
+  border: 2px solid #e5e7eb;
   border-radius: calc(var(--radius) - 2px);
   background: var(--input-background);
   color: var(--foreground);
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -204,7 +211,11 @@
 ::deep .form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(3, 2, 19, 0.1);
+  box-shadow: 0 0 0 3px rgba(3, 2, 19, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+::deep .form-input:hover:not(:focus) {
+  border-color: #d1d5db;
 }
 
 /* Button Styles */
@@ -212,23 +223,42 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   font-size: 0.95rem;
   font-weight: 500;
   border-radius: var(--radius);
-  border: none;
+  border: 2px solid transparent;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 ::deep .btn-primary {
   background: var(--primary);
   color: var(--primary-foreground);
+  border: 2px solid var(--primary);
 }
 
 ::deep .btn-primary:hover:not(:disabled) {
   opacity: 0.9;
+  box-shadow: 0 4px 8px rgba(3, 2, 19, 0.15);
   transform: translateY(-1px);
+}
+
+::deep .btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+::deep .btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--border);
+}
+
+::deep .btn-outline:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 ::deep .btn:disabled {
@@ -244,10 +274,26 @@
   animation: slideIn 0.3s ease-out;
 }
 
+/* Card Animations */
+.settings-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
     transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
