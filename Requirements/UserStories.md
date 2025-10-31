@@ -10,6 +10,7 @@
 
 #### Login & Authentication
 - [X] **Story #1**: As a user, I want to have an account I can login to so I can access the features and data that are relevant to me without unauthorised people having access to my data.
+- [ ] **Story #33**: As a clinician, I want to create a clinician account that an admin can approve to be able to use the app.
 - [X] **Story #34**: As a user, I want to stay logged in across browser sessions so I don't have to re-authenticate constantly.
 - [X] **Story #35**: As a user, I want to log out securely so that others using my device cannot access my account.
 - [ ] **Story #36**: As a user, I want my session to automatically expire after a period of inactivity so my account remains secure if I forget to log out.
@@ -35,7 +36,6 @@
 
 #### Account Management
 - [X] **Story #2**: As an admin, I want to create a clinician account that can access certain patient data so that they can track how their patients are doing.
-- [ ] **Story #33**: As a clinician, I want to create a clinician account that an admin can approve to be able to use the app.
 - [X] **Story #3**: As an admin, I want to create a patient account that can access only their own summarised data so patient data is kept to the specific patient.
 - [ ] **Story #A**: As a patient, I want to create an account to be able to use the app.
   - *Note: Initially admin creates all accounts while in early release medical equipment. Need to clarify if patients should be able to self-register.*
