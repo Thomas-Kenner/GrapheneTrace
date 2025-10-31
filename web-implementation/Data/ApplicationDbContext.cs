@@ -71,10 +71,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
                 .IsRequired()
                 .HasMaxLength(20);
 
-            // DeactivatedAt is nullable, no configuration needed
+            // ApprovedAt and DeactivatedAt are nullable, no configuration needed
 
             // Optional: Create index on UserType for faster role-based queries
             entity.HasIndex(e => e.UserType);
+
+            // Optional: Create index on ApprovedAt for filtering approved/pending users
+            entity.HasIndex(e => e.ApprovedAt);
 
             // Optional: Create index on DeactivatedAt for filtering active users
             entity.HasIndex(e => e.DeactivatedAt);
