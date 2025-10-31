@@ -62,6 +62,18 @@ public class ApplicationUser : IdentityUser<Guid>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// Timestamp when the account was approved by an administrator. Null indicates pending approval.
+    /// </summary>
+    /// <remarks>
+    /// Account Approval Workflow:
+    /// - When a user registers, this field is NULL (account pending approval)
+    /// - Admin must approve the account before user can access the system
+    /// - Set to current timestamp when admin approves the account
+    /// - Check this field during login to prevent unapproved users from accessing the system
+    /// </remarks>
+    public DateTime? ApprovedAt { get; set; }
+
+    /// <summary>
     /// Soft deletion timestamp. Null indicates active account.
     /// </summary>
     /// <remarks>
