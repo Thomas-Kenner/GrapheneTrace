@@ -1,0 +1,329 @@
+@*
+    ========================================
+    PENDING APPROVALS COMPONENT
+    ========================================
+    Author: SID:2412494
+
+    Purpose:
+    Displays pending user account approvals for admin/clinician accounts that
+    require manual approval. Patient accounts are auto-approved and never appear here.
+
+    How it works:
+    - Loads users where ApprovedAt is NULL and Type is Admin or Clinician
+    - Displays in table format with approve action buttons
+    - Pure Blazor confirmation workflow (no JavaScript interop)
+    - Clicking "Approve" shows inline confirmation with Confirm/Cancel buttons
+    - On confirmation, sets ApprovedAt timestamp and ApprovedBy foreign key
+    - User disappears from list after successful approval
+
+    Why it was done this way:
+    - Pure Blazor approach avoids JavaScript dependencies
+    - Inline confirmation prevents accidental approvals
+    - Idempotent service method prevents race conditions
+    - Tracks approval audit trail with ApprovedBy foreign key
+    - Matches existing Users.razor styling patterns
+*@
+
+@page "/admin/approvals"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManagementService UserManagementService
+
+<div class="admin-container">
+    @*
+        CONSOLIDATED ADMIN HEADER
+        Consistent with Users.razor pattern
+    *@
+    <AdminHeader />
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        @*
+            PAGE HEADER WITH PENDING COUNT
+            Shows number of pending approvals for visibility
+        *@
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h2 class="section-title">Pending Approvals</h2>
+                @if (pendingUsers != null && pendingUsers.Count > 0)
+                {
+                    <p style="color: var(--muted-foreground); margin-top: 0.5rem; font-size: 0.95rem;">
+                        @pendingUsers.Count pending approval@(pendingUsers.Count == 1 ? "" : "s")
+                    </p>
+                }
+            </div>
+        </div>
+
+        @*
+            SUCCESS/ERROR MESSAGE DISPLAY
+            Shows feedback after approval attempts
+        *@
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <div class="alert @(isSuccess ? "alert-success" : "alert-error")" style="margin-bottom: 1.5rem;">
+                @statusMessage
+            </div>
+        }
+
+        @*
+            PENDING APPROVALS TABLE
+            Displays users requiring approval with inline confirmation workflow
+        *@
+        @if (isLoading)
+        {
+            <p>Loading pending approvals...</p>
+        }
+        else if (pendingUsers == null || pendingUsers.Count == 0)
+        {
+            <div style="text-align: center; padding: 3rem; color: var(--muted-foreground);">
+                <p style="font-size: 1.1rem; margin: 0;">No pending approvals</p>
+                <p style="font-size: 0.9rem; margin-top: 0.5rem;">All accounts have been reviewed.</p>
+            </div>
+        }
+        else
+        {
+            <div class="approvals-table-container">
+                <table class="approvals-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Type</th>
+                            <th>Requested</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in pendingUsers)
+                        {
+                            <tr>
+                                <td>@user.FullName</td>
+                                <td>@user.Email</td>
+                                <td>
+                                    <span class="user-type-badge" style="background-color: @GetUserTypeColor(user.UserType)">
+                                        @(char.ToUpper(user.UserType[0]) + user.UserType.Substring(1))
+                                    </span>
+                                </td>
+                                <td>@user.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                <td>
+                                    @if (pendingApprovalUserId == user.Id)
+                                    {
+                                        @*
+                                            INLINE CONFIRMATION STATE
+                                            Replaces approve button with confirmation message and action buttons
+                                        *@
+                                        <div class="confirmation-container">
+                                            <span class="confirmation-text">Approve @user.FirstName's account?</span>
+                                            <div class="confirmation-buttons">
+                                                <button class="btn-action btn-confirm"
+                                                        @onclick="() => ConfirmApproval(user.Id)"
+                                                        disabled="@isProcessing">
+                                                    @(isProcessing ? "Processing..." : "Confirm")
+                                                </button>
+                                                <button class="btn-action btn-cancel"
+                                                        @onclick="CancelApproval"
+                                                        disabled="@isProcessing">
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @*
+                                            APPROVE BUTTON (DEFAULT STATE)
+                                        *@
+                                        <button class="btn-action btn-approve"
+                                                @onclick="() => StartApproval(user.Id)"
+                                                disabled="@(pendingApprovalUserId != null || isProcessing)">
+                                            Approve
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    @*
+        FOOTER SECTION
+        Consistent with Users.razor pattern
+    *@
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@code {
+    // Component state
+    private List<ApplicationUser>? pendingUsers;
+    private Guid? pendingApprovalUserId;  // Tracks which user is awaiting confirmation
+    private bool isLoading = false;
+    private bool isProcessing = false;
+    private string? statusMessage;
+    private bool isSuccess = false;
+    private Guid currentAdminId;
+
+    /// <summary>
+    /// Loads pending approval users on component initialization.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Filtering Logic:
+    /// - ApprovedAt == null (not yet approved)
+    /// - DeactivatedAt == null (not deactivated)
+    /// - Type is "admin" or "clinician" (patients are auto-approved)
+    ///
+    /// Also retrieves current admin ID from authentication context for audit trail.
+    /// </remarks>
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            // Get current admin's user ID for approval tracking
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var adminId))
+            {
+                currentAdminId = adminId;
+            }
+            else
+            {
+                statusMessage = "Error: Could not identify current admin user";
+                isSuccess = false;
+                return;
+            }
+
+            // Load all users and filter for pending approvals
+            var allUsers = await UserManagementService.GetAllUsersAsync();
+
+            // Only show admin/clinician accounts pending approval
+            // Patient accounts are auto-approved and never require manual approval
+            pendingUsers = allUsers
+                .Where(u => u.ApprovedAt == null
+                         && u.DeactivatedAt == null
+                         && (u.UserType.Equals("admin", StringComparison.OrdinalIgnoreCase)
+                          || u.UserType.Equals("clinician", StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(u => u.CreatedAt)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading pending approvals: {ex.Message}";
+            isSuccess = false;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Initiates approval workflow by setting pending state.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Pure Blazor Approach:
+    /// - Sets pendingApprovalUserId to show inline confirmation
+    /// - No JavaScript interop required
+    /// - Component re-renders to show Confirm/Cancel buttons
+    /// </remarks>
+    private void StartApproval(Guid userId)
+    {
+        pendingApprovalUserId = userId;
+        statusMessage = null;  // Clear any previous messages
+    }
+
+    /// <summary>
+    /// Cancels approval workflow and restores approve button.
+    /// Author: SID:2412494
+    /// </summary>
+    private void CancelApproval()
+    {
+        pendingApprovalUserId = null;
+    }
+
+    /// <summary>
+    /// Confirms approval and calls service to update database.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Approval Process:
+    /// 1. Calls UserManagementService.ApproveUserAsync with current admin ID
+    /// 2. Service sets ApprovedAt timestamp and ApprovedBy foreign key
+    /// 3. On success, removes user from pending list
+    /// 4. Shows success/error message
+    /// 5. Resets confirmation state
+    ///
+    /// Race Condition Handling:
+    /// Service method is idempotent - if another admin approves simultaneously,
+    /// will return "already approved" message instead of error.
+    /// </remarks>
+    private async Task ConfirmApproval(Guid userId)
+    {
+        isProcessing = true;
+        statusMessage = null;
+
+        try
+        {
+            var result = await UserManagementService.ApproveUserAsync(userId, currentAdminId);
+
+            if (result.Success)
+            {
+                // Remove approved user from list
+                pendingUsers = pendingUsers?.Where(u => u.Id != userId).ToList();
+
+                statusMessage = result.Message;
+                isSuccess = true;
+            }
+            else
+            {
+                statusMessage = result.Message;
+                isSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error approving user: {ex.Message}";
+            isSuccess = false;
+        }
+        finally
+        {
+            pendingApprovalUserId = null;
+            isProcessing = false;
+        }
+    }
+
+    /// <summary>
+    /// Returns color for user type badge.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Color Scheme (matches Users.razor):
+    /// - Admin: Black (#030213)
+    /// - Clinician: Green (#10b981)
+    /// - Patient: Blue (not used here - patients auto-approved)
+    /// </remarks>
+    private string GetUserTypeColor(string userType)
+    {
+        return userType.ToLower() switch
+        {
+            "admin" => "#030213",
+            "clinician" => "#10b981",
+            "patient" => "#3b82f6",  // Should never appear
+            _ => "#6b7280"
+        };
+    }
+}

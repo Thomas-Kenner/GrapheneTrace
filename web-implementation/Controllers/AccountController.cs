@@ -76,6 +76,13 @@ public class AccountController : ControllerBase
                 return Redirect("/login?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
             }
 
+            // Check if account is approved (only applies to admin/clinician accounts)
+            if (user.ApprovedAt == null)
+            {
+                _logger.LogWarning("Login attempt for unapproved user: {UserId}", user.Id);
+                return Redirect("/login?error=" + Uri.EscapeDataString("Your account is pending approval. Please contact an administrator."));
+            }
+
             // Check if account is locked out
             if (await _userManager.IsLockedOutAsync(user))
             {
@@ -172,7 +179,9 @@ public class AccountController : ControllerBase
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 UserType = request.UserType,
-                EmailConfirmed = true  // Skip email confirmation for now
+                EmailConfirmed = true,  // Skip email confirmation for now
+                // Auto-approve patient accounts - only admin/clinician accounts require manual approval
+                ApprovedAt = request.UserType == "patient" ? DateTime.UtcNow : null
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
