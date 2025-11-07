@@ -37,6 +37,7 @@
     <div class="nav-tabs">
         <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
         <button class="nav-tab @GetNavClass("users")" @onclick="GoToUsers">Users</button>
+        <button class="nav-tab @GetNavClass("approvals")" @onclick="GoToApprovals">Approvals</button>
         <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
         <button class="nav-tab @GetNavClass("support")" @onclick="GoToSupport">Support</button>
     </div>
@@ -161,6 +162,11 @@
     private void GoToUsers()
     {
         Navigation.NavigateTo("/admin/users");
+    }
+
+    private void GoToApprovals()
+    {
+        Navigation.NavigateTo("/admin/approvals");
     }
 
     private void GoToSettings()
