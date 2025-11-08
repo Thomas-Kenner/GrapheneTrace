@@ -1,0 +1,283 @@
+@*
+    ========================================
+    PATIENT SETTINGS PAGE
+    ========================================
+    Author: SID:2402513
+
+    Purpose:
+    Manage personal details, alert settings, and device connections.
+
+    Implementation Status:
+    - Personal Details: WORKING - saves to database
+    - Alert Settings: TODO - Pressure threshold not yet in DB schema
+    - Device Connection: Placeholder only
+*@
+
+@page "/patient/settings"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject UserManagementService UserManagementService
+
+<div class="patient-container">
+    <PatientHeader />
+
+    <div class="patient-content">
+        <div class="settings-grid">
+            @* PERSONAL DETAILS CARD *@
+            <div class="card settings-card">
+                <h3 class="settings-title">Personal Details</h3>
+                <p class="settings-subtitle">Contact information</p>
+
+                @if (!string.IsNullOrEmpty(personalMessage))
+                {
+                    <div class="alert @(personalSuccess ? "alert-success" : "alert-error")">
+                        @personalMessage
+                    </div>
+                }
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-input" @bind="firstName" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-input" @bind="lastName" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" @bind="email" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Phone</label>
+                    <input type="tel" class="form-input" placeholder="Placeholder - not saved" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">City</label>
+                        <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Postcode</label>
+                        <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Country</label>
+                    <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                </div>
+
+                <button class="btn-primary" @onclick="SavePersonalDetails" disabled="@isSavingPersonal">
+                    @(isSavingPersonal ? "Saving..." : "Save Details")
+                </button>
+            </div>
+
+            @* ALERT SETTINGS CARD *@
+            <div class="card settings-card">
+                <h3 class="settings-title">Alert Settings</h3>
+                <p class="settings-subtitle">Configure notifications</p>
+
+                <div class="form-group">
+                    <label class="form-label">Pressure Alert Threshold</label>
+                    <p class="form-help">Alert when exceeded</p>
+                    <div class="threshold-display">@pressureThreshold mmHg</div>
+                    <input type="range" class="range-slider" min="60" max="120" step="5" @bind="pressureThreshold" />
+                    <div class="range-labels">
+                        <span>60</span>
+                        <span>120</span>
+                    </div>
+                    @* TODO: Pressure threshold not yet saved - awaiting DB schema update
+                        Need to add PressureAlertThreshold field to ApplicationUser or create PatientSettings table *@
+                </div>
+
+                <div class="toggle-group">
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Push Notifications</div>
+                            <div class="toggle-description">Mobile alerts</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="pushNotifications" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Email Notifications</div>
+                            <div class="toggle-description">Daily summaries</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="emailNotifications" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-item">
+                        <div>
+                            <div class="toggle-label">Device Alerts</div>
+                            <div class="toggle-description">Connection issues</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="deviceAlerts" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <button class="btn-primary" disabled>
+                    Save Settings (Coming Soon)
+                </button>
+            </div>
+
+            @* DEVICE CONNECTION CARD *@
+            <div class="card settings-card">
+                <h3 class="settings-title">Device Connection</h3>
+                <p class="settings-subtitle">Manage your sensor</p>
+
+                <div class="device-status-box">
+                    <div class="device-info">
+                        <div class="device-icon-large">⚡</div>
+                        <div class="device-details">
+                            <div class="device-name">Placeholder Device ID</div>
+                            <div class="device-status-text">Disconnected</div>
+                            <div class="device-meta">Last seen: --</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="device-stats">
+                    <div class="device-stat">
+                        <span class="stat-label">Battery:</span>
+                        <span class="stat-value">Placeholder</span>
+                    </div>
+                    <div class="device-stat">
+                        <span class="stat-label">Firmware:</span>
+                        <span class="stat-value">Placeholder</span>
+                    </div>
+                    <div class="device-stat">
+                        <span class="stat-label">Signal:</span>
+                        <span class="stat-value">Placeholder</span>
+                    </div>
+                </div>
+
+                <button class="btn-outline">
+                    🔍 Scan for Devices
+                </button>
+
+                <div class="pairing-instructions">
+                    <h5 class="instructions-title">Pair New Device</h5>
+                    <ol class="instructions-list">
+                        <li>Placeholder instruction 1</li>
+                        <li>Placeholder instruction 2</li>
+                        <li>Placeholder instruction 3</li>
+                        <li>Placeholder instruction 4</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Personal Details (WORKING - saves to database)
+    private string firstName = "";
+    private string lastName = "";
+    private string email = "";
+    private string personalMessage = "";
+    private bool personalSuccess = false;
+    private bool isSavingPersonal = false;
+    private Guid currentUserId;
+
+    // Alert Settings (PLACEHOLDER - not saved to DB yet)
+    private int pressureThreshold = 80;
+    private bool pushNotifications = false;
+    private bool emailNotifications = false;
+    private bool deviceAlerts = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                currentUserId = userId;
+                var currentUser = await UserManager.FindByIdAsync(userId.ToString());
+                if (currentUser != null)
+                {
+                    firstName = currentUser.FirstName;
+                    lastName = currentUser.LastName;
+                    email = currentUser.Email ?? "";
+                }
+            }
+        }
+    }
+
+    private async Task SavePersonalDetails()
+    {
+        isSavingPersonal = true;
+        personalMessage = "";
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(currentUserId.ToString());
+            if (user == null)
+            {
+                personalMessage = "User not found";
+                personalSuccess = false;
+                return;
+            }
+
+            user.FirstName = firstName;
+            user.LastName = lastName;
+            user.Email = email;
+            user.UserName = email;
+
+            var result = await UserManager.UpdateAsync(user);
+
+            if (result.Succeeded)
+            {
+                personalMessage = "Details saved successfully!";
+                personalSuccess = true;
+                // Auto-hide message after 2 seconds
+                await Task.Delay(2000);
+                personalMessage = "";
+            }
+            else
+            {
+                personalMessage = "Failed to save: " + string.Join(", ", result.Errors.Select(e => e.Description));
+                personalSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            personalMessage = $"Error: {ex.Message}";
+            personalSuccess = false;
+        }
+        finally
+        {
+            isSavingPersonal = false;
+            StateHasChanged();
+        }
+    }
+}
