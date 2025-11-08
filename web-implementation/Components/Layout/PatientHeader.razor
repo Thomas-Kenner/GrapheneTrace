@@ -1,0 +1,80 @@
+@rendermode InteractiveServer
+@inject NavigationManager Navigation
+
+@*
+    PATIENT HEADER COMPONENT
+    Author: SID:2402513
+
+    Purpose:
+    Shared header and navigation for all patient pages.
+
+    How it works:
+    - Displays app branding, notifications, settings, and sign out
+    - Navigation tabs with active state detection
+    - Reusable across all patient pages
+*@
+
+<header class="patient-header">
+    <div class="header-left">
+        <span class="header-brand">Sensore GrapheneTrace</span>
+        <span class="header-subtitle">Patient Dashboard</span>
+    </div>
+    <div class="header-right">
+        <button class="icon-btn" title="Notifications">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+        </button>
+        <button class="icon-btn" title="Settings" @onclick="GoToSettings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6"></path>
+                <path d="M21 12h-6m-6 0H3"></path>
+            </svg>
+        </button>
+        <form method="post" action="/account/logout" style="display: inline; margin: 0;">
+            <button type="submit" class="btn-signout">Sign Out</button>
+        </form>
+    </div>
+</header>
+
+<nav class="patient-nav">
+    <button class="nav-tab @GetActiveClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
+    <button class="nav-tab @GetActiveClass("pressure-data")" @onclick="GoToPressureData">Pressure Data</button>
+    <button class="nav-tab @GetActiveClass("sessions")" @onclick="GoToSessions">Sessions</button>
+    <button class="nav-tab @GetActiveClass("settings")" @onclick="GoToSettings">Settings</button>
+    <button class="nav-tab @GetActiveClass("support")" @onclick="GoToSupport">Support</button>
+</nav>
+
+@code {
+    private string currentPath = "";
+
+    protected override void OnInitialized()
+    {
+        currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        currentPath = new Uri(e.Location).AbsolutePath;
+        StateHasChanged();
+    }
+
+    private string GetActiveClass(string page)
+    {
+        return currentPath.Contains(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    }
+
+    private void GoToDashboard() => Navigation.NavigateTo("/patient/dashboard");
+    private void GoToPressureData() => Navigation.NavigateTo("/patient/pressure-data");
+    private void GoToSessions() => Navigation.NavigateTo("/patient/sessions");
+    private void GoToSettings() => Navigation.NavigateTo("/patient/settings");
+    private void GoToSupport() => Navigation.NavigateTo("/patient/support");
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}
