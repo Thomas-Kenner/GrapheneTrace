@@ -37,7 +37,7 @@ public class DatabaseSeederTests : IDisposable
     private DatabaseSeeder _seeder;
 
     private const string SystemEmail = "system@graphenetrace.local";
-    private const string SystemPassword = "1234";
+    private const string SystemPassword = "System@Admin123";
 
     public DatabaseSeederTests()
     {
