@@ -81,7 +81,19 @@ builder.Services.AddScoped<DashboardService>();
 // Author: SID:2402513
 builder.Services.AddScoped<UserManagementService>();
 
+// Add Database Seeder
+// Author: SID:2412494
+builder.Services.AddScoped<DatabaseSeeder>();
+
 var app = builder.Build();
+
+// Seed database with essential system accounts
+// Author: SID:2412494
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
 
 // Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())
