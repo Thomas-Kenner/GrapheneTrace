@@ -1,0 +1,574 @@
+/* Patient Dashboard Scoped Styles */
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --border: rgba(0, 0, 0, 0.1);
+  --input-background: #f3f3f5;
+  --radius: 0.625rem;
+  --success-green: #10b981;
+  --warning-orange: #f59e0b;
+  --danger-red: #ef4444;
+}
+
+/* Container */
+::deep .patient-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Header */
+::deep .patient-header {
+  background: var(--background);
+  border-bottom: 2px solid #e5e7eb;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+::deep .header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+::deep .header-brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+::deep .header-subtitle {
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+::deep .header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+::deep .icon-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: background 0.2s ease;
+}
+
+::deep .icon-btn:hover {
+  background: var(--accent);
+}
+
+::deep .btn-signout {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .btn-signout:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation Tabs */
+::deep .patient-nav {
+  background: var(--background);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 2rem;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+::deep .nav-tab {
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--muted-foreground);
+  transition: all 0.2s ease;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+::deep .nav-tab.active {
+  color: var(--foreground);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+::deep .nav-tab:hover:not(.active) {
+  color: var(--foreground);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Main Content */
+::deep .patient-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Dashboard Grid - Two Column Layout */
+::deep .dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+}
+
+::deep .left-column {
+  display: flex;
+  flex-direction: column;
+}
+
+::deep .right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Card Base Styles */
+::deep .card {
+  background: var(--card);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+::deep .card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Live Monitoring Card */
+::deep .live-monitoring-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+::deep .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+::deep .card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.25rem 0;
+}
+
+::deep .card-subtitle {
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+::deep .live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-green);
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+::deep .live-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--success-green);
+  border-radius: 50%;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Heatmap Placeholder */
+::deep .heatmap-placeholder {
+  flex: 1;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border: 2px dashed rgba(102, 126, 234, 0.3);
+  border-radius: calc(var(--radius) - 2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  text-align: center;
+  padding: 2rem;
+}
+
+::deep .placeholder-text {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(102, 126, 234, 0.6);
+  margin: 0 0 0.5rem 0;
+  letter-spacing: 0.05em;
+}
+
+::deep .placeholder-description {
+  font-size: 0.95rem;
+  color: rgba(102, 126, 234, 0.5);
+  margin: 0.25rem 0;
+}
+
+/* Metrics Strip */
+::deep .metrics-strip {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+::deep .metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+::deep .metric-label {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+::deep .metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+/* Alert Card */
+::deep .alert-card {
+  text-align: center;
+  /* TODO: Add .alert-card.active class with red background when alerts are detected */
+}
+
+::deep .alert-icon-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+::deep .alert-icon {
+  font-size: 3rem;
+  filter: grayscale(100%);
+  opacity: 0.5;
+}
+
+::deep .alert-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.75rem 0;
+}
+
+::deep .alert-message {
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Device Card */
+::deep .device-card {
+
+}
+
+::deep .device-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+::deep .device-icon {
+  font-size: 1.5rem;
+  filter: grayscale(100%);
+  opacity: 0.4;
+}
+
+::deep .device-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+::deep .device-status {
+  font-size: 0.95rem;
+  color: var(--muted-foreground);
+  margin: 0 0 0.5rem 0;
+}
+
+::deep .device-update {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  margin: 0;
+  font-style: italic;
+}
+
+/* Summary Card */
+::deep .summary-card {
+
+}
+
+::deep .summary-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.25rem 0;
+}
+
+::deep .summary-subtitle {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  margin: 0 0 1rem 0;
+}
+
+::deep .summary-content {
+  padding: 1rem;
+  background: var(--muted);
+  border-radius: calc(var(--radius) - 2px);
+}
+
+::deep .inspirational-quote {
+  font-size: 0.95rem;
+  color: var(--foreground);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* Stats Mini Grid */
+::deep .stats-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+::deep .stat-mini-card {
+  padding: 1rem;
+  text-align: center;
+}
+
+::deep .stat-mini-title {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin: 0 0 0.75rem 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+::deep .stat-mini-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 0.5rem 0;
+}
+
+::deep .stat-mini-detail {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+/* Responsive Design */
+
+/* Tablet (collapse to single column) */
+@media (max-width: 1024px) {
+  ::deep .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  ::deep .right-column {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  ::deep .stats-mini-grid {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  ::deep .patient-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  ::deep .header-left {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  ::deep .header-right {
+    justify-content: space-between;
+  }
+
+  ::deep .patient-nav {
+    padding: 0 1rem;
+  }
+
+  ::deep .patient-content {
+    padding: 1rem;
+  }
+
+  ::deep .right-column {
+    grid-template-columns: 1fr;
+  }
+
+  ::deep .stats-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  ::deep .heatmap-placeholder {
+    min-height: 300px;
+  }
+
+  ::deep .metrics-strip {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  ::deep .metric-item {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  ::deep .patient-header {
+    padding: 1rem;
+  }
+
+  ::deep .patient-nav {
+    padding: 0 0.5rem;
+  }
+
+  ::deep .nav-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  ::deep .patient-content {
+    padding: 0.75rem;
+  }
+
+  ::deep .card {
+    padding: 1rem;
+  }
+
+  ::deep .card-title {
+    font-size: 1.1rem;
+  }
+
+  ::deep .heatmap-placeholder {
+    min-height: 250px;
+    padding: 1rem;
+  }
+
+  ::deep .placeholder-text {
+    font-size: 1.25rem;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::deep .card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Future Enhancement Classes (commented for reference) */
+
+/*
+::deep .alert-card.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+  border-color: var(--danger-red);
+}
+
+::deep .alert-card.active .alert-icon {
+  filter: none;
+  opacity: 1;
+}
+
+::deep .alert-card.active .alert-title {
+  color: var(--danger-red);
+}
+
+::deep .device-card.connected .device-icon {
+  filter: none;
+  opacity: 1;
+}
+
+::deep .device-card.connected .device-status {
+  color: var(--success-green);
+  font-weight: 600;
+}
+*/

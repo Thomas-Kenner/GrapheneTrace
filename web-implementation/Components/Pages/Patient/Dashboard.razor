@@ -1,71 +1,203 @@
+@*
+    ========================================
+    PATIENT DASHBOARD PAGE
+    ========================================
+    Author: SID:2402513
+
+    Purpose:
+    Main patient dashboard providing real-time pressure monitoring, alerts,
+    device status, and weekly insights.
+
+    How it works:
+    - Uses Blazor's @page directive to map to /patient/dashboard route
+    - Implements InteractiveServer render mode for real-time updates
+    - Authorization attribute restricts access to Patient role only
+    - Displays placeholder content until sensor integration is complete
+
+    Why it was done this way:
+    - InteractiveServer enables future real-time pressure data updates via SignalR
+    - Placeholder content allows UI development to proceed independently of backend
+    - Matches wireframe design while maintaining flexibility for future enhancements
+*@
+
 @page "/patient/dashboard"
+@rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthenticationStateProvider AuthStateProvider
 
-@*
-    Patient Dashboard Page
-    Author: SID:2412494
-    Route: /patient/dashboard
-
-    Purpose: Main dashboard for patient users.
-
-    Authorization: Restricted to Patient role only using [Authorize(Roles = "Patient")].
-    Users without the Patient role will receive a 403 Forbidden and be redirected to /access-denied.
-
-    Current Implementation: Simple placeholder for testing authentication flow.
-    Production TODO: Add patient-specific features (personal pressure data, alerts, settings, etc.)
-*@
-
-<div style="padding: 2rem;">
-    <div style="max-width: 64rem; margin: 0 auto;">
-        <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">
-            Patient Dashboard
-        </h1>
-
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem;">
-            <p style="margin-bottom: 0.5rem;">
-                <strong>Welcome, @userName!</strong>
-            </p>
-            <p style="color: #6b7280; margin-bottom: 0.5rem;">
-                Role: <strong>Patient</strong>
-            </p>
-            <p style="color: #6b7280;">
-                View your pressure data and manage your settings.
-            </p>
+<div class="patient-container">
+    @*
+        PATIENT HEADER
+        Temporary simple header - will be replaced with PatientHeader component
+    *@
+    <header class="patient-header">
+        <div class="header-left">
+            <span class="header-brand">Sensore GrapheneTrace</span>
+            <span class="header-subtitle">Patient Dashboard</span>
         </div>
-
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
-                Quick Actions
-            </h2>
-            <p style="color: #6b7280; margin-bottom: 1rem;">
-                Patient features coming soon: Pressure data visualization, alert settings, personal information, etc.
-            </p>
-            <form method="post" action="/account/logout">
-                <button type="submit"
-                        style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
-                    Logout
-                </button>
+        <div class="header-right">
+            <button class="icon-btn" title="Notifications">🔔</button>
+            <button class="icon-btn" title="Settings">⚙️</button>
+            <form method="post" action="/account/logout" style="display: inline; margin: 0;">
+                <button type="submit" class="btn-signout">Sign Out</button>
             </form>
+        </div>
+    </header>
+
+    @*
+        NAVIGATION TABS
+        Simple tab navigation for patient sections
+    *@
+    <nav class="patient-nav">
+        <button class="nav-tab active">Dashboard</button>
+        <button class="nav-tab">Pressure Data</button>
+        <button class="nav-tab">Sessions</button>
+        <button class="nav-tab">Settings</button>
+        <button class="nav-tab">Support</button>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="patient-content">
+        @*
+            TWO-COLUMN LAYOUT
+            Left: Live monitoring (large)
+            Right: Alerts, device status, summary, stats
+        *@
+        <div class="dashboard-grid">
+            @* LEFT COLUMN *@
+            <div class="left-column">
+                @*
+                    LIVE MONITORING CARD
+                    Shows real-time pressure heatmap (placeholder for now)
+                *@
+                <div class="card live-monitoring-card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Live Monitoring</h3>
+                            <p class="card-subtitle">Real-time pressure</p>
+                        </div>
+                        <span class="live-badge">
+                            <span class="live-dot"></span> Live
+                        </span>
+                    </div>
+
+                    <div class="heatmap-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Live pressure heatmap</p>
+                        <p class="placeholder-description">Color-coded grid</p>
+                    </div>
+
+                    <div class="metrics-strip">
+                        <div class="metric-item">
+                            <span class="metric-label">Peak</span>
+                            <span class="metric-value">N/A</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Average</span>
+                            <span class="metric-value">N/A</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Duration</span>
+                            <span class="metric-value">N/A</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* RIGHT COLUMN *@
+            <div class="right-column">
+                @*
+                    HIGH PRESSURE ALERT CARD
+                    TODO: Will turn red when alert system detects threshold breach
+                *@
+                <div class="card alert-card">
+                    <div class="alert-icon-container">
+                        <div class="alert-icon">⚠️</div>
+                    </div>
+                    <h4 class="alert-title">High Pressure Alert</h4>
+                    <p class="alert-message">Will notify when alert system is configured</p>
+                </div>
+
+                @*
+                    DEVICE CONNECTED STATUS CARD
+                *@
+                <div class="card device-card">
+                    <div class="device-header">
+                        <div class="device-icon">⚡</div>
+                        <h4 class="device-title">Device Connected</h4>
+                    </div>
+                    <p class="device-status">Sensor offline. Awaiting connection.</p>
+                    <p class="device-update">Last update: --</p>
+                </div>
+
+                @*
+                    WEEKLY SUMMARY CARD
+                    Uses random inspirational quote as placeholder
+                *@
+                <div class="card summary-card">
+                    <h4 class="summary-title">Weekly Summary</h4>
+                    <p class="summary-subtitle">AI-Generated Insights</p>
+                    <div class="summary-content">
+                        <p class="inspirational-quote">"@randomQuote"</p>
+                    </div>
+                </div>
+
+                @*
+                    STATS GRID - 3 mini cards
+                *@
+                <div class="stats-mini-grid">
+                    <div class="card stat-mini-card">
+                        <h5 class="stat-mini-title">Sessions This Week</h5>
+                        <p class="stat-mini-value">Placeholder</p>
+                        <p class="stat-mini-detail">Total: --</p>
+                    </div>
+                    <div class="card stat-mini-card">
+                        <h5 class="stat-mini-title">Alerts This Week</h5>
+                        <p class="stat-mini-value">Placeholder</p>
+                        <p class="stat-mini-detail">Down from: --</p>
+                    </div>
+                    <div class="card stat-mini-card">
+                        <h5 class="stat-mini-title">Device Status</h5>
+                        <p class="stat-mini-value">Placeholder</p>
+                        <p class="stat-mini-detail">Battery: N/A</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 @code {
     private string userName = "";
+    private string randomQuote = "";
+
+    // Inspirational quotes array (placeholder for AI-generated insights)
+    private readonly string[] inspirationalQuotes = new[]
+    {
+        "Every step towards better health is a victory worth celebrating.",
+        "Your commitment to monitoring your health today shapes a healthier tomorrow.",
+        "Small, consistent actions lead to remarkable transformations.",
+        "Wellness is a journey, not a destination. You're on the right path.",
+        "Taking care of yourself is the most important investment you can make.",
+        "Progress, not perfection. Every day is a new opportunity.",
+        "Your health data tells a story of resilience and dedication.",
+        "Prevention is the best medicine, and you're taking charge.",
+        "Consistency is the bridge between goals and accomplishment.",
+        "Trust the process. Your efforts are making a difference."
+    };
 
     /// <summary>
-    /// Component initialization: loads user information from authentication state.
-    /// Author: SID:2412494
+    /// Component initialization: loads user information and selects random quote
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
-        // Role verification is handled by [Authorize(Roles = "Patient")] attribute
-        // Non-patient users are automatically redirected to /access-denied
+        // Select a random inspirational quote for the weekly summary
+        var random = new Random();
+        randomQuote = inspirationalQuotes[random.Next(inspirationalQuotes.Length)];
     }
 }
