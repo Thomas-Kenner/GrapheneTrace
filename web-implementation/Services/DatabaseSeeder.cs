@@ -12,7 +12,7 @@ namespace GrapheneTrace.Web.Services;
 ///
 /// System Account:
 /// - Username: system@graphenetrace.local
-/// - Password: 1234 (reset on every startup for development consistency)
+/// - Password: System@Admin123 (reset on every startup for development consistency)
 /// - UserType: admin
 /// - Auto-approved: ApprovedAt set to account creation time
 /// - Used for: Initial account approvals, system-generated actions, development testing
@@ -38,7 +38,7 @@ public class DatabaseSeeder
     /// System admin account credentials and configuration.
     /// </summary>
     private const string SystemEmail = "system@graphenetrace.local";
-    private const string SystemPassword = "1234";
+    private const string SystemPassword = "System@Admin123";
     private const string SystemFirstName = "System";
     private const string SystemLastName = "Administrator";
     private const string SystemUserType = "admin";
