@@ -459,6 +459,19 @@ If you prefer to run each step manually or the automated script doesn't work for
 
    The application should now be running and connected to the database.
 
+### Default Admin Account
+
+On startup, the application automatically creates a default System admin account:
+
+| Field | Value |
+|-------|-------|
+| Email | `system@graphenetrace.local` |
+| Password | `System@Admin123` |
+| User Type | Admin |
+| Status | Pre-approved |
+
+Use this account to log in and approve other admin/clinician accounts, or to perform any admin functions during development and testing.
+
 ### Important Notes
 
 - **VPN Warning**: Make sure any VPN is disabled before starting the application. VPNs can mess with port mappings and prevent the application from connecting to the database on `localhost:5432`.
