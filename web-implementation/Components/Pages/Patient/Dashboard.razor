@@ -28,35 +28,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 
 <div class="patient-container">
-    @*
-        PATIENT HEADER
-        Temporary simple header - will be replaced with PatientHeader component
-    *@
-    <header class="patient-header">
-        <div class="header-left">
-            <span class="header-brand">Sensore GrapheneTrace</span>
-            <span class="header-subtitle">Patient Dashboard</span>
-        </div>
-        <div class="header-right">
-            <button class="icon-btn" title="Notifications">🔔</button>
-            <button class="icon-btn" title="Settings">⚙️</button>
-            <form method="post" action="/account/logout" style="display: inline; margin: 0;">
-                <button type="submit" class="btn-signout">Sign Out</button>
-            </form>
-        </div>
-    </header>
-
-    @*
-        NAVIGATION TABS
-        Simple tab navigation for patient sections
-    *@
-    <nav class="patient-nav">
-        <button class="nav-tab active">Dashboard</button>
-        <button class="nav-tab">Pressure Data</button>
-        <button class="nav-tab">Sessions</button>
-        <button class="nav-tab">Settings</button>
-        <button class="nav-tab">Support</button>
-    </nav>
+    <PatientHeader />
 
     <!-- Main Content -->
     <div class="patient-content">
@@ -86,7 +58,7 @@
                     <div class="heatmap-placeholder">
                         <p class="placeholder-text">[PLACEHOLDER]</p>
                         <p class="placeholder-description">Live pressure heatmap</p>
-                        <p class="placeholder-description">Color-coded grid</p>
+                        <p class="placeholder-description">Colour-coded grid</p>
                     </div>
 
                     <div class="metrics-strip">
@@ -126,7 +98,7 @@
                 <div class="card device-card">
                     <div class="device-header">
                         <div class="device-icon">⚡</div>
-                        <h4 class="device-title">Device Connected</h4>
+                        <h4 class="device-title">Device Disconnected</h4>
                     </div>
                     <p class="device-status">Sensor offline. Awaiting connection.</p>
                     <p class="device-update">Last update: --</p>
@@ -150,17 +122,17 @@
                 <div class="stats-mini-grid">
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Sessions This Week</h5>
-                        <p class="stat-mini-value">Placeholder</p>
+                        <p class="stat-mini-value">Upcoming</p>
                         <p class="stat-mini-detail">Total: --</p>
                     </div>
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Alerts This Week</h5>
-                        <p class="stat-mini-value">Placeholder</p>
+                        <p class="stat-mini-value">Upcoming</p>
                         <p class="stat-mini-detail">Down from: --</p>
                     </div>
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Device Status</h5>
-                        <p class="stat-mini-value">Placeholder</p>
+                        <p class="stat-mini-value">Upcoming</p>
                         <p class="stat-mini-detail">Battery: N/A</p>
                     </div>
                 </div>

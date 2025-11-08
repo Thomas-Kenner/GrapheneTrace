@@ -1,0 +1,150 @@
+@*
+    ========================================
+    PATIENT SUPPORT PAGE
+    ========================================
+    Author: SID:2402513
+
+    Purpose:
+    Live chat support interface, contact options, and helpful resources.
+
+    Current Implementation:
+    All functionality is placeholder - chat is visual only, buttons don't navigate.
+*@
+
+@page "/patient/support"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+
+<div class="patient-container">
+    <PatientHeader />
+
+    <div class="patient-content">
+        <div class="support-grid">
+            @* LEFT PANEL - Live Chat *@
+            <div class="card chat-card">
+                <div class="chat-header">
+                    <div>
+                        <h3 class="chat-title">Live Chat Support</h3>
+                        <p class="chat-subtitle">Get help from our team</p>
+                    </div>
+                    <div class="online-indicator">
+                        <span class="online-dot"></span> Online
+                    </div>
+                </div>
+
+                <div class="chat-messages">
+                    @* Placeholder Chat Message 1 *@
+                    <div class="message message-received">
+                        <p class="message-text">Hello! I'm here to help with any questions about your GrapheneTrace sensor. How can I assist you?</p>
+                        <span class="message-time">Placeholder Time</span>
+                    </div>
+
+                    @* Placeholder Chat Message 2 *@
+                    <div class="message message-sent">
+                        <p class="message-text">Placeholder user message - example question</p>
+                        <span class="message-time">Placeholder Time</span>
+                    </div>
+
+                    @* Placeholder Chat Message 3 *@
+                    <div class="message message-received">
+                        <p class="message-text">Placeholder response - example answer to the question</p>
+                        <span class="message-time">Placeholder Time</span>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" placeholder="Type your message..." disabled />
+                    <button class="chat-send-btn" disabled>
+                        ✈️
+                    </button>
+                </div>
+
+                <p class="chat-disclaimer">Live chat is a placeholder. Real-time support coming soon.</p>
+            </div>
+
+            @* RIGHT PANEL - Contact & Resources *@
+            <div class="right-panel">
+                @* Contact Options *@
+                <div class="card contact-card">
+                    <h3 class="section-title">Contact Options</h3>
+                    <p class="section-subtitle">Other ways to reach us</p>
+
+                    <div class="contact-options">
+                        <button class="contact-option" disabled>
+                            <div class="contact-icon">📞</div>
+                            <div class="contact-info">
+                                <div class="contact-label">Call Support</div>
+                                <div class="contact-detail">24/7</div>
+                            </div>
+                        </button>
+
+                        <button class="contact-option" disabled>
+                            <div class="contact-icon">✉️</div>
+                            <div class="contact-info">
+                                <div class="contact-label">Email Support</div>
+                                <div class="contact-detail">Response within 24h</div>
+                            </div>
+                        </button>
+
+                        <button class="contact-option" disabled>
+                            <div class="contact-icon">📅</div>
+                            <div class="contact-info">
+                                <div class="contact-label">Schedule Call</div>
+                                <div class="contact-detail">Book a time</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                @* Quick Links *@
+                <div class="card links-card">
+                    <h3 class="section-title">Quick Links</h3>
+                    <p class="section-subtitle">Helpful resources</p>
+
+                    <div class="quick-links">
+                        <button class="quick-link" disabled>
+                            <span>User Guide</span>
+                            <span class="link-arrow">→</span>
+                        </button>
+                        <button class="quick-link" disabled>
+                            <span>FAQ</span>
+                            <span class="link-arrow">→</span>
+                        </button>
+                        <button class="quick-link" disabled>
+                            <span>Video Tutorials</span>
+                            <span class="link-arrow">→</span>
+                        </button>
+                        <button class="quick-link" disabled>
+                            <span>Troubleshooting</span>
+                            <span class="link-arrow">→</span>
+                        </button>
+                    </div>
+                </div>
+
+                @* Support Hours *@
+                <div class="card hours-card">
+                    <h3 class="section-title">Support Hours</h3>
+
+                    <div class="hours-list">
+                        <div class="hours-item">
+                            <span class="hours-label">Live Chat:</span>
+                            <span class="hours-value">24/7</span>
+                        </div>
+                        <div class="hours-item">
+                            <span class="hours-label">Phone:</span>
+                            <span class="hours-value">24/7</span>
+                        </div>
+                        <div class="hours-item">
+                            <span class="hours-label">Email:</span>
+                            <span class="hours-value">Within 24h</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // All chat and support functionality is placeholder
+}
