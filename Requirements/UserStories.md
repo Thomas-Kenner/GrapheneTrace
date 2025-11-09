@@ -10,7 +10,7 @@
 
 #### Login & Authentication
 - [X] **Story #1**: As a user, I want to have an account I can login to so I can access the features and data that are relevant to me without unauthorised people having access to my data.
-- [ ] **Story #33**: As a clinician, I want to create a clinician account that an admin can approve to be able to use the app.
+- [X] **Story #33**: As a clinician, I want to create a clinician account that an admin can approve to be able to use the app.
 - [X] **Story #34**: As a user, I want to stay logged in across browser sessions so I don't have to re-authenticate constantly.
 - [X] **Story #35**: As a user, I want to log out securely so that others using my device cannot access my account.
 - [ ] **Story #36**: As a user, I want my session to automatically expire after a period of inactivity so my account remains secure if I forget to log out.
@@ -105,11 +105,11 @@ These stories are explicitly marked as out of scope for the current implementati
 
 | Developer | Total Stories | Completed | Remaining |
 |-----------|---------------|-----------|-----------|
-| Thomas    | 13            | 0         | 13        |
-| Andrei    | 11            | 0         | 11        |
+| Thomas    | 13            | 5         | 8         |
+| Andrei    | 11            | 4         | 7         |
 | Rachel    | 8             | 0         | 8         |
 | Unassigned| 6             | 0         | 6         |
-| **Total** | **38**        | **0**     | **38**    |
+| **Total** | **38**        | **9**     | **29**    |
 
 ---
 

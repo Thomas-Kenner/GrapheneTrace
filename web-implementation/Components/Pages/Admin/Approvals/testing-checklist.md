@@ -35,9 +35,9 @@ Then navigate to `https://localhost:5001` (or the port shown in terminal)
 3. Complete registration
 
 **Expected Result:**
-- [ ] Account creation succeeds
-- [ ] You can immediately log in with these credentials
-- [ ] Patient account does NOT appear in `/admin/approvals`
+- [x] Account creation succeeds
+- [x] You can immediately log in with these credentials
+- [x] Patient account does NOT appear in `/admin/approvals`
 
 ---
 
@@ -68,9 +68,9 @@ Then navigate to `https://localhost:5001` (or the port shown in terminal)
    - Navigate to `/admin/approvals`
 
 **Expected Results:**
-- [ ] Login fails with message: "Your account is pending approval. Please contact an administrator."
-- [ ] See "Test Clinician" in the pending approvals table
-- [ ] Shows: Name, Email, Type badge (green "Clinician"), and "Requested" date
+- [x] Login fails with message: "Your account is pending approval. Please contact an administrator."
+- [x] See "Test Clinician" in the pending approvals table
+- [x] Shows: Name, Email, Type badge (green "Clinician"), and "Requested" date
 
 ---
 
@@ -85,13 +85,13 @@ Then navigate to `https://localhost:5001` (or the port shown in terminal)
 4. Click "Approve" again, then "Confirm"
 
 **Expected Results:**
-- [ ] Approve button disappears when clicked
-- [ ] Confirmation message appears: "Approve Test's account?"
-- [ ] Two new buttons appear: "Confirm" (green) and "Cancel" (gray)
-- [ ] Cancel button restores original "Approve" button
-- [ ] Confirm button shows success message: "User approved successfully"
-- [ ] User disappears from pending list
-- [ ] Pending count decreases
+- [x] Approve button disappears when clicked
+- [x] Confirmation message appears: "Approve Test's account?"
+- [x] Two new buttons appear: "Confirm" (green) and "Cancel" (gray)
+- [x] Cancel button restores original "Approve" button
+- [x] Confirm button shows success message: "User approved successfully"
+- [x] User disappears from pending list
+- [x] Pending count decreases
 
 ---
 
@@ -106,8 +106,8 @@ Then navigate to `https://localhost:5001` (or the port shown in terminal)
    - Password: `Password123!`
 
 **Expected Result:**
-- [ ] Login succeeds
-- [ ] Redirects to `/clinician/dashboard`
+- [x] Login succeeds
+- [x] Redirects to `/clinician/dashboard`
 
 ---
 
@@ -133,10 +133,10 @@ Then navigate to `https://localhost:5001` (or the port shown in terminal)
    - Approve the account
 
 **Expected Results:**
-- [ ] Login fails with "pending approval" message
-- [ ] Test Admin appears in approvals with black "Admin" badge
-- [ ] Same confirmation workflow as clinician
-- [ ] Approval succeeds
+- [x] Login fails with "pending approval" message
+- [x] Test Admin appears in approvals with black "Admin" badge
+- [x] Same confirmation workflow as clinician
+- [x] Approval succeeds
 
 ---
 
@@ -196,10 +196,10 @@ WHERE u."Email" = 'testclinician@example.com';
 2. Navigate to `/admin/approvals`
 
 **Expected Results:**
-- [ ] Message displays: "No pending approvals"
-- [ ] Subtext displays: "All accounts have been reviewed."
-- [ ] No table is shown
-- [ ] Pending count is 0 or not displayed
+- [x] Message displays: "No pending approvals"
+- [x] Subtext displays: "All accounts have been reviewed."
+- [x] No table is shown
+- [x] Pending count is not displayed
 
 ---
 
@@ -213,10 +213,10 @@ WHERE u."Email" = 'testclinician@example.com';
 3. Test approve workflow on mobile
 
 **Expected Results:**
-- [ ] Table remains readable
-- [ ] Confirmation buttons stack vertically
-- [ ] Action buttons expand to full width
-- [ ] Navigation tabs remain accessible
+- [x] Table remains readable
+- [x] Confirmation buttons stack vertically
+- [x] Action buttons expand to full width
+- [x] Navigation tabs remain accessible
 
 ---
 
@@ -230,9 +230,9 @@ WHERE u."Email" = 'testclinician@example.com';
 3. Navigate to other tabs and back
 
 **Expected Results:**
-- [ ] Clicking "Approvals" navigates to `/admin/approvals`
-- [ ] "Approvals" tab highlighted as active when on page
-- [ ] Tab styling matches other admin pages
+- [x] Clicking "Approvals" navigates to `/admin/approvals`
+- [x] "Approvals" tab highlighted as active when on page
+- [x] Tab styling matches other admin pages
 
 ---
 
