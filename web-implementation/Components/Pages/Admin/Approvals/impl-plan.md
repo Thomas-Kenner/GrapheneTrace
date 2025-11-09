@@ -4,6 +4,8 @@
 **Created:** 2025-11-07
 **Purpose:** Independent component set for approving new non-patient user accounts in the admin dashboard
 
+**NOTE:** This has now been implemented, the plan has been left in for posterity.
+
 ---
 
 ## Overview
