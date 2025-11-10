@@ -13,7 +13,7 @@
 - [X] **Story #33**: As a clinician, I want to create a clinician account that an admin can approve to be able to use the app.
 - [X] **Story #34**: As a user, I want to stay logged in across browser sessions so I don't have to re-authenticate constantly.
 - [X] **Story #35**: As a user, I want to log out securely so that others using my device cannot access my account.
-- [ ] **Story #36**: As a user, I want my session to automatically expire after a period of inactivity so my account remains secure if I forget to log out.
+- [X] **Story #36**: As a user, I want my session to automatically expire after a period of inactivity so my account remains secure if I forget to log out.
 
 #### Pressure Data & Notifications
 - [ ] **Story #7**: As a clinician, I want to be notified when patients are over their peak pressure index to know to check for signs of pressure ulcers when I next see them.
@@ -105,11 +105,11 @@ These stories are explicitly marked as out of scope for the current implementati
 
 | Developer | Total Stories | Completed | Remaining |
 |-----------|---------------|-----------|-----------|
-| Thomas    | 13            | 5         | 8         |
+| Thomas    | 13            | 6         | 7         |
 | Andrei    | 11            | 4         | 7         |
 | Rachel    | 8             | 0         | 8         |
 | Unassigned| 6             | 0         | 6         |
-| **Total** | **38**        | **9**     | **29**    |
+| **Total** | **38**        | **10**    | **28**    |
 
 ---
 
