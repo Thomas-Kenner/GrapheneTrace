@@ -377,6 +377,39 @@ This approach might feel like extra steps at first, but it helps us:
 
 ### Setup Instructions
 
+#### Automated Setup (Recommended)
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd GrapheneTrace
+   ```
+
+2. **Run the initialization script**
+   ```bash
+   chmod +x scripts/init-db.sh
+   ./scripts/init-db.sh
+   ```
+
+   This script will automatically:
+   - Start docker-compose if not already running
+   - Wait for PostgreSQL to be healthy
+   - Apply all database migrations in order
+
+3. **Navigate to the web implementation and run the application**
+   ```bash
+   cd web-implementation
+   dotnet watch run
+   ```
+
+4. **Open your browser to** `https://localhost:5001`
+
+   The application should now be running and connected to the database.
+
+#### Manual Setup (Alternative)
+
+If you prefer to run each step manually or the automated script doesn't work for your environment:
+
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
@@ -425,6 +458,19 @@ This approach might feel like extra steps at first, but it helps us:
 7. **Open your browser to** `https://localhost:5001`
 
    The application should now be running and connected to the database.
+
+### Default Admin Account
+
+On startup, the application automatically creates a default System admin account:
+
+| Field | Value |
+|-------|-------|
+| Email | `system@graphenetrace.local` |
+| Password | `System@Admin123` |
+| User Type | Admin |
+| Status | Pre-approved |
+
+Use this account to log in and approve other admin/clinician accounts, or to perform any admin functions during development and testing.
 
 ### Important Notes
 
