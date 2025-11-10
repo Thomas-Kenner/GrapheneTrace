@@ -19,8 +19,14 @@ namespace GrapheneTrace.Web.Tests.Services;
 /// 1. System account creation when it doesn't exist
 /// 2. Password reset when System account already exists
 /// 3. System account is auto-approved with correct fields
-/// 4. Seeding respects configuration enabled/disabled flag
-/// 5. Error handling and logging
+/// 4. Test patient account creation (auto-approved)
+/// 5. Approved clinician account creation (approved by system admin)
+/// 6. Unapproved clinician account creation (pending approval)
+/// 7. All test accounts are reset on each seeding run
+/// 8. Approval statuses are maintained correctly across re-seeding
+/// 9. Consistent timestamps (build time) used across all accounts
+/// 10. Seeding respects configuration enabled/disabled flag
+/// 11. Error handling and logging
 ///
 /// Testing Strategy:
 /// - Uses in-memory database for fast, isolated tests
@@ -38,6 +44,15 @@ public class DatabaseSeederTests : IDisposable
 
     private const string SystemEmail = "system@graphenetrace.local";
     private const string SystemPassword = "System@Admin123";
+
+    private const string TestPatientEmail = "patient.test@graphenetrace.local";
+    private const string TestPatientPassword = "Patient@Test123";
+
+    private const string ApprovedClinicianEmail = "clinician.approved@graphenetrace.local";
+    private const string ApprovedClinicianPassword = "Clinician@Approved123";
+
+    private const string UnapprovedClinicianEmail = "clinician.pending@graphenetrace.local";
+    private const string UnapprovedClinicianPassword = "Clinician@Pending123";
 
     public DatabaseSeederTests()
     {
@@ -338,6 +353,197 @@ public class DatabaseSeederTests : IDisposable
                 null,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
+    }
+
+    /// <summary>
+    /// Test: Test patient account should be created when seeding runs.
+    /// </summary>
+    [Fact]
+    public async Task SeedAsync_CreatesTestPatientAccount()
+    {
+        // Act
+        await _seeder.SeedAsync();
+
+        // Assert
+        var testPatient = await _userManager.FindByEmailAsync(TestPatientEmail);
+
+        Assert.NotNull(testPatient);
+        Assert.Equal(TestPatientEmail, testPatient.Email);
+        Assert.Equal(TestPatientEmail, testPatient.UserName);
+        Assert.Equal("Test", testPatient.FirstName);
+        Assert.Equal("Patient", testPatient.LastName);
+        Assert.Equal("patient", testPatient.UserType);
+        Assert.True(testPatient.EmailConfirmed);
+        Assert.NotNull(testPatient.ApprovedAt); // Patients are auto-approved
+        Assert.Null(testPatient.ApprovedBy); // No approver for patients
+
+        // Verify password
+        var passwordValid = await _userManager.CheckPasswordAsync(testPatient, TestPatientPassword);
+        Assert.True(passwordValid);
+    }
+
+    /// <summary>
+    /// Test: Approved clinician account should be created with correct approval status.
+    /// </summary>
+    [Fact]
+    public async Task SeedAsync_CreatesApprovedClinicianAccount()
+    {
+        // Act
+        await _seeder.SeedAsync();
+
+        // Assert
+        var systemUser = await _userManager.FindByEmailAsync(SystemEmail);
+        var approvedClinician = await _userManager.FindByEmailAsync(ApprovedClinicianEmail);
+
+        Assert.NotNull(approvedClinician);
+        Assert.Equal(ApprovedClinicianEmail, approvedClinician.Email);
+        Assert.Equal(ApprovedClinicianEmail, approvedClinician.UserName);
+        Assert.Equal("Approved", approvedClinician.FirstName);
+        Assert.Equal("Clinician", approvedClinician.LastName);
+        Assert.Equal("clinician", approvedClinician.UserType);
+        Assert.True(approvedClinician.EmailConfirmed);
+        Assert.NotNull(approvedClinician.ApprovedAt); // Should be approved
+        Assert.Equal(systemUser.Id, approvedClinician.ApprovedBy); // Approved by system admin
+
+        // Verify password
+        var passwordValid = await _userManager.CheckPasswordAsync(approvedClinician, ApprovedClinicianPassword);
+        Assert.True(passwordValid);
+    }
+
+    /// <summary>
+    /// Test: Unapproved clinician account should be created without approval.
+    /// </summary>
+    [Fact]
+    public async Task SeedAsync_CreatesUnapprovedClinicianAccount()
+    {
+        // Act
+        await _seeder.SeedAsync();
+
+        // Assert
+        var unapprovedClinician = await _userManager.FindByEmailAsync(UnapprovedClinicianEmail);
+
+        Assert.NotNull(unapprovedClinician);
+        Assert.Equal(UnapprovedClinicianEmail, unapprovedClinician.Email);
+        Assert.Equal(UnapprovedClinicianEmail, unapprovedClinician.UserName);
+        Assert.Equal("Pending", unapprovedClinician.FirstName);
+        Assert.Equal("Clinician", unapprovedClinician.LastName);
+        Assert.Equal("clinician", unapprovedClinician.UserType);
+        Assert.True(unapprovedClinician.EmailConfirmed);
+        Assert.Null(unapprovedClinician.ApprovedAt); // Should NOT be approved
+        Assert.Null(unapprovedClinician.ApprovedBy);
+
+        // Verify password
+        var passwordValid = await _userManager.CheckPasswordAsync(unapprovedClinician, UnapprovedClinicianPassword);
+        Assert.True(passwordValid);
+    }
+
+    /// <summary>
+    /// Test: All test accounts should be reset when seeding runs multiple times.
+    /// </summary>
+    [Fact]
+    public async Task SeedAsync_ResetsAllTestAccountPasswords_WhenRunMultipleTimes()
+    {
+        // Arrange: Create existing accounts with different passwords
+        var testPatient = new ApplicationUser
+        {
+            UserName = TestPatientEmail,
+            Email = TestPatientEmail,
+            EmailConfirmed = true,
+            FirstName = "Test",
+            LastName = "Patient",
+            UserType = "patient",
+            CreatedAt = DateTime.UtcNow,
+            ApprovedAt = DateTime.UtcNow
+        };
+        await _userManager.CreateAsync(testPatient, "OldPassword123!");
+
+        var approvedClinician = new ApplicationUser
+        {
+            UserName = ApprovedClinicianEmail,
+            Email = ApprovedClinicianEmail,
+            EmailConfirmed = true,
+            FirstName = "Approved",
+            LastName = "Clinician",
+            UserType = "clinician",
+            CreatedAt = DateTime.UtcNow,
+            ApprovedAt = DateTime.UtcNow
+        };
+        await _userManager.CreateAsync(approvedClinician, "OldPassword456!");
+
+        // Act: Run seeder
+        await _seeder.SeedAsync();
+
+        // Assert: Passwords should be reset
+        testPatient = await _userManager.FindByEmailAsync(TestPatientEmail);
+        var testPatientPasswordValid = await _userManager.CheckPasswordAsync(testPatient, TestPatientPassword);
+        Assert.True(testPatientPasswordValid);
+
+        approvedClinician = await _userManager.FindByEmailAsync(ApprovedClinicianEmail);
+        var approvedClinicianPasswordValid = await _userManager.CheckPasswordAsync(approvedClinician, ApprovedClinicianPassword);
+        Assert.True(approvedClinicianPasswordValid);
+    }
+
+    /// <summary>
+    /// Test: Unapproved clinician should remain unapproved after re-seeding.
+    /// </summary>
+    [Fact]
+    public async Task SeedAsync_MaintainsUnapprovedStatus_WhenRunMultipleTimes()
+    {
+        // Arrange: Create unapproved clinician, then manually approve it
+        await _seeder.SeedAsync();
+
+        var unapprovedClinician = await _userManager.FindByEmailAsync(UnapprovedClinicianEmail);
+        Assert.NotNull(unapprovedClinician);
+        Assert.Null(unapprovedClinician.ApprovedAt);
+
+        // Manually approve the account
+        unapprovedClinician.ApprovedAt = DateTime.UtcNow;
+        unapprovedClinician.ApprovedBy = Guid.NewGuid();
+        await _userManager.UpdateAsync(unapprovedClinician);
+
+        // Verify it's approved
+        unapprovedClinician = await _userManager.FindByEmailAsync(UnapprovedClinicianEmail);
+        Assert.NotNull(unapprovedClinician.ApprovedAt);
+
+        // Act: Run seeder again
+        await _seeder.SeedAsync();
+
+        // Assert: Should be reset to unapproved state
+        unapprovedClinician = await _userManager.FindByEmailAsync(UnapprovedClinicianEmail);
+        Assert.NotNull(unapprovedClinician);
+        Assert.Null(unapprovedClinician.ApprovedAt); // Reset to unapproved
+        Assert.Null(unapprovedClinician.ApprovedBy);
+    }
+
+    /// <summary>
+    /// Test: All seeded accounts should use consistent timestamps (build time).
+    /// </summary>
+    [Fact]
+    public async Task SeedAsync_UsesConsistentBuildTime_ForAllAccounts()
+    {
+        // Act
+        await _seeder.SeedAsync();
+
+        // Assert
+        var systemUser = await _userManager.FindByEmailAsync(SystemEmail);
+        var testPatient = await _userManager.FindByEmailAsync(TestPatientEmail);
+        var approvedClinician = await _userManager.FindByEmailAsync(ApprovedClinicianEmail);
+        var unapprovedClinician = await _userManager.FindByEmailAsync(UnapprovedClinicianEmail);
+
+        Assert.NotNull(systemUser);
+        Assert.NotNull(testPatient);
+        Assert.NotNull(approvedClinician);
+        Assert.NotNull(unapprovedClinician);
+
+        // All accounts should have timestamps within a few seconds of each other
+        var timeWindow = TimeSpan.FromSeconds(5);
+        Assert.Equal(systemUser.CreatedAt, testPatient.CreatedAt, timeWindow);
+        Assert.Equal(systemUser.CreatedAt, approvedClinician.CreatedAt, timeWindow);
+        Assert.Equal(systemUser.CreatedAt, unapprovedClinician.CreatedAt, timeWindow);
+
+        // Approved accounts should have matching ApprovedAt times
+        Assert.Equal(systemUser.ApprovedAt!.Value, testPatient.ApprovedAt!.Value, timeWindow);
+        Assert.Equal(systemUser.ApprovedAt!.Value, approvedClinician.ApprovedAt!.Value, timeWindow);
     }
 }
 
