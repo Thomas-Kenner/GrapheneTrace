@@ -59,9 +59,17 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.SameSite = SameSiteMode.Lax;  // Changed from Strict for better compatibility
     options.Cookie.Name = ".GrapheneTrace.Auth";
 
-    // Session timeout (HIPAA recommended: 20 minutes)
+    // Session expiration settings (Story #36)
+    // Author: SID:2412494
+    // HIPAA/medical device security standard: 20-minute timeout
+    // Sessions automatically expire after 20 minutes of inactivity
+    // This protects patient data if users forget to log out
     options.ExpireTimeSpan = TimeSpan.FromMinutes(20);
-    options.SlidingExpiration = true;  // Extends on activity
+
+    // Sliding expiration: session extends by 20 minutes on each request
+    // User remains logged in as long as they are active
+    // Countdown resets with each page navigation or interaction
+    options.SlidingExpiration = true;
 
     options.LoginPath = "/login";
     options.LogoutPath = "/logout";
