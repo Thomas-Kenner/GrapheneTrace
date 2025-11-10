@@ -62,6 +62,42 @@ public class ApplicationUser : IdentityUser<Guid>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// Timestamp when the account was approved by an administrator. Null indicates pending approval.
+    /// </summary>
+    /// <remarks>
+    /// Account Approval Workflow:
+    /// - When a user registers, this field is NULL (account pending approval)
+    /// - Admin must approve the account before user can access the system
+    /// - Set to current timestamp when admin approves the account
+    /// - Check this field during login to prevent unapproved users from accessing the system
+    /// </remarks>
+    public DateTime? ApprovedAt { get; set; }
+
+    /// <summary>
+    /// Foreign key to the administrator who approved this account. Null indicates not yet approved or auto-approved (patients).
+    /// </summary>
+    /// <remarks>
+    /// Audit Trail:
+    /// - Set when admin manually approves an account via the approval dashboard
+    /// - References the approving admin's user_id in AspNetUsers table
+    /// - Provides direct database-level tracking of who approved which accounts
+    /// - Null for patient accounts (auto-approved) or legacy accounts approved before this field existed
+    /// - Used in conjunction with ApprovedAt timestamp for complete audit trail
+    /// </remarks>
+    public Guid? ApprovedBy { get; set; }
+
+    /// <summary>
+    /// Navigation property to the administrator who approved this account.
+    /// </summary>
+    /// <remarks>
+    /// Enables queries like:
+    /// - var approver = user.ApprovedByAdmin;
+    /// - var approverName = user.ApprovedByAdmin?.FullName;
+    /// Useful for displaying approval history in admin dashboards.
+    /// </remarks>
+    public virtual ApplicationUser? ApprovedByAdmin { get; set; }
+
+    /// <summary>
     /// Soft deletion timestamp. Null indicates active account.
     /// </summary>
     /// <remarks>

@@ -21,14 +21,18 @@ namespace GrapheneTrace.Web.Services;
 public class UserManagementService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ILogger<UserManagementService> _logger;
 
     /// <summary>
     /// Initializes the UserManagementService.
     /// Author: SID:2402513
     /// </summary>
-    public UserManagementService(UserManager<ApplicationUser> userManager)
+    public UserManagementService(
+        UserManager<ApplicationUser> userManager,
+        ILogger<UserManagementService> logger)
     {
         _userManager = userManager;
+        _logger = logger;
     }
 
     /// <summary>
@@ -219,6 +223,75 @@ public class UserManagementService
         catch (Exception ex)
         {
             return (false, $"Error resetting password: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Approves a pending user account by setting the ApprovedAt timestamp and ApprovedBy foreign key.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="userId">ID of the user to approve</param>
+    /// <param name="approvedByAdminId">ID of the admin performing the approval</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Account Approval Workflow:
+    /// - Sets ApprovedAt to current UTC timestamp
+    /// - Sets ApprovedBy foreign key to track which admin approved the account
+    /// - Idempotent operation: if user is already approved, returns error without modification
+    /// - Audit logging for compliance tracking (HIPAA requirement)
+    ///
+    /// Race Condition Protection:
+    /// The ApprovedAt != null check makes this method idempotent. If two admins
+    /// attempt to approve simultaneously, the second approval will fail gracefully
+    /// with an "already approved" message.
+    ///
+    /// Security:
+    /// - Only callable by admin users (enforced by component authorization)
+    /// - Validates user exists before updating
+    /// - Tracks approval audit trail in database and logs
+    /// </remarks>
+    public async Task<(bool Success, string Message)> ApproveUserAsync(Guid userId, Guid approvedByAdminId)
+    {
+        try
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                _logger.LogWarning("Attempted to approve non-existent user {UserId}", userId);
+                return (false, "User not found");
+            }
+
+            // Idempotent check - prevents race condition if multiple admins approve simultaneously
+            if (user.ApprovedAt != null)
+            {
+                _logger.LogWarning("Attempted to approve already-approved user {UserId}", userId);
+                return (false, "User already approved");
+            }
+
+            // Set approval timestamp and approving admin
+            user.ApprovedAt = DateTime.UtcNow;
+            user.ApprovedBy = approvedByAdminId;
+
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError("Failed to approve user {UserId}: {Errors}", userId, errors);
+                return (false, $"Failed to approve user: {errors}");
+            }
+
+            // Audit logging for compliance and tracking
+            _logger.LogInformation(
+                "User {UserId} ({UserEmail}) approved by admin {AdminId} at {Timestamp}",
+                userId, user.Email, approvedByAdminId, user.ApprovedAt);
+
+            return (true, "User approved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error approving user {UserId}", userId);
+            return (false, $"Error approving user: {ex.Message}");
         }
     }
 }

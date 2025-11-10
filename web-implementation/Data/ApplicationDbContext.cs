@@ -71,13 +71,26 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
                 .IsRequired()
                 .HasMaxLength(20);
 
-            // DeactivatedAt is nullable, no configuration needed
+            // ApprovedAt and DeactivatedAt are nullable, no configuration needed
+
+            // Configure ApprovedBy self-referencing foreign key
+            // This allows tracking which admin approved each user account
+            entity.HasOne(e => e.ApprovedByAdmin)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedBy)
+                .OnDelete(DeleteBehavior.Restrict);  // Prevent cascading deletes
 
             // Optional: Create index on UserType for faster role-based queries
             entity.HasIndex(e => e.UserType);
 
+            // Optional: Create index on ApprovedAt for filtering approved/pending users
+            entity.HasIndex(e => e.ApprovedAt);
+
             // Optional: Create index on DeactivatedAt for filtering active users
             entity.HasIndex(e => e.DeactivatedAt);
+
+            // Optional: Create index on ApprovedBy for approval history queries
+            entity.HasIndex(e => e.ApprovedBy);
         });
 
         // Future: Add configurations for other entities here
