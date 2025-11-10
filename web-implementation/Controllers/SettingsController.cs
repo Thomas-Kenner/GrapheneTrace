@@ -14,6 +14,15 @@ namespace GrapheneTrace.Web.Controllers;
 /// <remarks>
 /// Implements Story #9: Patient pressure threshold configuration.
 ///
+/// ⚙️ CONFIGURATION NOTE:
+/// This controller uses PressureThresholdsConfig from appsettings.json for validation
+/// and default values. The configuration is validated at application startup.
+///
+/// To modify threshold ranges or defaults:
+/// 1. Edit appsettings.json > PressureThresholds section
+/// 2. Restart the application
+/// 3. Validation occurs automatically at startup
+///
 /// API Endpoints:
 /// - GET  /api/settings - Retrieve current user's settings
 /// - PUT  /api/settings - Update current user's settings
@@ -21,9 +30,9 @@ namespace GrapheneTrace.Web.Controllers;
 /// Authorization: Restricted to Patient role only.
 /// Non-patient users receive 403 Forbidden.
 ///
-/// Default Settings:
-/// - LowPressureThreshold: 50
-/// - HighPressureThreshold: 200
+/// Default Settings (from appsettings.json):
+/// - LowPressureThreshold: Configured via DefaultLowThreshold (currently 50)
+/// - HighPressureThreshold: Configured via DefaultHighThreshold (currently 200)
 ///
 /// Auto-creation: If patient has no settings, defaults are created on first GET.
 /// </remarks>
@@ -34,15 +43,18 @@ public class SettingsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly PressureThresholdsConfig _thresholdsConfig;
     private readonly ILogger<SettingsController> _logger;
 
     public SettingsController(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
+        PressureThresholdsConfig thresholdsConfig,
         ILogger<SettingsController> logger)
     {
         _context = context;
         _userManager = userManager;
+        _thresholdsConfig = thresholdsConfig;
         _logger = logger;
     }
 
@@ -60,15 +72,15 @@ public class SettingsController : ControllerBase
         var settings = await _context.PatientSettings
             .FirstOrDefaultAsync(ps => ps.UserId == userId);
 
-        // Auto-create default settings if not found
+        // Auto-create default settings if not found (uses config values)
         if (settings == null)
         {
             settings = new PatientSettings
             {
                 PatientSettingsId = Guid.NewGuid(),
                 UserId = userId,
-                LowPressureThreshold = 50,
-                HighPressureThreshold = 200,
+                LowPressureThreshold = _thresholdsConfig.DefaultLowThreshold,
+                HighPressureThreshold = _thresholdsConfig.DefaultHighThreshold,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -76,7 +88,9 @@ public class SettingsController : ControllerBase
             _context.PatientSettings.Add(settings);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Created default settings for patient {UserId}", userId);
+            _logger.LogInformation(
+                "Created default settings for patient {UserId}: Low={Low}, High={High}",
+                userId, _thresholdsConfig.DefaultLowThreshold, _thresholdsConfig.DefaultHighThreshold);
         }
 
         return Ok(new
@@ -91,21 +105,28 @@ public class SettingsController : ControllerBase
     /// PUT /api/settings
     /// Updates current user's pressure threshold settings.
     /// Creates new settings if none exist.
+    /// Validation ranges are loaded from appsettings.json configuration.
     /// </summary>
     /// <param name="request">Settings update request with low and high thresholds</param>
     /// <returns>Updated settings or validation error</returns>
     [HttpPut]
     public async Task<IActionResult> UpdateSettings([FromBody] UpdateSettingsRequest request)
     {
-        // Validate request
-        if (request.LowThreshold < 1 || request.LowThreshold > 254)
+        // Validate request using configured ranges (from appsettings.json)
+        if (request.LowThreshold < _thresholdsConfig.LowThresholdMin ||
+            request.LowThreshold > _thresholdsConfig.LowThresholdMax)
         {
-            return BadRequest(new { error = "Low threshold must be between 1 and 254" });
+            return BadRequest(new {
+                error = $"Low threshold must be between {_thresholdsConfig.LowThresholdMin} and {_thresholdsConfig.LowThresholdMax}"
+            });
         }
 
-        if (request.HighThreshold < 2 || request.HighThreshold > 255)
+        if (request.HighThreshold < _thresholdsConfig.HighThresholdMin ||
+            request.HighThreshold > _thresholdsConfig.HighThresholdMax)
         {
-            return BadRequest(new { error = "High threshold must be between 2 and 255" });
+            return BadRequest(new {
+                error = $"High threshold must be between {_thresholdsConfig.HighThresholdMin} and {_thresholdsConfig.HighThresholdMax}"
+            });
         }
 
         if (request.LowThreshold >= request.HighThreshold)

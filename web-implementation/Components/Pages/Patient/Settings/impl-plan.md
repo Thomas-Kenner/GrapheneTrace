@@ -16,9 +16,22 @@ Implement a settings page and backend API for patients to configure their pressu
 - Patients can view their current threshold settings
 - Patients can update their low and high pressure thresholds
 - Settings are persisted per patient in the database
-- Input validation ensures thresholds are within valid sensor ranges (1-255)
+- Input validation ensures thresholds are within valid sensor ranges (configurable)
 - Validation ensures low threshold < high threshold
-- Default thresholds are applied for new patients (low=50, high=200)
+- Default thresholds are applied for new patients (configurable)
+
+### ⚙️ Configuration-Driven Design
+All pressure threshold ranges and defaults are now **configurable via appsettings.json** to accommodate different sensor hardware specifications without code changes.
+
+**Configuration file:** `appsettings.json` → `PressureThresholds` section
+
+**Configurable values:**
+- `MinValue` / `MaxValue`: Absolute sensor range (default: 1-255)
+- `LowThresholdMin` / `LowThresholdMax`: Allowed range for low threshold (default: 1-254)
+- `HighThresholdMin` / `HighThresholdMax`: Allowed range for high threshold (default: 2-255)
+- `DefaultLowThreshold` / `DefaultHighThreshold`: Defaults for new patients (default: 50, 200)
+
+**Validation:** Configuration is validated at application startup. Invalid configurations prevent startup with clear error messages.
 
 ---
 
