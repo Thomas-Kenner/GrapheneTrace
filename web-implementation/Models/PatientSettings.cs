@@ -11,14 +11,27 @@ namespace GrapheneTrace.Web.Models;
 ///
 /// Design Pattern: Domain entity with validation attributes
 ///
-/// Pressure Values:
+/// ⚙️ CONFIGURATION NOTE:
+/// Pressure value ranges and defaults are configurable in appsettings.json
+/// under the "PressureThresholds" section. The hardcoded values in [Range]
+/// attributes below are for basic model validation, but runtime validation
+/// in SettingsController uses values from appsettings.json.
+///
+/// To modify sensor ranges or defaults:
+/// 1. Edit appsettings.json > PressureThresholds section
+/// 2. Restart the application (validation occurs at startup)
+/// 3. See PressureThresholdsConfig.cs for configuration options
+///
+/// Current Default Configuration (from appsettings.json):
 /// - Sensor range: 1-255 (1=no pressure, 255=saturation)
 /// - Default low threshold: 50 (early warning)
 /// - Default high threshold: 200 (urgent alert)
+/// - LowPressureThreshold valid range: 1-254
+/// - HighPressureThreshold valid range: 2-255
 ///
 /// Validation Rules:
-/// - LowPressureThreshold must be between 1-254
-/// - HighPressureThreshold must be between 2-255
+/// - LowPressureThreshold must be within configured min/max range
+/// - HighPressureThreshold must be within configured min/max range
 /// - LowPressureThreshold must be less than HighPressureThreshold
 /// </remarks>
 public class PatientSettings
@@ -37,11 +50,15 @@ public class PatientSettings
 
     /// <summary>
     /// Low pressure threshold for early warning alerts.
-    /// Default: 50
+    /// Default value is configured in appsettings.json (DefaultLowThreshold, currently 50).
     /// </summary>
     /// <remarks>
     /// When pressure readings exceed this value, patients receive an early warning
     /// to adjust their position or take preventive action.
+    ///
+    /// NOTE: Default value (50) is hardcoded here for database entity initialization.
+    /// Runtime validation in SettingsController uses values from appsettings.json.
+    /// To change defaults, edit appsettings.json > PressureThresholds > DefaultLowThreshold.
     /// </remarks>
     [Required]
     [Range(1, 254, ErrorMessage = "Low threshold must be between 1 and 254")]
@@ -49,11 +66,15 @@ public class PatientSettings
 
     /// <summary>
     /// High pressure threshold for urgent alerts.
-    /// Default: 200
+    /// Default value is configured in appsettings.json (DefaultHighThreshold, currently 200).
     /// </summary>
     /// <remarks>
     /// When pressure readings exceed this value, patients receive an urgent alert
     /// requiring immediate action. Clinicians are also notified (Story #7).
+    ///
+    /// NOTE: Default value (200) is hardcoded here for database entity initialization.
+    /// Runtime validation in SettingsController uses values from appsettings.json.
+    /// To change defaults, edit appsettings.json > PressureThresholds > DefaultHighThreshold.
     /// </remarks>
     [Required]
     [Range(2, 255, ErrorMessage = "High threshold must be between 2 and 255")]

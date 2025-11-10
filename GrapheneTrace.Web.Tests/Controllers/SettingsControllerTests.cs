@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Security.Claims;
@@ -22,15 +23,21 @@ namespace GrapheneTrace.Web.Tests.Controllers;
 /// 3. PUT creates new settings when none exist
 /// 4. PUT updates existing settings
 /// 5. PUT rejects low threshold >= high threshold
-/// 6. PUT rejects low threshold less than 1
-/// 7. PUT rejects low threshold greater than 254
-/// 8. PUT rejects high threshold less than 2
-/// 9. PUT rejects high threshold greater than 255
+/// 6. PUT rejects low threshold less than configured min
+/// 7. PUT rejects low threshold greater than configured max
+/// 8. PUT rejects high threshold less than configured min
+/// 9. PUT rejects high threshold greater than configured max
 /// 10. Unauthorized users cannot access endpoints (handled by [Authorize] attribute)
+///
+/// ⚙️ CONFIGURATION NOTE:
+/// These tests load PressureThresholdsConfig from appsettings.json (same as production).
+/// This ensures tests validate against the actual configured ranges, not hardcoded values.
+/// If you modify appsettings.json threshold ranges, tests will automatically use new values.
 ///
 /// Testing Strategy:
 /// - Uses in-memory database for fast, isolated tests
 /// - Real UserManager for authentic Identity behavior
+/// - Loads configuration from appsettings.json (not hardcoded)
 /// - Each test is independent with its own database context
 /// - Mock authenticated user context with ClaimsPrincipal
 /// - Focuses on business logic (validation, CRUD operations)
@@ -39,6 +46,7 @@ public class SettingsControllerTests : IDisposable
 {
     private ApplicationDbContext _context;
     private UserManager<ApplicationUser> _userManager;
+    private PressureThresholdsConfig _thresholdsConfig;
     private Mock<ILogger<SettingsController>> _mockLogger;
     private SettingsController _controller;
     private Guid _testPatientId;
@@ -80,11 +88,32 @@ public class SettingsControllerTests : IDisposable
         };
         _userManager.CreateAsync(testPatient, "Password123!").Wait();
 
+        // Load configuration from appsettings.json (same as production)
+        // NOTE: Tests use actual configuration file to ensure consistency with runtime behavior
+        var basePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "../../../.."));
+        var configPath = Path.Combine(basePath, "web-implementation/appsettings.json");
+
+        var configuration = new ConfigurationBuilder()
+            .AddJsonFile(configPath, optional: false, reloadOnChange: false)
+            .Build();
+
+        _thresholdsConfig = configuration
+            .GetSection(PressureThresholdsConfig.SectionName)
+            .Get<PressureThresholdsConfig>() ?? new PressureThresholdsConfig();
+
+        // Validate configuration (same validation as Program.cs)
+        var configErrors = _thresholdsConfig.Validate();
+        if (configErrors.Any())
+        {
+            throw new InvalidOperationException(
+                $"Invalid PressureThresholds configuration in appsettings.json: {string.Join(", ", configErrors)}");
+        }
+
         // Setup mock logger
         _mockLogger = new Mock<ILogger<SettingsController>>();
 
-        // Create controller
-        _controller = new SettingsController(_context, _userManager, _mockLogger.Object);
+        // Create controller with configuration
+        _controller = new SettingsController(_context, _userManager, _thresholdsConfig, _mockLogger.Object);
 
         // Mock HttpContext with authenticated user
         var claims = new List<Claim>

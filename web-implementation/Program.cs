@@ -8,6 +8,36 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Validate PressureThresholds configuration at startup
+// Author: SID:2412494
+// This ensures invalid configuration is caught immediately rather than at runtime
+var thresholdsConfig = builder.Configuration
+    .GetSection(PressureThresholdsConfig.SectionName)
+    .Get<PressureThresholdsConfig>() ?? new PressureThresholdsConfig();
+
+var configErrors = thresholdsConfig.Validate();
+if (configErrors.Any())
+{
+    var errorMessage = string.Join(Environment.NewLine, new[]
+    {
+        "❌ INVALID PRESSURE THRESHOLDS CONFIGURATION",
+        "The following configuration errors were found in appsettings.json:",
+        ""
+    }.Concat(configErrors.Select(e => $"  • {e}")).Concat(new[]
+    {
+        "",
+        "Please fix these issues in appsettings.json under the 'PressureThresholds' section.",
+        "Application startup has been aborted to prevent runtime errors."
+    }));
+
+    Console.Error.WriteLine(errorMessage);
+    throw new InvalidOperationException(
+        "Invalid PressureThresholds configuration. See console output for details.");
+}
+
+// Register validated configuration as singleton
+builder.Services.AddSingleton(thresholdsConfig);
+
 // Add services to the container
 builder.Services.AddControllers();  // For AccountController
 builder.Services.AddHttpClient();  // For auth form posts
