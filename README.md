@@ -459,18 +459,51 @@ If you prefer to run each step manually or the automated script doesn't work for
 
    The application should now be running and connected to the database.
 
-### Default Admin Account
+### Test Accounts
 
-On startup, the application automatically creates a default System admin account:
+On startup, the application automatically seeds test accounts for development and testing. All accounts are reset to a known state every time the application starts.
 
+#### System Admin Account
 | Field | Value |
 |-------|-------|
 | Email | `system@graphenetrace.local` |
 | Password | `System@Admin123` |
 | User Type | Admin |
-| Status | Pre-approved |
+| Status | Auto-approved |
 
-Use this account to log in and approve other admin/clinician accounts, or to perform any admin functions during development and testing.
+Use this account for system administration, approving accounts, and admin functions during development.
+
+#### Test Patient Account
+| Field | Value |
+|-------|-------|
+| Email | `patient.test@graphenetrace.local` |
+| Password | `Patient@Test123` |
+| User Type | Patient |
+| Status | Auto-approved |
+
+Use this account to test patient dashboard and patient-specific features.
+
+#### Approved Clinician Account
+| Field | Value |
+|-------|-------|
+| Email | `clinician.approved@graphenetrace.local` |
+| Password | `Clinician@Approved123` |
+| User Type | Clinician |
+| Status | Approved by System admin |
+
+Use this account to test clinician dashboard and approved clinician workflows.
+
+#### Unapproved Clinician Account
+| Field | Value |
+|-------|-------|
+| Email | `clinician.pending@graphenetrace.local` |
+| Password | `Clinician@Pending123` |
+| User Type | Clinician |
+| Status | Not approved (pending) |
+
+Use this account to test account approval workflow and unapproved user experience.
+
+**Security Note:** These passwords are for development only. In production, disable database seeding and use proper secrets management.
 
 ### Important Notes
 

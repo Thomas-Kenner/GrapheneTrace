@@ -8,24 +8,43 @@ namespace GrapheneTrace.Web.Services;
 /// Author: SID:2412494
 /// </summary>
 /// <remarks>
-/// Purpose: Ensures critical system accounts exist and have correct credentials.
+/// Purpose: Ensures critical system accounts and test accounts exist with correct credentials.
 ///
 /// System Account:
 /// - Username: system@graphenetrace.local
-/// - Password: System@Admin123 (reset on every startup for development consistency)
+/// - Password: System@Admin123
 /// - UserType: admin
-/// - Auto-approved: ApprovedAt set to account creation time
+/// - Auto-approved: ApprovedAt set to build time
 /// - Used for: Initial account approvals, system-generated actions, development testing
+///
+/// Test Patient Account:
+/// - Username: patient.test@graphenetrace.local
+/// - Password: Patient@Test123
+/// - UserType: patient
+/// - Auto-approved: ApprovedAt set to build time (patients are auto-approved)
+///
+/// Approved Clinician Account:
+/// - Username: clinician.approved@graphenetrace.local
+/// - Password: Clinician@Approved123
+/// - UserType: clinician
+/// - Approved by: System admin at build time
+///
+/// Unapproved Clinician Account:
+/// - Username: clinician.pending@graphenetrace.local
+/// - Password: Clinician@Pending123
+/// - UserType: clinician
+/// - Approval status: Not approved (ApprovedAt = null)
 ///
 /// Design Pattern: Idempotent seeding
 /// - Safe to run multiple times without side effects
-/// - Creates System account if missing
-/// - Resets System password to 1234 if account exists (ensures known credentials)
+/// - Creates accounts if missing
+/// - Resets passwords and approval states on every startup (ensures known state)
+/// - All timestamps use build time for consistency
 /// - Logs all operations for audit trail
 ///
 /// Security Note:
-/// This seeder should be DISABLED in production or the System password should be
-/// changed immediately after deployment. The hardcoded password is for development
+/// This seeder should be DISABLED in production or all passwords should be
+/// changed immediately after deployment. The hardcoded passwords are for development
 /// convenience only.
 /// </remarks>
 public class DatabaseSeeder
@@ -42,6 +61,33 @@ public class DatabaseSeeder
     private const string SystemFirstName = "System";
     private const string SystemLastName = "Administrator";
     private const string SystemUserType = "admin";
+
+    /// <summary>
+    /// Test patient account credentials (auto-approved).
+    /// </summary>
+    private const string TestPatientEmail = "patient.test@graphenetrace.local";
+    private const string TestPatientPassword = "Patient@Test123";
+    private const string TestPatientFirstName = "Test";
+    private const string TestPatientLastName = "Patient";
+    private const string TestPatientUserType = "patient";
+
+    /// <summary>
+    /// Test approved clinician account credentials.
+    /// </summary>
+    private const string ApprovedClinicianEmail = "clinician.approved@graphenetrace.local";
+    private const string ApprovedClinicianPassword = "Clinician@Approved123";
+    private const string ApprovedClinicianFirstName = "Approved";
+    private const string ApprovedClinicianLastName = "Clinician";
+    private const string ApprovedClinicianUserType = "clinician";
+
+    /// <summary>
+    /// Test unapproved clinician account credentials.
+    /// </summary>
+    private const string UnapprovedClinicianEmail = "clinician.pending@graphenetrace.local";
+    private const string UnapprovedClinicianPassword = "Clinician@Pending123";
+    private const string UnapprovedClinicianFirstName = "Pending";
+    private const string UnapprovedClinicianLastName = "Clinician";
+    private const string UnapprovedClinicianUserType = "clinician";
 
     public DatabaseSeeder(
         UserManager<ApplicationUser> userManager,
@@ -83,7 +129,11 @@ public class DatabaseSeeder
 
             _logger.LogInformation("Starting database seeding...");
 
-            await EnsureSystemAccountExistsAsync();
+            var buildTime = DateTime.UtcNow;
+            var systemUser = await EnsureSystemAccountExistsAsync();
+            await EnsureTestPatientExistsAsync(buildTime);
+            await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
+            await EnsureUnapprovedClinicianExistsAsync(buildTime);
 
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -114,7 +164,8 @@ public class DatabaseSeeder
     /// - Testing consistency: Fresh environment on every restart
     /// - Password recovery: If System password changed, restart resets it
     /// </remarks>
-    private async Task EnsureSystemAccountExistsAsync()
+    /// <returns>The system user account</returns>
+    private async Task<ApplicationUser> EnsureSystemAccountExistsAsync()
     {
         var systemUser = await _userManager.FindByEmailAsync(SystemEmail);
 
@@ -172,6 +223,198 @@ public class DatabaseSeeder
                 _logger.LogWarning("Failed to reset System account password: {Errors}", errors);
                 // Don't throw - existing account with different password is acceptable
             }
+        }
+
+        return systemUser;
+    }
+
+    /// <summary>
+    /// Ensures a test patient account exists (auto-approved).
+    /// </summary>
+    /// <param name="buildTime">The build time to use for approval timestamps</param>
+    private async Task EnsureTestPatientExistsAsync(DateTime buildTime)
+    {
+        var testPatient = await _userManager.FindByEmailAsync(TestPatientEmail);
+
+        if (testPatient == null)
+        {
+            _logger.LogInformation("Test patient account not found, creating new account...");
+
+            testPatient = new ApplicationUser
+            {
+                UserName = TestPatientEmail,
+                Email = TestPatientEmail,
+                EmailConfirmed = true,
+                FirstName = TestPatientFirstName,
+                LastName = TestPatientLastName,
+                UserType = TestPatientUserType,
+                CreatedAt = buildTime,
+                ApprovedAt = buildTime, // Auto-approve patient account
+                ApprovedBy = null // Patients are auto-approved
+            };
+
+            var createResult = await _userManager.CreateAsync(testPatient, TestPatientPassword);
+
+            if (createResult.Succeeded)
+            {
+                _logger.LogInformation(
+                    "Test patient account created successfully: {Email} (ID: {UserId})",
+                    TestPatientEmail, testPatient.Id);
+            }
+            else
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                _logger.LogError("Failed to create test patient account: {Errors}", errors);
+                throw new InvalidOperationException($"Failed to create test patient account: {errors}");
+            }
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Test patient account found (ID: {UserId}), resetting password and approval status...",
+                testPatient.Id);
+
+            // Reset password
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(testPatient);
+            var resetResult = await _userManager.ResetPasswordAsync(testPatient, resetToken, TestPatientPassword);
+
+            if (!resetResult.Succeeded)
+            {
+                var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
+                _logger.LogWarning("Failed to reset test patient password: {Errors}", errors);
+            }
+
+            // Reset approval status
+            testPatient.ApprovedAt = buildTime;
+            testPatient.ApprovedBy = null;
+            await _userManager.UpdateAsync(testPatient);
+        }
+    }
+
+    /// <summary>
+    /// Ensures an approved clinician test account exists.
+    /// </summary>
+    /// <param name="systemUser">The system admin who approved the account</param>
+    /// <param name="buildTime">The build time to use for approval timestamps</param>
+    private async Task EnsureApprovedClinicianExistsAsync(ApplicationUser systemUser, DateTime buildTime)
+    {
+        var approvedClinician = await _userManager.FindByEmailAsync(ApprovedClinicianEmail);
+
+        if (approvedClinician == null)
+        {
+            _logger.LogInformation("Approved clinician account not found, creating new account...");
+
+            approvedClinician = new ApplicationUser
+            {
+                UserName = ApprovedClinicianEmail,
+                Email = ApprovedClinicianEmail,
+                EmailConfirmed = true,
+                FirstName = ApprovedClinicianFirstName,
+                LastName = ApprovedClinicianLastName,
+                UserType = ApprovedClinicianUserType,
+                CreatedAt = buildTime,
+                ApprovedAt = buildTime, // Approved by system admin
+                ApprovedBy = systemUser.Id
+            };
+
+            var createResult = await _userManager.CreateAsync(approvedClinician, ApprovedClinicianPassword);
+
+            if (createResult.Succeeded)
+            {
+                _logger.LogInformation(
+                    "Approved clinician account created successfully: {Email} (ID: {UserId})",
+                    ApprovedClinicianEmail, approvedClinician.Id);
+            }
+            else
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                _logger.LogError("Failed to create approved clinician account: {Errors}", errors);
+                throw new InvalidOperationException($"Failed to create approved clinician account: {errors}");
+            }
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Approved clinician account found (ID: {UserId}), resetting password and approval status...",
+                approvedClinician.Id);
+
+            // Reset password
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(approvedClinician);
+            var resetResult = await _userManager.ResetPasswordAsync(approvedClinician, resetToken, ApprovedClinicianPassword);
+
+            if (!resetResult.Succeeded)
+            {
+                var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
+                _logger.LogWarning("Failed to reset approved clinician password: {Errors}", errors);
+            }
+
+            // Reset approval status
+            approvedClinician.ApprovedAt = buildTime;
+            approvedClinician.ApprovedBy = systemUser.Id;
+            await _userManager.UpdateAsync(approvedClinician);
+        }
+    }
+
+    /// <summary>
+    /// Ensures an unapproved clinician test account exists.
+    /// </summary>
+    /// <param name="buildTime">The build time to use for creation timestamp</param>
+    private async Task EnsureUnapprovedClinicianExistsAsync(DateTime buildTime)
+    {
+        var unapprovedClinician = await _userManager.FindByEmailAsync(UnapprovedClinicianEmail);
+
+        if (unapprovedClinician == null)
+        {
+            _logger.LogInformation("Unapproved clinician account not found, creating new account...");
+
+            unapprovedClinician = new ApplicationUser
+            {
+                UserName = UnapprovedClinicianEmail,
+                Email = UnapprovedClinicianEmail,
+                EmailConfirmed = true,
+                FirstName = UnapprovedClinicianFirstName,
+                LastName = UnapprovedClinicianLastName,
+                UserType = UnapprovedClinicianUserType,
+                CreatedAt = buildTime,
+                ApprovedAt = null, // Not approved
+                ApprovedBy = null
+            };
+
+            var createResult = await _userManager.CreateAsync(unapprovedClinician, UnapprovedClinicianPassword);
+
+            if (createResult.Succeeded)
+            {
+                _logger.LogInformation(
+                    "Unapproved clinician account created successfully: {Email} (ID: {UserId})",
+                    UnapprovedClinicianEmail, unapprovedClinician.Id);
+            }
+            else
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                _logger.LogError("Failed to create unapproved clinician account: {Errors}", errors);
+                throw new InvalidOperationException($"Failed to create unapproved clinician account: {errors}");
+            }
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Unapproved clinician account found (ID: {UserId}), resetting password and approval status...",
+                unapprovedClinician.Id);
+
+            // Reset password
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(unapprovedClinician);
+            var resetResult = await _userManager.ResetPasswordAsync(unapprovedClinician, resetToken, UnapprovedClinicianPassword);
+
+            if (!resetResult.Succeeded)
+            {
+                var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
+                _logger.LogWarning("Failed to reset unapproved clinician password: {Errors}", errors);
+            }
+
+            // Reset approval status (ensure it remains unapproved)
+            unapprovedClinician.ApprovedAt = null;
+            unapprovedClinician.ApprovedBy = null;
+            await _userManager.UpdateAsync(unapprovedClinician);
         }
     }
 }
