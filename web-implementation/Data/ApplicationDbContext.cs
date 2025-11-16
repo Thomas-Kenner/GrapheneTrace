@@ -44,6 +44,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     }
 
     /// <summary>
+    /// Patient-specific settings for pressure monitoring alerts.
+    /// Implements Story #9.
+    /// </summary>
+    public DbSet<PatientSettings> PatientSettings { get; set; } = null!;
+
+    /// <summary>
     /// Configures the database schema using Fluent API.
     /// </summary>
     /// <remarks>
@@ -71,13 +77,50 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
                 .IsRequired()
                 .HasMaxLength(20);
 
-            // DeactivatedAt is nullable, no configuration needed
+            // ApprovedAt and DeactivatedAt are nullable, no configuration needed
+
+            // Configure ApprovedBy self-referencing foreign key
+            // This allows tracking which admin approved each user account
+            entity.HasOne(e => e.ApprovedByAdmin)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedBy)
+                .OnDelete(DeleteBehavior.Restrict);  // Prevent cascading deletes
 
             // Optional: Create index on UserType for faster role-based queries
             entity.HasIndex(e => e.UserType);
 
+            // Optional: Create index on ApprovedAt for filtering approved/pending users
+            entity.HasIndex(e => e.ApprovedAt);
+
             // Optional: Create index on DeactivatedAt for filtering active users
             entity.HasIndex(e => e.DeactivatedAt);
+
+            // Optional: Create index on ApprovedBy for approval history queries
+            entity.HasIndex(e => e.ApprovedBy);
+        });
+
+        // Configure PatientSettings entity (Story #9)
+        builder.Entity<PatientSettings>(entity =>
+        {
+            // Configure relationship: PatientSettings -> User (1:1)
+            entity.HasOne(ps => ps.User)
+                .WithMany()
+                .HasForeignKey(ps => ps.UserId)
+                .OnDelete(DeleteBehavior.Cascade);  // Delete settings when user deleted
+
+            // Enforce unique constraint: one settings record per patient
+            entity.HasIndex(ps => ps.UserId)
+                .IsUnique();
+
+            // Add index on UpdatedAt for querying recently modified settings
+            entity.HasIndex(ps => ps.UpdatedAt);
+
+            // Configure required fields with validation
+            entity.Property(ps => ps.LowPressureThreshold)
+                .IsRequired();
+
+            entity.Property(ps => ps.HighPressureThreshold)
+                .IsRequired();
         });
 
         // Future: Add configurations for other entities here

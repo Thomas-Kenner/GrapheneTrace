@@ -1,17 +1,26 @@
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 
 @*
     PATIENT HEADER COMPONENT
-    Author: SID:2402513
+    Authors: SID:2402513 (original design), SID:2412494 (auth integration)
 
     Purpose:
-    Shared header and navigation for all patient pages.
+    Unified header for all patient pages with navigation tabs and user controls.
+    Combines the visual design from dashboard-impl with authentication features from main.
 
     How it works:
-    - Displays app branding, notifications, settings, and sign out
-    - Navigation tabs with active state detection
-    - Reusable across all patient pages
+    - header-left: App branding with simplified "Sensore GrapheneTrace"
+    - patient-nav: Clean navigation tabs for patient sections
+    - header-right: Notifications, settings quick-access, and sign out
+    - Uses authentication state for user info
+
+    Why it was done this way:
+    - Merges best of both implementations: clean UI + proper auth
+    - Maintains consistent navigation pattern
+    - Provides easy access to key functions
 *@
 
 <header class="patient-header">
@@ -49,9 +58,19 @@
 
 @code {
     private string currentPath = "";
+    private string userName = "";
+    private string userEmail = "";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        // Get authentication state for future use if needed
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        userName = authState.User.Identity?.Name ?? "Unknown";
+
+        // Extract email from claims if available
+        var emailClaim = authState.User.FindFirst("email");
+        userEmail = emailClaim?.Value ?? authState.User.Identity?.Name ?? "patient@graphene.com";
+
         currentPath = new Uri(Navigation.Uri).AbsolutePath;
         Navigation.LocationChanged += OnLocationChanged;
     }
