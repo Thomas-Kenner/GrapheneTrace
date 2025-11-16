@@ -54,6 +54,7 @@ builder.Services.AddScoped(sp =>
     };
 });
 
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 

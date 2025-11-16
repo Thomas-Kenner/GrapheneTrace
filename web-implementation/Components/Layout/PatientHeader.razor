@@ -2,76 +2,68 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IJSRuntime JS
 
 @*
     PATIENT HEADER COMPONENT
-    Author: SID:2412494
+    Authors: SID:2402513 (original design), SID:2412494 (auth integration)
 
     Purpose:
     Unified header for all patient pages with navigation tabs and user controls.
-    Similar to AdminHeader but tailored for patient-specific sections.
+    Combines the visual design from dashboard-impl with authentication features from main.
 
     How it works:
-    - header-left: App branding (GrapheneTrace.Web)
-    - header-center: Navigation tabs for patient sections
-    - header-right: User profile dropdown
-    - Shows current user name and email from authentication state
+    - header-left: App branding with simplified "Sensore GrapheneTrace"
+    - patient-nav: Clean navigation tabs for patient sections
+    - header-right: Notifications, settings quick-access, and sign out
+    - Uses authentication state for user info
 
     Why it was done this way:
-    - Mirrors admin header pattern for consistency
-    - Provides easy navigation between patient sections
-    - Maintains consistent UI/UX across different user roles
+    - Merges best of both implementations: clean UI + proper auth
+    - Maintains consistent navigation pattern
+    - Provides easy access to key functions
 *@
 
-<header class="admin-header-consolidated" @ref="headerRef">
+<header class="patient-header">
     <div class="header-left">
-        <a class="header-brand-link" href="/patient/dashboard">
-            <span class="header-brand">GrapheneTrace.Web</span>
-        </a>
+        <span class="header-brand">Sensore GrapheneTrace</span>
+        <span class="header-subtitle">Patient Dashboard</span>
     </div>
-
-    <div class="nav-tabs">
-        <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Home</button>
-        <button class="nav-tab @GetNavClass("data")" @onclick="GoToData">[Pressure Data]</button>
-        <button class="nav-tab @GetNavClass("alerts")" @onclick="GoToAlerts">[Alerts]</button>
-        <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
-    </div>
-
     <div class="header-right">
-        <div class="profile-section" @onclick:stopPropagation="true">
-            <span class="user-email">@userEmail</span>
-            <div class="profile-dropdown">
-                <button class="user-avatar" type="button" title="User menu" @onclick="ToggleMenu">
-                </button>
-                @if (isMenuOpen)
-                {
-                    <div class="profile-menu">
-                        <div class="profile-menu-header">
-                            <p class="profile-name">@userName</p>
-                            <p class="profile-email">@userEmail</p>
-                        </div>
-                        <form method="post" action="/account/logout" style="margin: 0;">
-                            <button type="submit" class="profile-menu-item">
-                                <span class="bi bi-box-arrow-right"></span> Sign Out
-                            </button>
-                        </form>
-                    </div>
-                }
-            </div>
-        </div>
+        <button class="icon-btn" title="Notifications">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+        </button>
+        <button class="icon-btn" title="Settings" @onclick="GoToSettings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6"></path>
+                <path d="M21 12h-6m-6 0H3"></path>
+            </svg>
+        </button>
+        <form method="post" action="/account/logout" style="display: inline; margin: 0;">
+            <button type="submit" class="btn-signout">Sign Out</button>
+        </form>
     </div>
 </header>
 
+<nav class="patient-nav">
+    <button class="nav-tab @GetActiveClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
+    <button class="nav-tab @GetActiveClass("pressure-data")" @onclick="GoToPressureData">Pressure Data</button>
+    <button class="nav-tab @GetActiveClass("sessions")" @onclick="GoToSessions">Sessions</button>
+    <button class="nav-tab @GetActiveClass("settings")" @onclick="GoToSettings">Settings</button>
+    <button class="nav-tab @GetActiveClass("support")" @onclick="GoToSupport">Support</button>
+</nav>
+
 @code {
-    private bool isMenuOpen = false;
+    private string currentPath = "";
     private string userName = "";
     private string userEmail = "";
-    private string currentPath = "";
-    private ElementReference headerRef;
 
     protected override async Task OnInitializedAsync()
     {
+        // Get authentication state for future use if needed
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
@@ -80,60 +72,28 @@
         userEmail = emailClaim?.Value ?? authState.User.Identity?.Name ?? "patient@graphene.com";
 
         currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        Navigation.LocationChanged += OnLocationChanged;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        if (firstRender)
-        {
-            // Add document click listener to close dropdowns when clicking anywhere on the page
-            await JS.InvokeVoidAsync("setupDropdownClickHandler",
-                DotNetObjectReference.Create(this),
-                headerRef);
-        }
-    }
-
-    [JSInvokable]
-    public void CloseDropdownsFromJS()
-    {
-        CloseDropdowns();
+        currentPath = new Uri(e.Location).AbsolutePath;
         StateHasChanged();
     }
 
-    private void GoToDashboard()
+    private string GetActiveClass(string page)
     {
-        Navigation.NavigateTo("/patient/dashboard");
+        return currentPath.Contains(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
     }
 
-    private void GoToData()
-    {
-        // Placeholder for future pressure data page
-        Navigation.NavigateTo("/patient/data");
-    }
+    private void GoToDashboard() => Navigation.NavigateTo("/patient/dashboard");
+    private void GoToPressureData() => Navigation.NavigateTo("/patient/pressure-data");
+    private void GoToSessions() => Navigation.NavigateTo("/patient/sessions");
+    private void GoToSettings() => Navigation.NavigateTo("/patient/settings");
+    private void GoToSupport() => Navigation.NavigateTo("/patient/support");
 
-    private void GoToAlerts()
+    public void Dispose()
     {
-        // Placeholder for future alerts page
-        Navigation.NavigateTo("/patient/alerts");
-    }
-
-    private void GoToSettings()
-    {
-        Navigation.NavigateTo("/patient/settings");
-    }
-
-    private void ToggleMenu()
-    {
-        isMenuOpen = !isMenuOpen;
-    }
-
-    private void CloseDropdowns()
-    {
-        isMenuOpen = false;
-    }
-
-    private string GetNavClass(string section)
-    {
-        return currentPath.Contains(section) ? "active" : "";
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }

@@ -221,8 +221,6 @@ public class AccountController : ControllerBase
                 }
 
                 // Traditional form POST - handle sign-in based on approval status
-                // Author: SID:2412494 - Account approval integration
-
                 if (user.ApprovedAt == null)
                 {
                     // Admin/Clinician accounts require approval - redirect to login with success message

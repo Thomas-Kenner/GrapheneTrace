@@ -54,7 +54,7 @@ public class ApplicationUser : IdentityUser<Guid>
     /// Timestamp when the user account was created.
     /// </summary>
     /// <remarks>
-    /// Author: 2402513
+    /// Author: SID:2402513
     /// Purpose: Track user registration date for analytics and reporting.
     /// Set automatically during user creation.
     /// Used for dashboard graphs showing user signup trends over time.
