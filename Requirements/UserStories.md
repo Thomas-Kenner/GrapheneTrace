@@ -23,7 +23,7 @@
 - [ ] **Story #28**: As a clinician, I want to monitor my patients pressure readings so that I can send direct notifications to my patients regarding using the equipment properly.
 
 #### User Settings & Metrics
-- [ ] **Story #9**: As a patient, I want to set and change my (low and?) high pressure threshold so that I can adjust it for alerts as I see fit and adapt it for my needs.
+- [X] **Story #9**: As a patient, I want to set and change my (low and?) high pressure threshold so that I can adjust it for alerts as I see fit and adapt it for my needs.
 - [ ] **Story #37**: As a patient, I want to see my Peak Pressure Index displayed clearly on my dashboard so I can monitor my risk level.
 - [ ] **Story #38**: As a clinician, I want the app to automatically identify and highlight high-pressure regions in patient data so I can quickly spot areas of concern.
 
@@ -105,11 +105,11 @@ These stories are explicitly marked as out of scope for the current implementati
 
 | Developer | Total Stories | Completed | Remaining |
 |-----------|---------------|-----------|-----------|
-| Thomas    | 13            | 6         | 7         |
+| Thomas    | 13            | 7         | 6         |
 | Andrei    | 11            | 4         | 7         |
 | Rachel    | 8             | 0         | 8         |
 | Unassigned| 6             | 0         | 6         |
-| **Total** | **38**        | **10**    | **28**    |
+| **Total** | **38**        | **11**    | **27**    |
 
 ---
 
