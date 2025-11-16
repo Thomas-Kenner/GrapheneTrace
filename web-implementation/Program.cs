@@ -40,7 +40,20 @@ builder.Services.AddSingleton(thresholdsConfig);
 
 // Add services to the container
 builder.Services.AddControllers();  // For AccountController
-builder.Services.AddHttpClient();  // For auth form posts
+
+// Configure HttpClient for Blazor Server components
+// Author: SID:2412494
+// Blazor Server requires explicit BaseAddress configuration for HttpClient
+// This enables components to make relative API calls (e.g., "/api/settings")
+builder.Services.AddScoped(sp =>
+{
+    var navigationManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+    return new HttpClient
+    {
+        BaseAddress = new Uri(navigationManager.BaseUri)
+    };
+});
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -118,6 +131,10 @@ builder.Services.AddScoped<DashboardService>();
 // Add User Management Service
 // Author: SID:2402513
 builder.Services.AddScoped<UserManagementService>();
+
+// Add Patient Settings Service
+// Author: SID:2412494
+builder.Services.AddScoped<PatientSettingsService>();
 
 // Add Database Seeder
 // Author: SID:2412494
