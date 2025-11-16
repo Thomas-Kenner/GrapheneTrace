@@ -1,0 +1,139 @@
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+@*
+    PATIENT HEADER COMPONENT
+    Author: SID:2412494
+
+    Purpose:
+    Unified header for all patient pages with navigation tabs and user controls.
+    Similar to AdminHeader but tailored for patient-specific sections.
+
+    How it works:
+    - header-left: App branding (GrapheneTrace.Web)
+    - header-center: Navigation tabs for patient sections
+    - header-right: User profile dropdown
+    - Shows current user name and email from authentication state
+
+    Why it was done this way:
+    - Mirrors admin header pattern for consistency
+    - Provides easy navigation between patient sections
+    - Maintains consistent UI/UX across different user roles
+*@
+
+<header class="admin-header-consolidated" @ref="headerRef">
+    <div class="header-left">
+        <a class="header-brand-link" href="/patient/dashboard">
+            <span class="header-brand">GrapheneTrace.Web</span>
+        </a>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Home</button>
+        <button class="nav-tab @GetNavClass("data")" @onclick="GoToData">[Pressure Data]</button>
+        <button class="nav-tab @GetNavClass("alerts")" @onclick="GoToAlerts">[Alerts]</button>
+        <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
+    </div>
+
+    <div class="header-right">
+        <div class="profile-section" @onclick:stopPropagation="true">
+            <span class="user-email">@userEmail</span>
+            <div class="profile-dropdown">
+                <button class="user-avatar" type="button" title="User menu" @onclick="ToggleMenu">
+                </button>
+                @if (isMenuOpen)
+                {
+                    <div class="profile-menu">
+                        <div class="profile-menu-header">
+                            <p class="profile-name">@userName</p>
+                            <p class="profile-email">@userEmail</p>
+                        </div>
+                        <form method="post" action="/account/logout" style="margin: 0;">
+                            <button type="submit" class="profile-menu-item">
+                                <span class="bi bi-box-arrow-right"></span> Sign Out
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</header>
+
+@code {
+    private bool isMenuOpen = false;
+    private string userName = "";
+    private string userEmail = "";
+    private string currentPath = "";
+    private ElementReference headerRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        userName = authState.User.Identity?.Name ?? "Unknown";
+
+        // Extract email from claims if available
+        var emailClaim = authState.User.FindFirst("email");
+        userEmail = emailClaim?.Value ?? authState.User.Identity?.Name ?? "patient@graphene.com";
+
+        currentPath = new Uri(Navigation.Uri).AbsolutePath;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Add document click listener to close dropdowns when clicking anywhere on the page
+            await JS.InvokeVoidAsync("setupDropdownClickHandler",
+                DotNetObjectReference.Create(this),
+                headerRef);
+        }
+    }
+
+    [JSInvokable]
+    public void CloseDropdownsFromJS()
+    {
+        CloseDropdowns();
+        StateHasChanged();
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/patient/dashboard");
+    }
+
+    private void GoToData()
+    {
+        // Placeholder for future pressure data page
+        Navigation.NavigateTo("/patient/data");
+    }
+
+    private void GoToAlerts()
+    {
+        // Placeholder for future alerts page
+        Navigation.NavigateTo("/patient/alerts");
+    }
+
+    private void GoToSettings()
+    {
+        Navigation.NavigateTo("/patient/settings");
+    }
+
+    private void ToggleMenu()
+    {
+        isMenuOpen = !isMenuOpen;
+    }
+
+    private void CloseDropdowns()
+    {
+        isMenuOpen = false;
+    }
+
+    private string GetNavClass(string section)
+    {
+        return currentPath.Contains(section) ? "active" : "";
+    }
+}
