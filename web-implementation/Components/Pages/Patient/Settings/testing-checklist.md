@@ -50,13 +50,13 @@ Then navigate to `https://localhost:5001` (or the port shown in terminal)
 3. Wait for page to load
 
 **Expected Results:**
-- [ ] Page loads without errors
-- [ ] "Loading settings..." message appears briefly
-- [ ] Default values displayed:
+- [x] Page loads without errors
+- [x] "Loading settings..." message appears briefly
+- [x] Default values displayed:
   - Low Pressure Threshold: **50**
   - High Pressure Threshold: **200**
-- [ ] No error messages shown
-- [ ] "Last updated" timestamp is displayed
+- [x] No error messages shown
+- [x] "Last updated" timestamp is displayed
 
 **Database Verification:**
 ```sql
@@ -82,12 +82,12 @@ Expected: One row with LowPressureThreshold=50, HighPressureThreshold=200
 5. Wait for response
 
 **Expected Results:**
-- [ ] Button text changes to "Saving..." while processing
-- [ ] Button is disabled during save
-- [ ] Green success message appears: "Settings saved successfully!"
-- [ ] Form values remain at 60 and 180
-- [ ] "Last updated" timestamp updates
-- [ ] No error messages shown
+- [x] Button text changes to "Saving..." while processing
+- [x] Button is disabled during save
+- [x] Green success message appears: "Settings saved successfully!"
+- [x] Form values remain at 60 and 180
+- [x] "Last updated" timestamp updates
+- [x] No error messages shown
 
 **Database Verification:**
 ```sql
@@ -488,37 +488,37 @@ docker compose start postgres
 ## Quick Test Summary Checklist
 
 **Core Functionality:**
-- [ ] Default settings auto-created for new patients
-- [ ] Valid settings updates succeed
-- [ ] Settings persist across sessions
-- [ ] Settings isolated per patient (not shared)
-- [ ] Reset button reloads current values
+- [x] Default settings auto-created for new patients
+- [x] Valid settings updates succeed
+- [x] Settings persist across sessions
+- [x] Settings isolated per patient (not shared)
+- [x] Reset button reloads current values
 
 **Validation:**
-- [ ] Low threshold must be 1-254
-- [ ] High threshold must be 2-255
-- [ ] Low threshold must be less than high threshold
-- [ ] Client-side validation works (HTML5)
-- [ ] Server-side validation works (API)
+- [x] Low threshold must be 1-254
+- [x] High threshold must be 2-255
+- [x] Low threshold must be less than high threshold
+- [x] Client-side validation works (HTML5)
+- [x] Server-side validation works (API)
 
 **Authorization:**
-- [ ] Only patients can access settings page
-- [ ] Clinicians/admins redirected to access-denied
-- [ ] Unauthenticated users redirected to login
+- [x] Only patients can access settings page
+- [x] Clinicians/admins redirected to access-denied
+- [x] Unauthenticated users redirected to login
 
 **UI/UX:**
-- [ ] Loading state displays during fetch
-- [ ] Success/error messages display correctly
-- [ ] Button disabled during save
-- [ ] Information panel helpful and accurate
-- [ ] Last updated timestamp accurate
-- [ ] Responsive design works on mobile
+- [x] Loading state displays during fetch
+- [x] Success/error messages display correctly
+- [x] Button disabled during save
+- [x] Information panel helpful and accurate
+- [x] Last updated timestamp accurate
+- [x] Responsive design works on mobile
 
 **Data Integrity:**
-- [ ] UpdatedAt timestamp updates on save
-- [ ] No duplicate records created
-- [ ] Boundary values (1, 2, 254, 255) handled correctly
-- [ ] Database constraints enforced (unique UserId)
+- [x] UpdatedAt timestamp updates on save
+- [x] No duplicate records created
+- [x] Boundary values (1, 2, 254, 255) handled correctly
+- [x] Database constraints enforced (unique UserId)
 
 ---
 
@@ -631,38 +631,40 @@ WHERE "UserId" = 'test-uuid-here';
 
 ## Test Results Log
 
-**Date Tested:** _________________
-**Tested By:** _________________
-**Build/Commit:** _________________
+**Date Tested:** 2025-11-16
+**Tested By:** Thomas Kenner (SID:2412494)
+**Build/Commit:** 1bcd228
 
-**Overall Result:** ✅ PASS / ❌ FAIL
+**Overall Result:** ✅ PASS
 
 **Notes:**
--
--
--
+- All core functionality tests passed
+- All validation tests passed
+- All authorization tests passed
+- Settings page works correctly with InteractiveServer render mode
+- Fixed HttpClient authentication issue by implementing PatientSettingsService
 
 **Issues Found:**
-1.
-2.
-3.
+1. ~~HttpClient not configured with BaseAddress~~ - Fixed
+2. ~~HttpClient authentication cookies not forwarded~~ - Fixed by using server-side service
+3. ~~Missing InteractiveServer render mode causing antiforgery errors~~ - Fixed
 
 **Follow-up Actions:**
-- [ ]
-- [ ]
-- [ ]
+- [x] Apply database migration
+- [x] Run all unit tests (79/79 passed)
+- [ ] Code review and merge to main
 
 ---
 
 ## Story Completion Criteria
 
 Before marking Story #9 as complete, verify:
-- [ ] All core functionality tests pass
-- [ ] All validation tests pass
-- [ ] Authorization tests pass
-- [ ] Database integrity verified
-- [ ] No console errors during normal usage
-- [ ] Unit tests pass (11/11 in SettingsControllerTests)
+- [x] All core functionality tests pass
+- [x] All validation tests pass
+- [x] Authorization tests pass
+- [x] Database integrity verified
+- [x] No console errors during normal usage
+- [x] Unit tests pass (15/15 in SettingsControllerTests, 79/79 total)
 - [ ] Code reviewed and approved
-- [ ] Migration applied to database
+- [x] Migration applied to database
 - [ ] UserStories.md updated with checkmark
