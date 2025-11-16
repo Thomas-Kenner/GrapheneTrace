@@ -1,0 +1,141 @@
+@*
+    ========================================
+    SESSIONS PAGE
+    ========================================
+    Author: SID:2402513
+
+    Purpose:
+    View past monitoring sessions with detailed pressure maps,
+    comments, and alert history.
+
+    Current Implementation:
+    Uses placeholder session data. All dates, times, and pressure
+    values are hardcoded placeholders.
+*@
+
+@page "/patient/sessions"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+
+<div class="patient-container">
+    <PatientHeader />
+
+    <div class="patient-content">
+        <div class="sessions-grid">
+            @* LEFT SIDEBAR - Session History *@
+            <div class="sessions-sidebar">
+                <div class="card sidebar-card">
+                    <h3 class="sidebar-title">Session History</h3>
+                    <p class="sidebar-subtitle">Past monitoring sessions</p>
+
+                    <div class="sessions-list">
+                        @* Placeholder Session 1 *@
+                        <div class="session-item @(selectedSession == 1 ? "active" : "")" @onclick="() => SelectSession(1)">
+                            <div class="session-header">
+                                <span class="session-date">Placeholder Date</span>
+                                <span class="alert-badge">1 Alert</span>
+                            </div>
+                            <div class="session-details">
+                                <span class="session-duration">Placeholder Duration</span>
+                                <span class="session-pressure">Placeholder mmHg</span>
+                            </div>
+                        </div>
+
+                        @* Placeholder Session 2 *@
+                        <div class="session-item @(selectedSession == 2 ? "active" : "")" @onclick="() => SelectSession(2)">
+                            <div class="session-header">
+                                <span class="session-date">Placeholder Date</span>
+                                <span class="no-alert">No Alerts</span>
+                            </div>
+                            <div class="session-details">
+                                <span class="session-duration">Placeholder Duration</span>
+                                <span class="session-pressure">Placeholder mmHg</span>
+                            </div>
+                        </div>
+
+                        @* Placeholder Session 3 *@
+                        <div class="session-item @(selectedSession == 3 ? "active" : "")" @onclick="() => SelectSession(3)">
+                            <div class="session-header">
+                                <span class="session-date">Placeholder Date</span>
+                                <span class="no-alert">No Alerts</span>
+                            </div>
+                            <div class="session-details">
+                                <span class="session-duration">Placeholder Duration</span>
+                                <span class="session-pressure">Placeholder mmHg</span>
+                            </div>
+                        </div>
+
+                        @* Placeholder Session 4 *@
+                        <div class="session-item @(selectedSession == 4 ? "active" : "")" @onclick="() => SelectSession(4)">
+                            <div class="session-header">
+                                <span class="session-date">Placeholder Date</span>
+                                <span class="no-alert">No Alerts</span>
+                            </div>
+                            <div class="session-details">
+                                <span class="session-duration">Placeholder Duration</span>
+                                <span class="session-pressure">Placeholder mmHg</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* RIGHT PANEL - Session Detail *@
+            <div class="session-detail">
+                @* Session Header *@
+                <div class="card session-header-card">
+                    <div class="session-title-row">
+                        <div>
+                            <h3 class="session-title">Session: Placeholder Date</h3>
+                            <p class="session-time">Placeholder Time (Placeholder Duration)</p>
+                        </div>
+                        <button class="add-comment-btn">💬 Add Comment</button>
+                    </div>
+                </div>
+
+                @* Pressure Map Visualization *@
+                <div class="card visualization-card">
+                    <div class="visualization-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Session pressure map visualization</p>
+                        <p class="placeholder-description">Timeline with markers for comments and alerts</p>
+                    </div>
+                </div>
+
+                @* Comments & Alerts Row *@
+                <div class="detail-grid">
+                    @* Comments & Notes *@
+                    <div class="card comments-card">
+                        <h4 class="section-title">Comments & Notes</h4>
+                        <div class="comments-list">
+                            <div class="comment-item">
+                                <div class="comment-time">Placeholder Time</div>
+                                <div class="comment-text">Placeholder comment text - example note about session</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Session Alerts *@
+                    <div class="card alerts-card">
+                        <h4 class="section-title">Session Alerts</h4>
+                        <div class="alerts-list">
+                            <div class="alert-item-session">
+                                <div class="alert-time-badge">Placeholder Time</div>
+                                <div class="alert-text">Placeholder alert message - example high pressure detection</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int selectedSession = 1;
+
+    private void SelectSession(int sessionNumber)
+    {
+        selectedSession = sessionNumber;
+    }
+}

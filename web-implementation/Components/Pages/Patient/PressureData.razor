@@ -1,0 +1,133 @@
+@*
+    ========================================
+    PRESSURE DATA PAGE
+    ========================================
+    Author: SID:2402513
+
+    Purpose:
+    Historical pressure data visualization with timeline playback,
+    charts, and analytics for patient pressure monitoring.
+
+    Current Implementation:
+    All visualizations are placeholders pending sensor data integration.
+*@
+
+@page "/patient/pressure-data"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+
+<div class="patient-container">
+    <PatientHeader />
+
+    <div class="patient-content">
+        <div class="pressure-data-grid">
+            @* LEFT COLUMN - Timeline and Metrics *@
+            <div class="left-column">
+                @* PRESSURE TIMELINE CARD *@
+                <div class="card timeline-card">
+                    <div class="card-header-row">
+                        <div>
+                            <h3 class="card-title">Pressure Timeline</h3>
+                            <p class="card-subtitle">View over time</p>
+                        </div>
+                    </div>
+
+                    <div class="timeline-controls">
+                        <select class="time-select">
+                            <option selected>Today</option>
+                            <option>Yesterday</option>
+                            <option>Last 7 Days</option>
+                            <option>Last 30 Days</option>
+                        </select>
+                        <button class="custom-range-btn">
+                            📅 Custom Range
+                        </button>
+                    </div>
+
+                    <div class="timeline-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Pressure map timeline</p>
+                        <p class="placeholder-description">Playback controls</p>
+                    </div>
+
+                    <div class="playback-controls">
+                        <button class="playback-btn">◄</button>
+                        <button class="playback-btn play-btn">► Play</button>
+                        <button class="playback-btn">►</button>
+                    </div>
+                </div>
+
+                @* METRICS STRIP *@
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Avg Peak</span>
+                        <span class="metric-value-large">Placeholder</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Max Recorded</span>
+                        <span class="metric-value-large">Placeholder</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Above Threshold</span>
+                        <span class="metric-value-large">Placeholder</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Highest Area</span>
+                        <span class="metric-value-large">Placeholder</span>
+                    </div>
+                </div>
+            </div>
+
+            @* RIGHT COLUMN - 2x2 Chart Grid *@
+            <div class="right-column">
+                @* PEAK PRESSURE INDEX *@
+                <div class="card chart-card">
+                    <h4 class="chart-title">Peak Pressure Index</h4>
+                    <p class="chart-subtitle">Maximum over time</p>
+                    <div class="chart-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Line graph</p>
+                        <p class="placeholder-description">Peak pressure + threshold</p>
+                    </div>
+                </div>
+
+                @* TIME ABOVE THRESHOLD *@
+                <div class="card chart-card">
+                    <h4 class="chart-title">Time Above Threshold</h4>
+                    <p class="chart-subtitle">High pressure duration</p>
+                    <div class="chart-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Bar chart</p>
+                        <p class="placeholder-description">Per session breakdown</p>
+                    </div>
+                </div>
+
+                @* PRESSURE BY AREA *@
+                <div class="card chart-card">
+                    <h4 class="chart-title">Pressure by Area</h4>
+                    <p class="chart-subtitle">Regional averages</p>
+                    <div class="chart-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Heat map</p>
+                        <p class="placeholder-description">Quadrant pressures</p>
+                    </div>
+                </div>
+
+                @* PRESSURE TRENDS *@
+                <div class="card chart-card">
+                    <h4 class="chart-title">Pressure Trends</h4>
+                    <p class="chart-subtitle">Weekly comparison</p>
+                    <div class="chart-placeholder">
+                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <p class="placeholder-description">Multi-line graph</p>
+                        <p class="placeholder-description">Week-over-week trends</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // No backend logic yet - all placeholders
+}
