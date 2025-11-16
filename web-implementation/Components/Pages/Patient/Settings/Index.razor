@@ -1,7 +1,11 @@
 @page "/patient/settings"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using System.ComponentModel.DataAnnotations
-@inject HttpClient Http
+@using GrapheneTrace.Web.Components.Layout
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject PatientSettingsService SettingsService
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 
 @*
@@ -17,15 +21,25 @@
     - Update thresholds with real-time validation
     - Visual feedback on save success/error
     - Responsive form layout
-    - Standalone component that can be integrated into patient dashboard
+    - Integrated with patient dashboard navigation via PatientHeader
 
-    Design Note: This component is designed to work independently or be embedded
-    in a larger patient dashboard. It uses its own HTTP client for API calls and
-    doesn't depend on parent component state.
+    Design Note: This component uses PatientHeader for consistent navigation
+    across all patient pages. It uses PatientSettingsService for server-side
+    data access (proper Blazor Server pattern instead of HttpClient).
 *@
 
-<div style="padding: 2rem;">
-    <div style="max-width: 48rem; margin: 0 auto;">
+<div class="admin-container">
+    @*
+        PATIENT HEADER
+        Author: SID:2412494
+
+        Purpose:
+        Unified header component for all patient pages with tab navigation.
+    *@
+    <PatientHeader />
+
+    <!-- Main Content -->
+    <div class="admin-content">
         <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">
             Pressure Alert Settings
         </h1>
@@ -138,13 +152,17 @@
                 </div>
             </div>
         }
+    </div>
 
-        <!-- Back to Dashboard Link -->
-        <div style="margin-top: 1.5rem;">
-            <a href="/patient/dashboard" style="color: #2563eb; text-decoration: none;">
-                ← Back to Dashboard
-            </a>
-        </div>
+    @*
+        FOOTER SECTION
+        Author: SID:2412494
+
+        Purpose:
+        Provides global navigation links for help, information, and support resources.
+    *@
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
     </div>
 </div>
 
@@ -166,7 +184,7 @@
     }
 
     /// <summary>
-    /// Load settings from API endpoint.
+    /// Load settings from database via service.
     /// Creates default settings if none exist.
     /// </summary>
     private async Task LoadSettings()
@@ -179,22 +197,19 @@
             validationError = null;
             StateHasChanged();
 
-            var response = await Http.GetAsync("/api/settings");
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
 
-            if (response.IsSuccessStatusCode)
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
             {
-                var result = await response.Content.ReadFromJsonAsync<SettingsResponse>();
-                if (result != null)
-                {
-                    settingsModel.LowThreshold = result.LowThreshold;
-                    settingsModel.HighThreshold = result.HighThreshold;
-                    lastUpdated = result.UpdatedAt;
-                }
+                errorMessage = "Unable to identify user. Please log in again.";
+                return;
             }
-            else
-            {
-                errorMessage = "Failed to load settings. Please try again.";
-            }
+
+            var settings = await SettingsService.GetSettingsAsync(userId);
+            settingsModel.LowThreshold = settings.LowPressureThreshold;
+            settingsModel.HighThreshold = settings.HighPressureThreshold;
+            lastUpdated = settings.UpdatedAt;
         }
         catch (Exception ex)
         {
@@ -208,7 +223,7 @@
     }
 
     /// <summary>
-    /// Handle form submission and update settings via API.
+    /// Handle form submission and update settings via service.
     /// Validates thresholds before submitting.
     /// </summary>
     private async Task HandleSubmit()
@@ -228,25 +243,28 @@
             isSaving = true;
             StateHasChanged();
 
-            var response = await Http.PutAsJsonAsync("/api/settings", new
-            {
-                lowThreshold = settingsModel.LowThreshold,
-                highThreshold = settingsModel.HighThreshold
-            });
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
 
-            if (response.IsSuccessStatusCode)
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
             {
-                var result = await response.Content.ReadFromJsonAsync<SettingsResponse>();
-                if (result != null)
-                {
-                    lastUpdated = result.UpdatedAt;
-                }
-                successMessage = "Settings saved successfully!";
+                validationError = "Unable to identify user. Please log in again.";
+                return;
+            }
+
+            var (success, message, settings) = await SettingsService.UpdateSettingsAsync(
+                userId,
+                settingsModel.LowThreshold,
+                settingsModel.HighThreshold);
+
+            if (success && settings != null)
+            {
+                lastUpdated = settings.UpdatedAt;
+                successMessage = message;
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                validationError = $"Failed to save settings. Please check your values and try again.";
+                validationError = message;
             }
         }
         catch (Exception ex)
@@ -272,15 +290,5 @@
         [Required]
         [Range(2, 255, ErrorMessage = "High threshold must be between 2 and 255")]
         public int HighThreshold { get; set; } = 200;
-    }
-
-    /// <summary>
-    /// Response model from API endpoint.
-    /// </summary>
-    private class SettingsResponse
-    {
-        public int LowThreshold { get; set; }
-        public int HighThreshold { get; set; }
-        public DateTime UpdatedAt { get; set; }
     }
 }
