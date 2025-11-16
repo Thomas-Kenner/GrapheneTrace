@@ -76,6 +76,13 @@ public class AccountController : ControllerBase
                 return Redirect("/login?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
             }
 
+            // Check if account is approved (only applies to admin/clinician accounts)
+            if (user.ApprovedAt == null)
+            {
+                _logger.LogWarning("Login attempt for unapproved user: {UserId}", user.Id);
+                return Redirect("/login?error=" + Uri.EscapeDataString("Your account is pending approval. Please contact an administrator."));
+            }
+
             // Check if account is locked out
             if (await _userManager.IsLockedOutAsync(user))
             {
@@ -172,7 +179,9 @@ public class AccountController : ControllerBase
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 UserType = request.UserType,
-                EmailConfirmed = true  // Skip email confirmation for now
+                EmailConfirmed = true,  // Skip email confirmation for now
+                // Auto-approve patient accounts - only admin/clinician accounts require manual approval
+                ApprovedAt = request.UserType == "patient" ? DateTime.UtcNow : null
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -211,7 +220,16 @@ public class AccountController : ControllerBase
                     return Ok(new { success = true, message = "Account created successfully" });
                 }
 
-                // Traditional form POST - sign in and redirect immediately
+                // Traditional form POST - handle sign-in based on approval status
+                if (user.ApprovedAt == null)
+                {
+                    // Admin/Clinician accounts require approval - redirect to login with success message
+                    _logger.LogInformation("Account created but requires approval: {UserId}", user.Id);
+                    var message = "Account created successfully! Your account is pending administrator approval. You will be notified when you can log in.";
+                    return Redirect("/login?success=" + Uri.EscapeDataString(message));
+                }
+
+                // Patient accounts are auto-approved - sign in immediately
                 await _signInManager.SignInAsync(user, isPersistent: false);
 
                 // Determine redirect path

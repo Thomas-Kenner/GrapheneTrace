@@ -369,33 +369,286 @@ This approach might feel like extra steps at first, but it helps us:
 
 ## Getting Started
 
+### Prerequisites
+
+- **Docker** and **Docker Compose** installed
+- **.NET 9.0 SDK** installed ([Download here](https://dotnet.microsoft.com/download/dotnet/9.0))
+- **VPN Disabled** - If you use a VPN, disable it before running the application as it can interfere with port mappings and prevent the database connection from working properly
+
+### Setup Instructions
+
+#### Automated Setup (Recommended)
+
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
    cd GrapheneTrace
    ```
 
-2. **Navigate to web-implementation**
+2. **Run the initialization script**
+   ```bash
+   chmod +x scripts/init-db.sh
+   ./scripts/init-db.sh
+   ```
+
+   This script will automatically:
+   - Start docker-compose if not already running
+   - Wait for PostgreSQL to be healthy
+   - Apply all database migrations in order
+
+3. **Navigate to the web implementation and run the application**
+   ```bash
+   cd web-implementation
+   dotnet watch run
+   ```
+
+4. **Open your browser to** `https://localhost:5001`
+
+   The application should now be running and connected to the database.
+
+#### Manual Setup (Alternative)
+
+If you prefer to run each step manually or the automated script doesn't work for your environment:
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd GrapheneTrace
+   ```
+
+2. **Start the PostgreSQL database container**
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+   Wait a few seconds for the database to initialize. You can check the logs with:
+   ```bash
+   docker logs graphenetrace_postgres
+   ```
+
+3. **Navigate to the web implementation directory**
    ```bash
    cd web-implementation
    ```
 
-3. **Install dependencies**
+4. **Install dependencies**
    ```bash
    dotnet restore
    ```
 
-4. **Run the application**
+5. **Apply database migrations**
+
+   This creates the database schema (tables, indexes, etc.):
+   ```bash
+   dotnet ef database update
+   ```
+
+   You should see output confirming that migrations were applied successfully.
+
+6. **Run the application**
    ```bash
    dotnet watch run
    ```
 
-5. **Open browser to** `https://localhost:5001`
+   Or for production mode without hot reload:
+   ```bash
+   dotnet run
+   ```
 
-6. **Check your assigned user stories**
-   - See `Requirements/UserStories.md` for your story assignments
-   - Reference story numbers in your commits and PRs (e.g., "Implements Story #1")
-   - Check off stories as you complete them
+7. **Open your browser to** `https://localhost:5001`
+
+   The application should now be running and connected to the database.
+
+### Test Accounts
+
+On startup, the application automatically seeds test accounts for development and testing. All accounts are reset to a known state every time the application starts.
+
+#### System Admin Account
+| Field | Value |
+|-------|-------|
+| Email | `system@graphenetrace.local` |
+| Password | `System@Admin123` |
+| User Type | Admin |
+| Status | Auto-approved |
+
+Use this account for system administration, approving accounts, and admin functions during development.
+
+#### Test Patient Account
+| Field | Value |
+|-------|-------|
+| Email | `patient.test@graphenetrace.local` |
+| Password | `Patient@Test123` |
+| User Type | Patient |
+| Status | Auto-approved |
+
+Use this account to test patient dashboard and patient-specific features.
+
+#### Approved Clinician Account
+| Field | Value |
+|-------|-------|
+| Email | `clinician.approved@graphenetrace.local` |
+| Password | `Clinician@Approved123` |
+| User Type | Clinician |
+| Status | Approved by System admin |
+
+Use this account to test clinician dashboard and approved clinician workflows.
+
+#### Unapproved Clinician Account
+| Field | Value |
+|-------|-------|
+| Email | `clinician.pending@graphenetrace.local` |
+| Password | `Clinician@Pending123` |
+| User Type | Clinician |
+| Status | Not approved (pending) |
+
+Use this account to test account approval workflow and unapproved user experience.
+
+**Security Note:** These passwords are for development only. In production, disable database seeding and use proper secrets management.
+
+### Important Notes
+
+- **VPN Warning**: Make sure any VPN is disabled before starting the application. VPNs can mess with port mappings and prevent the application from connecting to the database on `localhost:5432`.
+- **First-time setup**: You only need to run `docker-compose up` and `dotnet ef database update` once. After that, just run `dotnet watch run` to start the application.
+- **Stopping the database**: Use `docker-compose down` to stop the database container.
+- **Resetting the database**: Use `docker-compose down -v` to stop and wipe all data for a fresh start.
+
+### Check Your Assigned User Stories
+
+- See `Requirements/UserStories.md` for your story assignments
+- Reference story numbers in your commits and PRs (e.g., "Implements Story #1")
+- Check off stories as you complete them
+
+---
+
+## Database Setup and Interaction
+
+GrapheneTrace uses PostgreSQL for data storage, running in a Docker container. The database schema is managed through **Entity Framework Core migrations** (not SQL scripts).
+
+### Quick Start
+
+```bash
+# Start the database
+docker-compose up -d postgres
+
+# Stop the database
+docker-compose down
+
+# Stop and wipe all data (fresh start)
+docker-compose down -v
+```
+
+### Connection Details
+
+| Property | Value |
+|----------|-------|
+| Host | `localhost` (127.0.0.1) |
+| Port | `5432` |
+| Database | `graphenetrace` |
+| Username | `graphene_user` |
+| Password | `changeme` |
+
+**Connection String:**
+```
+Host=127.0.0.1;Port=5432;Database=graphenetrace;Username=graphene_user;Password=changeme
+```
+
+### Running Migrations
+
+The database schema is created and updated using EF Core migrations:
+
+```bash
+# Navigate to web project
+cd web-implementation
+
+# Apply all pending migrations (run this after starting the database)
+dotnet ef database update
+
+# Create a new migration (after changing models)
+dotnet ef migrations add MigrationName
+
+# Remove the last migration (if not yet applied)
+dotnet ef migrations remove
+```
+
+**Important:** The first time you set up the database, you MUST run `dotnet ef database update` to create the tables.
+
+### Connecting with psql
+
+#### From Inside the Docker Container
+```bash
+# Interactive shell
+docker exec -it graphenetrace_postgres psql -U graphene_user -d graphenetrace
+
+# Run a single query
+docker exec graphenetrace_postgres psql -U graphene_user -d graphenetrace -c "SELECT * FROM \"AspNetUsers\";"
+```
+
+#### From Your Host Machine
+```bash
+# Interactive shell (password: changeme)
+PGPASSWORD=changeme psql -h 127.0.0.1 -p 5432 -U graphene_user -d graphenetrace
+
+# Run a single query
+PGPASSWORD=changeme psql -h 127.0.0.1 -p 5432 -U graphene_user -d graphenetrace -c "\dt"
+```
+
+### Useful psql Commands
+
+Once connected to the database:
+
+```sql
+\dt                    -- List all tables
+\d "TableName"         -- Describe a table structure
+\l                     -- List all databases
+\du                    -- List all users
+\q                     -- Quit psql
+
+-- View users
+SELECT * FROM "AspNetUsers";
+
+-- Check migrations history
+SELECT * FROM "__EFMigrationsHistory";
+```
+
+### Database Tables
+
+After running migrations, you'll have these tables:
+
+- **AspNetUsers** - User accounts (with custom fields: FirstName, LastName, UserType, DeactivatedAt)
+- **AspNetRoles** - Role definitions
+- **AspNetUserRoles** - User-role mappings
+- **AspNetUserClaims** - Custom user claims
+- **AspNetUserLogins** - External login providers
+- **AspNetUserTokens** - Password reset/2FA tokens
+- **AspNetRoleClaims** - Role-based claims
+- **__EFMigrationsHistory** - Tracks which migrations have been applied
+
+### Troubleshooting
+
+**"Connection refused" error?**
+- Make sure the database container is running: `docker ps | grep postgres`
+- Wait a few seconds after `docker-compose up` for the database to initialize
+- Check container health: `docker logs graphenetrace_postgres`
+
+**"No tables found"?**
+- You need to run migrations: `cd web-implementation && dotnet ef database update`
+
+**"Password authentication failed"?**
+- Make sure you're using password `changeme`
+- Check your connection string in `appsettings.Development.json`
+
+**Need to reset the database?**
+```bash
+# Stop container and delete all data
+docker-compose down -v
+
+# Start fresh container
+docker-compose up -d postgres
+
+# Wait a few seconds, then run migrations
+cd web-implementation
+dotnet ef database update
+```
 
 ---
 

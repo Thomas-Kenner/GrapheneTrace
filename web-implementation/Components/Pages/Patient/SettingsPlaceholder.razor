@@ -1,19 +1,24 @@
 @*
     ========================================
-    PATIENT SETTINGS PAGE
+    PATIENT SETTINGS PAGE (PLACEHOLDER/VISUAL DESIGN REFERENCE)
     ========================================
     Author: SID:2402513
 
-    Purpose:
+    NOTE: This file has been renamed to SettingsPlaceholder.razor during merge.
+    The actual working settings page is at Settings/Index.razor (from main branch).
+    This file is preserved as a visual design reference for future UI improvements.
+
+    Original Purpose:
     Manage personal details, alert settings, and device connections.
 
-    Implementation Status:
+    Original Implementation Status:
     - Personal Details: WORKING - saves to database
     - Alert Settings: TODO - Pressure threshold not yet in DB schema
     - Device Connection: Placeholder only
 *@
 
-@page "/patient/settings"
+@* Route removed - this is now a reference file only *@
+@* @page "/patient/settings" *@
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
