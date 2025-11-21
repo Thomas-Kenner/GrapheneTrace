@@ -1,71 +1,118 @@
 @page "/clinician/dashboard"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
 @using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Components.Layout
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthenticationStateProvider AuthStateProvider
 
 @*
     Clinician Dashboard Page
-    Author: SID:2412494
+    Author: SID:2402513
     Route: /clinician/dashboard
 
-    Purpose: Main dashboard for clinician users.
-
-    Authorization: Restricted to Clinician role only using [Authorize(Roles = "Clinician")].
-    Users without the Clinician role will receive a 403 Forbidden and be redirected to /access-denied.
-
-    Current Implementation: Simple placeholder for testing authentication flow.
-    Production TODO: Add clinician-specific features (patient list, alerts, data visualization, etc.)
+    Purpose: Main dashboard for clinician users to view patients and check their status.
 *@
 
-<div style="padding: 2rem;">
-    <div style="max-width: 64rem; margin: 0 auto;">
-        <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">
-            Clinician Dashboard
-        </h1>
+<div class="admin-container">
+    <ClinicianHeader />
 
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem;">
-            <p style="margin-bottom: 0.5rem;">
-                <strong>Welcome, @userName!</strong>
-            </p>
-            <p style="color: #6b7280; margin-bottom: 0.5rem;">
-                Role: <strong>Clinician</strong>
-            </p>
+    <div class="admin-content">
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
+            <h1 class="section-title" style="margin-bottom: 0.5rem;">Clinician Dashboard</h1>
             <p style="color: #6b7280;">
-                Monitor your patients and respond to pressure alerts.
+                View your patients list below.
             </p>
         </div>
 
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
-                Quick Actions
-            </h2>
-            <p style="color: #6b7280; margin-bottom: 1rem;">
-                Clinician features coming soon: Patient list, pressure alerts, notification management, etc.
-            </p>
-            <form method="post" action="/account/logout">
-                <button type="submit"
-                        style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
-                    Logout
-                </button>
-            </form>
+        <div class="activity-card">
+            <h3>Patients</h3>
+            
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Name</th>
+                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Age</th>
+                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Condition</th>
+                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Check Patient</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var patient in patients)
+                        {
+                            <tr style="border-bottom: 1px solid var(--muted);">
+                                <td style="padding: 1rem; color: var(--foreground);">@patient.Name</td>
+                                <td style="padding: 1rem; color: var(--foreground);">@patient.Age</td>
+                                <td style="padding: 1rem; color: var(--foreground);">@patient.Condition</td>
+                                <td style="padding: 1rem;">
+                                    <button @onclick="() => OpenCheckModal(patient)" 
+                                            style="background: #2563eb; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: background 0.2s;">
+                                        Check
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
+    </div>
+
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
     </div>
 </div>
 
+@if (showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <button class="modal-close" @onclick="CloseModal">&times;</button>
+            @* White placeholder content as requested *@
+            <div style="height: 100%; display: flex; justify-content: center; align-items: center;">
+                @* Content intentionally left blank/minimal as per requirements *@
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private string userName = "";
+    private bool showModal = false;
+    private PatientModel selectedPatient;
 
-    /// <summary>
-    /// Component initialization: loads user information from authentication state.
-    /// Author: SID:2412494
-    /// </summary>
+    // Mock data for patients
+    private List<PatientModel> patients = new List<PatientModel>
+    {
+        new PatientModel { Name = "John Doe", Age = 45, Condition = "Normal" },
+        new PatientModel { Name = "Jane Smith", Age = 37, Condition = "Normal" },
+        new PatientModel { Name = "Mark Johnson", Age = 29, Condition = "Normal" },
+        new PatientModel { Name = "Sarah Williams", Age = 32, Condition = "Normal" }
+    };
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
+    }
 
-        // Role verification is handled by [Authorize(Roles = "Clinician")] attribute
-        // Non-clinician users are automatically redirected to /access-denied
+    private void OpenCheckModal(PatientModel patient)
+    {
+        selectedPatient = patient;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        selectedPatient = null;
+    }
+
+    // Simple internal model for this view
+    private class PatientModel
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public string Condition { get; set; }
     }
 }

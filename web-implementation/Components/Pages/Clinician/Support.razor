@@ -1,0 +1,47 @@
+@page "/clinician/support"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Components.Layout
+
+@*
+    Clinician Support Page
+    Author: SID:2402513
+    Route: /clinician/support
+
+    Purpose: Placeholder support page for clinicians.
+*@
+
+<div class="admin-container">
+    <ClinicianHeader />
+
+    <div class="admin-content">
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
+            <h1 class="section-title" style="margin-bottom: 0.5rem;">Support & Chat</h1>
+            <p style="color: #6b7280;">
+                Get help or chat with support staff.
+            </p>
+        </div>
+
+        <div class="activity-card" style="text-align: center; padding: 4rem 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--muted-foreground);">
+                <i class="bi bi-chat-dots"></i>
+            </div>
+            <h3 style="margin-bottom: 1rem;">Support Chat Coming Soon</h3>
+            <p style="color: var(--muted-foreground); max-width: 500px; margin: 0 auto 2rem;">
+                We are currently building a dedicated support chat for clinicians. 
+                In the meantime, please contact us via email for any urgent issues.
+            </p>
+            <a href="mailto:support@graphenetrace.com" 
+               style="background: var(--primary); color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 500; display: inline-block;">
+                Contact Support via Email
+            </a>
+        </div>
+    </div>
+
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@code {
+    // No specific logic needed for this placeholder page
+}
