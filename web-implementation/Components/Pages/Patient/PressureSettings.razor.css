@@ -1,0 +1,510 @@
+/*
+    ========================================
+    PATIENT SETTINGS PAGE STYLES
+    ========================================
+    Visual Design: SID:2402513 (adapted from SettingsPlaceholder.razor.css)
+    Modifications: Converted from 3-column grid to centered single-column layout
+
+    Purpose:
+    Scoped styles for the patient pressure settings page, providing a polished
+    card-based interface with smooth animations and responsive behavior.
+*/
+
+/* ========================================
+   CONTAINER & LAYOUT
+   Author: SID:2402513
+   ======================================== */
+
+::deep .patient-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+::deep .patient-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Settings Grid - Centered Single Column
+   Modified from 3-column to single-column for focused settings page */
+::deep .settings-grid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ========================================
+   CARD COMPONENTS
+   Author: SID:2402513
+   ======================================== */
+
+::deep .card {
+  background: var(--card, #ffffff);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius, 0.625rem);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  animation: fadeIn 0.3s ease-out;
+}
+
+::deep .card:hover {
+  border-color: var(--primary, #030213);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+::deep .settings-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 800px;
+}
+
+::deep .settings-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--foreground, #030213);
+  margin: 0 0 0.25rem 0;
+}
+
+::deep .settings-subtitle {
+  font-size: 0.95rem;
+  color: var(--muted-foreground, #717182);
+  margin: 0 0 2rem 0;
+}
+
+/* ========================================
+   ALERT MESSAGES
+   Author: SID:2402513
+   ======================================== */
+
+::deep .alert {
+  padding: 0.75rem 1rem;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+::deep .alert-success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+::deep .alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+::deep .loading-message {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground, #717182);
+  font-size: 0.95rem;
+}
+
+/* ========================================
+   FORM ELEMENTS
+   Author: SID:2402513
+   ======================================== */
+
+::deep .form-group {
+  margin-bottom: 2rem;
+}
+
+::deep .form-label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground, #030213);
+  margin-bottom: 0.5rem;
+}
+
+::deep .form-help {
+  font-size: 0.875rem;
+  color: var(--muted-foreground, #717182);
+  margin: 0 0 1rem 0;
+}
+
+::deep .form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  border: 2px solid #e5e7eb;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  background: var(--input-background, #f3f3f5);
+  color: var(--foreground, #030213);
+  transition: all 0.2s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+::deep .form-input:focus {
+  outline: none;
+  border-color: var(--primary, #030213);
+  box-shadow: 0 0 0 3px rgba(3, 2, 19, 0.08);
+}
+
+::deep .form-input::placeholder {
+  color: var(--muted-foreground, #717182);
+  font-style: italic;
+}
+
+/* Validation messages */
+::deep .validation-message {
+  color: #991b1b;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+/* ========================================
+   THRESHOLD SLIDER
+   Author: SID:2402513
+   ======================================== */
+
+::deep .threshold-display {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--primary, #030213);
+  text-align: center;
+  margin: 1rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+::deep .threshold-display::after {
+  content: " mmHg";
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted-foreground, #717182);
+}
+
+::deep .range-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--muted, #ececf0);
+  outline: none;
+  -webkit-appearance: none;
+  margin: 0.5rem 0;
+  cursor: pointer;
+}
+
+::deep .range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary, #030213);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+::deep .range-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary, #030213);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+::deep .range-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+::deep .range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--muted-foreground, #717182);
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+/* ========================================
+   NOTIFICATION SECTION & TOGGLE SWITCHES
+   Author: SID:2402513
+   ======================================== */
+
+::deep .notification-section {
+  margin-bottom: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+::deep .toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+::deep .toggle-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--muted, #ececf0);
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  transition: background 0.2s ease;
+}
+
+::deep .toggle-item:hover {
+  background: #e0e0e5;
+}
+
+::deep .toggle-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--foreground, #030213);
+  margin-bottom: 0.25rem;
+}
+
+::deep .toggle-description {
+  font-size: 0.8rem;
+  color: var(--muted-foreground, #717182);
+}
+
+::deep .toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+::deep .toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+::deep .toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 26px;
+}
+
+::deep .toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+::deep .toggle-switch input:checked + .toggle-slider {
+  background-color: var(--primary, #030213);
+}
+
+::deep .toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+::deep .toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 3px rgba(3, 2, 19, 0.1);
+}
+
+/* ========================================
+   BUTTONS
+   Author: SID:2402513
+   ======================================== */
+
+::deep .button-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+::deep .btn-primary {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
+  background: var(--primary, #030213);
+  color: var(--primary-foreground, #ffffff);
+  border: none;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+::deep .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+::deep .btn-outline {
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  color: var(--primary, #030213);
+  border: 2px solid #e5e7eb;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .btn-outline:hover:not(:disabled) {
+  background: var(--accent, #e9ebef);
+  border-color: var(--primary, #030213);
+}
+
+::deep .btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========================================
+   INFORMATION PANEL
+   Author: SID:2412494 (content), SID:2402513 (styling)
+   ======================================== */
+
+::deep .info-panel {
+  background: var(--muted, #ececf0);
+  border: 1px solid #e5e7eb;
+  border-radius: calc(var(--radius, 0.625rem) - 2px);
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+::deep .info-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground, #030213);
+  margin: 0 0 1rem 0;
+}
+
+::deep .info-list {
+  color: var(--muted-foreground, #717182);
+  font-size: 0.875rem;
+  margin: 0 0 1rem 1.5rem;
+  padding: 0;
+  line-height: 1.8;
+}
+
+::deep .info-list li {
+  margin-bottom: 0.25rem;
+}
+
+::deep .last-updated {
+  color: var(--muted-foreground, #717182);
+  font-size: 0.875rem;
+  margin: 1rem 0 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid #d1d5db;
+}
+
+/* ========================================
+   FOOTER
+   Author: SID:2412494
+   ======================================== */
+
+::deep .admin-footer {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted-foreground, #717182);
+  font-size: 0.875rem;
+  border-top: 1px solid #e5e7eb;
+  background: white;
+}
+
+::deep .admin-footer p {
+  margin: 0;
+}
+
+/* ========================================
+   ANIMATIONS
+   Author: SID:2402513
+   ======================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   Author: SID:2402513
+   ======================================== */
+
+@media (max-width: 768px) {
+  ::deep .patient-content {
+    padding: 1rem;
+  }
+
+  ::deep .settings-card {
+    max-width: 100%;
+  }
+
+  ::deep .button-group {
+    flex-direction: column;
+  }
+
+  ::deep .btn-outline {
+    width: 100%;
+  }
+
+  ::deep .threshold-display {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  ::deep .patient-content {
+    padding: 0.75rem;
+  }
+
+  ::deep .card {
+    padding: 1rem;
+  }
+
+  ::deep .settings-title {
+    font-size: 1.25rem;
+  }
+
+  ::deep .threshold-display {
+    font-size: 1.75rem;
+  }
+}
