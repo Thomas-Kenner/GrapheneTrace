@@ -70,7 +70,7 @@ public class NotificationService : IAsyncDisposable
     /// Most modern browsers support notifications, but some older browsers or privacy-focused
     /// configurations may not.
     /// </remarks>
-    public async Task<bool> IsNotificationSupportedAsync()
+    public virtual async Task<bool> IsNotificationSupportedAsync()
     {
         try
         {
@@ -96,7 +96,7 @@ public class NotificationService : IAsyncDisposable
     ///
     /// Use this to check if you need to request permission before attempting to show notifications.
     /// </remarks>
-    public async Task<string> GetPermissionAsync()
+    public virtual async Task<string> GetPermissionAsync()
     {
         try
         {
@@ -126,7 +126,7 @@ public class NotificationService : IAsyncDisposable
     /// - User clicks "Enable Notifications" button
     /// - Call this method to trigger browser permission dialog
     /// </remarks>
-    public async Task<string> RequestPermissionAsync()
+    public virtual async Task<string> RequestPermissionAsync()
     {
         try
         {
@@ -175,7 +175,7 @@ public class NotificationService : IAsyncDisposable
     ///     requireInteraction: true
     /// );
     /// </remarks>
-    public async Task<bool> ShowNotificationAsync(
+    public virtual async Task<bool> ShowNotificationAsync(
         string title,
         string? body = null,
         string? icon = null,
