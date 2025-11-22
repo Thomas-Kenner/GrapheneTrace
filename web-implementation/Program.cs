@@ -152,6 +152,10 @@ builder.Services.AddScoped<UserManagementService>();
 // Author: SID:2412494
 builder.Services.AddScoped<PatientSettingsService>();
 
+// Add Notification Service
+// Author: SID:2412494
+builder.Services.AddScoped<NotificationService>();
+
 // Add Database Seeder
 // Author: SID:2412494
 builder.Services.AddScoped<DatabaseSeeder>();
