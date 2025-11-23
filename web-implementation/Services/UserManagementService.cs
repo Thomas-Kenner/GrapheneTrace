@@ -294,4 +294,22 @@ public class UserManagementService
             return (false, $"Error approving user: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Retrieves all patients assigned to a specific clinician.
+    /// Author: SID:2402513
+    /// </summary>
+    public async Task<List<ApplicationUser>> GetPatientsByClinicianAsync(Guid clinicianId)
+    {
+        // In a real scenario with EF Core, we would use .Where(u => u.AssignedClinicianId == clinicianId)
+        // Since we are using UserManager which doesn't expose IQueryable directly in the same way for custom fields easily without casting,
+        // we will fetch all users and filter in memory for this implementation, 
+        // or rely on the fact that we can access the context if needed.
+        // For simplicity and safety with UserManager abstraction:
+        
+        var allUsers = _userManager.Users.ToList();
+        return allUsers
+            .Where(u => u.UserType == "patient" && u.AssignedClinicianId == clinicianId)
+            .ToList();
+    }
 }

@@ -7,12 +7,9 @@
 .admin-header-consolidated {
     background: var(--background);
     border-bottom: 1px solid var(--border);
-    padding: 1rem 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2rem;
-    flex-wrap: wrap;
+    padding: 0;
+    /* Remove padding from container, let inner div handle it if needed, or keep it */
+    width: 100%;
 }
 
 .header-left {

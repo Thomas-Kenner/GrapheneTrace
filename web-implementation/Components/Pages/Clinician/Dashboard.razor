@@ -2,6 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
 @using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Components.Layout
+@using GrapheneTrace.Web.Components.UI
 @using Microsoft.AspNetCore.Components.Authorization
 @inject AuthenticationStateProvider AuthStateProvider
 
@@ -17,45 +18,74 @@
     <ClinicianHeader />
 
     <div class="admin-content">
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
-            <h1 class="section-title" style="margin-bottom: 0.5rem;">Clinician Dashboard</h1>
-            <p style="color: #6b7280;">
-                View your patients list below.
+        <div style="margin-bottom: 2rem;">
+            <h1 class="section-title">Clinician Dashboard</h1>
+            <p style="color: var(--muted-foreground);">
+                Welcome back, @userName. View and manage your assigned patients below.
             </p>
         </div>
 
-        <div class="activity-card">
-            <h3>Patients</h3>
-            
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid var(--border);">
-                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Name</th>
-                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Age</th>
-                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Condition</th>
-                            <th style="padding: 1rem; font-weight: 600; color: var(--foreground);">Check Patient</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var patient in patients)
-                        {
-                            <tr style="border-bottom: 1px solid var(--muted);">
-                                <td style="padding: 1rem; color: var(--foreground);">@patient.Name</td>
-                                <td style="padding: 1rem; color: var(--foreground);">@patient.Age</td>
-                                <td style="padding: 1rem; color: var(--foreground);">@patient.Condition</td>
-                                <td style="padding: 1rem;">
-                                    <button @onclick="() => OpenCheckModal(patient)" 
-                                            style="background: #2563eb; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: background 0.2s;">
-                                        Check
-                                    </button>
-                                </td>
+        <Card>
+            <CardHeader>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">Assigned Patients</h3>
+                        <p style="margin: 0; color: var(--muted-foreground); font-size: 0.9rem;">
+                            You have @patients.Count assigned patient@(patients.Count == 1 ? "" : "s")
+                        </p>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div class="table-responsive">
+                    <table class="patient-table">
+                        <thead>
+                            <tr>
+                                <th>Name / ID</th>
+                                <th>Age</th>
+                                <th>Condition</th>
+                                <th>Action</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            @if (patients.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--muted-foreground);">
+                                        No patients assigned.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var patient in patients)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="patient-name">@patient.FullName</div>
+                                            <div class="patient-id">ID: @patient.Id.ToString().Substring(0, 8)</div>
+                                        </td>
+                                        <td>
+                                            @(patient.DateOfBirth.HasValue ? (DateTime.Now.Year - patient.DateOfBirth.Value.Year) : "N/A")
+                                        </td>
+                                        <td>
+                                            <span class="status-badge @(patient.Condition?.ToLower() == "critical" ? "status-critical" : "status-normal")">
+                                                @(patient.Condition ?? "Unknown")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <Button Variant="primary" Size="sm" OnClick="() => OpenCheckModal(patient)">
+                                                Check Patient
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </CardContent>
+        </Card>
     </div>
 
     <div class="admin-footer">
@@ -76,43 +106,43 @@
     </div>
 }
 
+@inject GrapheneTrace.Web.Services.UserManagementService UserManagementService
+
 @code {
     private string userName = "";
     private bool showModal = false;
-    private PatientModel selectedPatient;
-
-    // Mock data for patients
-    private List<PatientModel> patients = new List<PatientModel>
-    {
-        new PatientModel { Name = "John Doe", Age = 45, Condition = "Normal" },
-        new PatientModel { Name = "Jane Smith", Age = 37, Condition = "Normal" },
-        new PatientModel { Name = "Mark Johnson", Age = 29, Condition = "Normal" },
-        new PatientModel { Name = "Sarah Williams", Age = 32, Condition = "Normal" }
-    };
+    private ApplicationUser? selectedPatient;
+    private List<ApplicationUser> patients = new();
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        userName = authState.User.Identity?.Name ?? "Unknown";
+        var user = authState.User;
+        userName = user.Identity?.Name ?? "Unknown";
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            // Get the current clinician's ID
+            var appUser = await UserManagementService.GetUserByIdAsync(Guid.Parse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString()));
+            
+            if (appUser != null)
+            {
+                patients = await UserManagementService.GetPatientsByClinicianAsync(appUser.Id);
+            }
+        }
     }
 
-    private void OpenCheckModal(PatientModel patient)
+    private void OpenCheckModal(ApplicationUser patient)
     {
         selectedPatient = patient;
         showModal = true;
+        StateHasChanged();
     }
 
     private void CloseModal()
     {
         showModal = false;
         selectedPatient = null;
-    }
-
-    // Simple internal model for this view
-    private class PatientModel
-    {
-        public string Name { get; set; }
-        public int Age { get; set; }
-        public string Condition { get; set; }
+        StateHasChanged();
     }
 }

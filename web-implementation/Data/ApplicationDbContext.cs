@@ -97,6 +97,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
 
             // Optional: Create index on ApprovedBy for approval history queries
             entity.HasIndex(e => e.ApprovedBy);
+
+            // Configure AssignedClinician self-referencing foreign key
+            // This allows assigning patients to clinicians
+            entity.HasOne(e => e.AssignedClinician)
+                .WithMany()
+                .HasForeignKey(e => e.AssignedClinicianId)
+                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading deletes
+            
+            entity.HasIndex(e => e.AssignedClinicianId);
         });
 
         // Configure PatientSettings entity (Story #9)

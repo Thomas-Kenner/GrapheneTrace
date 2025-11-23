@@ -3,12 +3,10 @@
  * Closes dropdowns when clicking outside of the header
  */
 
-window.setupDropdownClickHandler = function(dotnetObj, headerElement) {
-    document.addEventListener('click', function(event) {
-        // Check if the click is outside the header
-        if (headerElement && !headerElement.contains(event.target)) {
-            // Call the C# method to close dropdowns
-            dotnetObj.invokeMethodAsync('CloseDropdownsFromJS');
+window.addClickOutsideListener = function (element, dotnetHelper) {
+    window.addEventListener("click", (e) => {
+        if (element && !element.contains(e.target)) {
+            dotnetHelper.invokeMethodAsync("CloseMenu");
         }
     });
 };

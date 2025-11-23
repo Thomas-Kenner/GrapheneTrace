@@ -40,6 +40,7 @@ builder.Services.AddSingleton(thresholdsConfig);
 
 // Add services to the container
 builder.Services.AddControllers();  // For AccountController
+builder.Services.AddHttpClient();   // Register IHttpClientFactory
 
 // Configure HttpClient for Blazor Server components
 // Author: SID:2412494
