@@ -1,9 +1,11 @@
 @page "/clinician/dashboard"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@rendermode InteractiveServer
 @using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Components.Layout
 @using GrapheneTrace.Web.Components.UI
 @using Microsoft.AspNetCore.Components.Authorization
+@using GrapheneTrace.Web.Components.Layout
 @inject AuthenticationStateProvider AuthStateProvider
 
 @*
@@ -147,73 +149,122 @@
     }
 }
 
-@page "/clinician/dashboard"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@using GrapheneTrace.Web.Models
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@inject AuthenticationStateProvider AuthStateProvider
-@inject SignInManager<ApplicationUser> SignInManager
-@inject NavigationManager Navigation
+<style>
+    .clinician-container {
+        min-height: 100vh;
+        background-color: #f9fafb;
+    }
 
-@*
-    Clinician Dashboard Page
-    Author: SID:2412494
-    Route: /clinician/dashboard
+    .clinician-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
 
-    Purpose: Main dashboard for clinician users.
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        color: #111827;
+    }
 
-    Authorization: Requires authenticated user (Authorize attribute).
-    Future: Add role-based authorization to restrict to clinician users only.
+    .patient-grid {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
 
-    Current Implementation: Simple placeholder for testing authentication flow.
-    Production TODO: Add clinician-specific features (patient list, alerts, data visualization, etc.)
-*@
+    .grid-header {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        padding: 1rem;
+        background: #f3f4f6;
+        font-weight: 600;
+        border-bottom: 1px solid #e5e7eb;
+    }
 
-<div style="padding: 2rem;">
-    <div style="max-width: 64rem; margin: 0 auto;">
-        <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">
-            Clinician Dashboard
-        </h1>
+    .grid-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        padding: 1rem;
+        align-items: center;
+        border-bottom: 1px solid #f3f4f6;
+    }
 
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem;">
-            <p style="margin-bottom: 0.5rem;">
-                <strong>Welcome, @userName!</strong>
-            </p>
-            <p style="color: #6b7280; margin-bottom: 0.5rem;">
-                Role: <strong>Clinician</strong>
-            </p>
-            <p style="color: #6b7280;">
-                Monitor your patients and respond to pressure alerts.
-            </p>
-        </div>
+    .grid-row:last-child {
+        border-bottom: none;
+    }
 
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
-                Quick Actions
-            </h2>
-            <p style="color: #6b7280; margin-bottom: 1rem;">
-                Clinician features coming soon: Patient list, pressure alerts, notification management, etc.
-            </p>
-            <button @onclick="HandleLogout"
-                    style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
-                Logout
-            </button>
-        </div>
-    </div>
-</div>
+    .check-btn {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+
+    .check-btn:hover {
+        background-color: #2563eb;
+    }
+
+    .popup-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .popup-window {
+        background: white;
+        width: 500px;
+        height: 300px;
+        border-radius: 0.5rem;
+        position: relative;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .close-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: transparent;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: #6b7280;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .close-btn:hover {
+        background-color: #f3f4f6;
+        color: #111827;
+    }
+</style>
 
 @code {
+    private bool isPopupVisible = false;
     private string userName = "";
 
-    /// <summary>
-    /// Component initialization: loads user information from authentication state.
-    /// Author: SID:2412494
-    /// </summary>
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
+    }
 
         // TODO: Add role verification to ensure user is actually a clinician
         // Redirect non-clinician users to their appropriate dashboard
