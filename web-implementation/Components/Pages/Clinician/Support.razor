@@ -1,0 +1,50 @@
+@page "/clinician/support"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+
+@*
+    CLINICIAN SUPPORT PAGE
+    Author: sid : 2402513
+
+    Purpose:
+    Placeholder for clinician support.
+*@
+
+<div class="clinician-container">
+    <ClinicianHeader />
+
+    <div class="clinician-content">
+        <h2 class="section-title">Support</h2>
+        <p>Support placeholder page.</p>
+    </div>
+</div>
+
+<style>
+    .clinician-container {
+        min-height: 100vh;
+        background-color: #f9fafb;
+    }
+
+    .clinician-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        color: #111827;
+    }
+</style>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Ensure user is authenticated
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+    }
+}
