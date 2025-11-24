@@ -1,5 +1,7 @@
+using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrapheneTrace.Web.Services;
 
@@ -52,6 +54,7 @@ public class DatabaseSeeder
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<DatabaseSeeder> _logger;
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _context;
 
     /// <summary>
     /// System admin account credentials and configuration.
@@ -92,11 +95,13 @@ public class DatabaseSeeder
     public DatabaseSeeder(
         UserManager<ApplicationUser> userManager,
         ILogger<DatabaseSeeder> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ApplicationDbContext context)
     {
         _userManager = userManager;
         _logger = logger;
         _configuration = configuration;
+        _context = context;
     }
 
     /// <summary>
@@ -131,9 +136,11 @@ public class DatabaseSeeder
 
             var buildTime = DateTime.UtcNow;
             var systemUser = await EnsureSystemAccountExistsAsync();
-            await EnsureTestPatientExistsAsync(buildTime);
-            await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
+            var patient = await EnsureTestPatientExistsAsync(buildTime);
+            var clinician = await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
             await EnsureUnapprovedClinicianExistsAsync(buildTime);
+
+            await EnsureAssignmentsAndMessagesAsync(patient, clinician);
 
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -232,7 +239,7 @@ public class DatabaseSeeder
     /// Ensures a test patient account exists (auto-approved).
     /// </summary>
     /// <param name="buildTime">The build time to use for approval timestamps</param>
-    private async Task EnsureTestPatientExistsAsync(DateTime buildTime)
+    private async Task<ApplicationUser> EnsureTestPatientExistsAsync(DateTime buildTime)
     {
         var testPatient = await _userManager.FindByEmailAsync(TestPatientEmail);
 
@@ -289,6 +296,8 @@ public class DatabaseSeeder
             testPatient.ApprovedBy = null;
             await _userManager.UpdateAsync(testPatient);
         }
+
+        return testPatient;
     }
 
     /// <summary>
@@ -296,7 +305,7 @@ public class DatabaseSeeder
     /// </summary>
     /// <param name="systemUser">The system admin who approved the account</param>
     /// <param name="buildTime">The build time to use for approval timestamps</param>
-    private async Task EnsureApprovedClinicianExistsAsync(ApplicationUser systemUser, DateTime buildTime)
+    private async Task<ApplicationUser> EnsureApprovedClinicianExistsAsync(ApplicationUser systemUser, DateTime buildTime)
     {
         var approvedClinician = await _userManager.FindByEmailAsync(ApprovedClinicianEmail);
 
@@ -353,6 +362,8 @@ public class DatabaseSeeder
             approvedClinician.ApprovedBy = systemUser.Id;
             await _userManager.UpdateAsync(approvedClinician);
         }
+
+        return approvedClinician;
     }
 
     /// <summary>
@@ -415,6 +426,69 @@ public class DatabaseSeeder
             unapprovedClinician.ApprovedAt = null;
             unapprovedClinician.ApprovedBy = null;
             await _userManager.UpdateAsync(unapprovedClinician);
+        }
+    }
+
+
+    private async Task EnsureAssignmentsAndMessagesAsync(ApplicationUser patient, ApplicationUser clinician)
+    {
+        // Check if assignment exists
+        var assignment = await _context.PatientClinicianAssignments
+            .FirstOrDefaultAsync(a => a.PatientId == patient.Id && a.ClinicianId == clinician.Id);
+
+        if (assignment == null)
+        {
+            _logger.LogInformation("Creating assignment between {Patient} and {Clinician}", patient.Email, clinician.Email);
+            assignment = new PatientClinicianAssignment
+            {
+                PatientId = patient.Id,
+                ClinicianId = clinician.Id,
+                AssignedAt = DateTime.UtcNow
+            };
+            _context.PatientClinicianAssignments.Add(assignment);
+            await _context.SaveChangesAsync();
+        }
+
+        // Check if messages exist
+        var messagesExist = await _context.ChatMessages
+            .AnyAsync(m => (m.SenderId == patient.Id && m.ReceiverId == clinician.Id) ||
+                           (m.SenderId == clinician.Id && m.ReceiverId == patient.Id));
+
+        if (!messagesExist)
+        {
+            _logger.LogInformation("Seeding sample chat messages");
+            var now = DateTime.UtcNow;
+
+            var messages = new List<ChatMessage>
+            {
+                new ChatMessage
+                {
+                    SenderId = clinician.Id,
+                    ReceiverId = patient.Id,
+                    Content = "Hello! How are you feeling today?",
+                    SentAt = now.AddMinutes(-30),
+                    IsRead = true
+                },
+                new ChatMessage
+                {
+                    SenderId = patient.Id,
+                    ReceiverId = clinician.Id,
+                    Content = "I'm feeling a bit better, thanks.",
+                    SentAt = now.AddMinutes(-25),
+                    IsRead = true
+                },
+                new ChatMessage
+                {
+                    SenderId = clinician.Id,
+                    ReceiverId = patient.Id,
+                    Content = "That's good to hear. Have you been monitoring your pressure?",
+                    SentAt = now.AddMinutes(-20),
+                    IsRead = false
+                }
+            };
+
+            _context.ChatMessages.AddRange(messages);
+            await _context.SaveChangesAsync();
         }
     }
 }

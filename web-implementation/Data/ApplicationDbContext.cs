@@ -49,6 +49,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     /// </summary>
     public DbSet<PatientSettings> PatientSettings { get; set; } = null!;
 
+    public DbSet<PatientClinicianAssignment> PatientClinicianAssignments { get; set; } = null!;
+    public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
+
     /// <summary>
     /// Configures the database schema using Fluent API.
     /// </summary>
@@ -121,6 +124,41 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
 
             entity.Property(ps => ps.HighPressureThreshold)
                 .IsRequired();
+            entity.Property(ps => ps.HighPressureThreshold)
+                .IsRequired();
+        });
+
+        // Configure PatientClinicianAssignment
+        builder.Entity<PatientClinicianAssignment>(entity =>
+        {
+            entity.HasOne(a => a.Patient)
+                .WithMany()
+                .HasForeignKey(a => a.PatientId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(a => a.Clinician)
+                .WithMany()
+                .HasForeignKey(a => a.ClinicianId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            // Ensure unique assignment
+            entity.HasIndex(a => new { a.PatientId, a.ClinicianId }).IsUnique();
+        });
+
+        // Configure ChatMessage
+        builder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(m => m.Receiver)
+                .WithMany()
+                .HasForeignKey(m => m.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(m => m.SentAt);
         });
 
         // Future: Add configurations for other entities here

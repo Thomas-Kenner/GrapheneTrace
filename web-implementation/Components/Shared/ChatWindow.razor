@@ -1,0 +1,303 @@
+@using Microsoft.AspNetCore.SignalR.Client
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager NavigationManager
+@inject ChatService ChatService
+@inject NotificationService NotificationService
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IAsyncDisposable
+
+<div class="chat-window">
+    <div class="chat-sidebar">
+        <h3>Contacts</h3>
+        <ul class="contact-list">
+            @foreach (var user in assignedUsers)
+            {
+                <li class="@(selectedUser?.Id == user.Id ? "active" : "")" @onclick="() => SelectUser(user)">
+                    @user.FullName
+                    @if (unreadCounts.ContainsKey(user.Id) && unreadCounts[user.Id] > 0)
+                    {
+                        <span class="badge">@unreadCounts[user.Id]</span>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+    <div class="chat-main">
+        @if (selectedUser != null)
+        {
+            <div class="chat-header">
+                <h4>Chat with @selectedUser.FullName</h4>
+            </div>
+            <div class="chat-messages" @ref="messagesContainer">
+                @foreach (var message in messages)
+                {
+                    <div class="message @(message.SenderId == currentUserId ? "sent" : "received")">
+                        <div class="message-content">@message.Content</div>
+                        <div class="message-time">@message.SentAt.ToLocalTime().ToString("g")</div>
+                    </div>
+                }
+            </div>
+            <div class="chat-input">
+                <input @bind="newMessage" @bind:event="oninput" @onkeyup="HandleInputKeyUp" placeholder="Type a message..." />
+                <button @onclick="SendMessage" disabled="@(string.IsNullOrWhiteSpace(newMessage))">Send</button>
+            </div>
+        }
+        else
+        {
+            <div class="no-chat-selected">
+                <p>Select a contact to start chatting.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .chat-window {
+        display: flex;
+        height: 500px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    .chat-sidebar {
+        width: 250px;
+        border-right: 1px solid #ccc;
+        background-color: #f9f9f9;
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-sidebar h3 {
+        padding: 10px;
+        margin: 0;
+        background-color: #eee;
+        border-bottom: 1px solid #ccc;
+    }
+    .contact-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+    .contact-list li {
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .contact-list li:hover {
+        background-color: #e9e9e9;
+    }
+    .contact-list li.active {
+        background-color: #007bff;
+        color: white;
+    }
+    .badge {
+        background-color: red;
+        color: white;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 0.8em;
+    }
+    .chat-main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-header {
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        background-color: #f9f9f9;
+    }
+    .chat-header h4 {
+        margin: 0;
+    }
+    .chat-messages {
+        flex-grow: 1;
+        padding: 10px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .message {
+        max-width: 70%;
+        padding: 8px 12px;
+        border-radius: 15px;
+        position: relative;
+    }
+    .message.sent {
+        align-self: flex-end;
+        background-color: #007bff;
+        color: white;
+        border-bottom-right-radius: 2px;
+    }
+    .message.received {
+        align-self: flex-start;
+        background-color: #e9e9e9;
+        color: black;
+        border-bottom-left-radius: 2px;
+    }
+    .message-time {
+        font-size: 0.7em;
+        opacity: 0.7;
+        margin-top: 4px;
+        text-align: right;
+    }
+    .chat-input {
+        padding: 10px;
+        border-top: 1px solid #ccc;
+        display: flex;
+        gap: 10px;
+    }
+    .chat-input input {
+        flex-grow: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .chat-input button {
+        padding: 8px 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .chat-input button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+    .no-chat-selected {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #999;
+    }
+</style>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<ApplicationUser> assignedUsers = new();
+    private ApplicationUser? selectedUser;
+    private List<ChatMessage> messages = new();
+    private string newMessage = "";
+    private Guid currentUserId;
+    private string currentUserType = "";
+    private Dictionary<Guid, int> unreadCounts = new();
+    private ElementReference messagesContainer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            // Assuming we can get ID and Role from claims or service
+            // For now, we might need to fetch the full user object if claims aren't enough
+            // But let's assume standard Identity claims for ID
+            var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var uid))
+            {
+                currentUserId = uid;
+            }
+            
+            // Determine user type (clinician or patient)
+            if (user.IsInRole("Clinician")) currentUserType = "clinician";
+            else if (user.IsInRole("Patient")) currentUserType = "patient";
+
+            assignedUsers = await ChatService.GetAssignedUsersAsync(currentUserId, currentUserType);
+
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
+                .Build();
+
+            hubConnection.On<string, string>("ReceiveMessage", async (senderIdString, message) =>
+            {
+                if (Guid.TryParse(senderIdString, out var senderId))
+                {
+                    if (selectedUser != null && senderId == selectedUser.Id)
+                    {
+                        // Message is from currently selected user
+                        await LoadMessagesAsync(selectedUser.Id);
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        // Message is from someone else
+                        if (!unreadCounts.ContainsKey(senderId)) unreadCounts[senderId] = 0;
+                        unreadCounts[senderId]++;
+                        StateHasChanged();
+
+                        // Show notification
+                        if (await NotificationService.IsNotificationSupportedAsync() && await NotificationService.GetPermissionAsync() == "granted")
+                        {
+                            var sender = assignedUsers.FirstOrDefault(u => u.Id == senderId);
+                            await NotificationService.ShowNotificationAsync(
+                                title: $"New message from {sender?.FullName ?? "Unknown"}",
+                                body: message
+                            );
+                        }
+                    }
+                }
+            });
+
+            await hubConnection.StartAsync();
+        }
+    }
+
+    private async Task SelectUser(ApplicationUser user)
+    {
+        selectedUser = user;
+        if (unreadCounts.ContainsKey(user.Id)) unreadCounts[user.Id] = 0;
+        await LoadMessagesAsync(user.Id);
+    }
+
+    private async Task LoadMessagesAsync(Guid otherUserId)
+    {
+        messages = await ChatService.GetConversationAsync(currentUserId, otherUserId);
+        // Mark as read logic could go here
+    }
+
+    private async Task SendMessage()
+    {
+        if (selectedUser != null && !string.IsNullOrWhiteSpace(newMessage))
+        {
+            await ChatService.SaveMessageAsync(currentUserId, selectedUser.Id, newMessage);
+            await hubConnection!.SendAsync("SendPrivateMessage", selectedUser.Id.ToString(), newMessage);
+            
+            // Add to local list immediately for responsiveness
+            messages.Add(new ChatMessage 
+            { 
+                SenderId = currentUserId, 
+                ReceiverId = selectedUser.Id, 
+                Content = newMessage, 
+                SentAt = DateTime.UtcNow 
+            });
+            
+            newMessage = "";
+        }
+    }
+
+    private async Task HandleInputKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
