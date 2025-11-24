@@ -143,9 +143,13 @@ public class DatabaseSeeder
             var buildTime = DateTime.UtcNow;
             var systemUser = await EnsureSystemAccountExistsAsync();
             var patients = await EnsurePatientsExistAsync(buildTime);
-            await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
+            var clinician = await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
             await EnsureUnapprovedClinicianExistsAsync(buildTime);
             await SeedPressureDataAsync(patients);
+
+            // Author: SID:2412494
+            // Seed patient-clinician assignments and sample chat messages
+            await EnsureAssignmentsAndMessagesAsync(patients, clinician);
 
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -567,6 +571,83 @@ public class DatabaseSeeder
         {
             _logger.LogError(ex, "Error seeding pressure data.");
             // Don't throw, just log error so other seeding can continue or app can start
+        }
+    }
+
+    /// <summary>
+    /// Ensures patient-clinician assignments and sample chat messages exist.
+    /// Uses PatientClinician model (main's assignment workflow with soft-delete support).
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="patients">Dictionary mapping device IDs to patient users</param>
+    /// <param name="clinician">The approved clinician to assign patients to</param>
+    private async Task EnsureAssignmentsAndMessagesAsync(Dictionary<string, ApplicationUser> patients, ApplicationUser clinician)
+    {
+        // Assign first patient (Alice) to the approved clinician for chat testing
+        var firstPatient = patients.Values.FirstOrDefault();
+        if (firstPatient == null)
+        {
+            _logger.LogWarning("No patients found to create assignments");
+            return;
+        }
+
+        // Check if assignment exists using PatientClinician (main's model with soft-delete)
+        var assignment = await _context.PatientClinicians
+            .FirstOrDefaultAsync(a => a.PatientId == firstPatient.Id && a.ClinicianId == clinician.Id && a.UnassignedAt == null);
+
+        if (assignment == null)
+        {
+            _logger.LogInformation("Creating assignment between {Patient} and {Clinician}", firstPatient.Email, clinician.Email);
+            assignment = new PatientClinician
+            {
+                PatientId = firstPatient.Id,
+                ClinicianId = clinician.Id,
+                AssignedAt = DateTime.UtcNow
+            };
+            _context.PatientClinicians.Add(assignment);
+            await _context.SaveChangesAsync();
+        }
+
+        // Check if messages exist
+        var messagesExist = await _context.ChatMessages
+            .AnyAsync(m => (m.SenderId == firstPatient.Id && m.ReceiverId == clinician.Id) ||
+                           (m.SenderId == clinician.Id && m.ReceiverId == firstPatient.Id));
+
+        if (!messagesExist)
+        {
+            _logger.LogInformation("Seeding sample chat messages");
+            var now = DateTime.UtcNow;
+
+            var messages = new List<ChatMessage>
+            {
+                new ChatMessage
+                {
+                    SenderId = clinician.Id,
+                    ReceiverId = firstPatient.Id,
+                    Content = "Hello! How are you feeling today?",
+                    SentAt = now.AddMinutes(-30),
+                    IsRead = true
+                },
+                new ChatMessage
+                {
+                    SenderId = firstPatient.Id,
+                    ReceiverId = clinician.Id,
+                    Content = "I'm feeling a bit better, thanks.",
+                    SentAt = now.AddMinutes(-25),
+                    IsRead = true
+                },
+                new ChatMessage
+                {
+                    SenderId = clinician.Id,
+                    ReceiverId = firstPatient.Id,
+                    Content = "That's good to hear. Have you been monitoring your pressure?",
+                    SentAt = now.AddMinutes(-20),
+                    IsRead = false
+                }
+            };
+
+            _context.ChatMessages.AddRange(messages);
+            await _context.SaveChangesAsync();
         }
     }
 }

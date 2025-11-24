@@ -154,7 +154,15 @@ builder.Services.AddScoped<PatientSettingsService>();
 
 // Add Notification Service
 // Author: SID:2412494
+// Add Notification Service
+// Author: SID:2412494
 builder.Services.AddScoped<NotificationService>();
+
+// Add Chat Service
+builder.Services.AddScoped<ChatService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add Database Seeder
 // Author: SID:2412494
@@ -220,6 +228,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapControllers();  // Map controller endpoints
+app.MapHub<GrapheneTrace.Web.Hubs.ChatHub>("/chathub");
 
 app.Run();
 

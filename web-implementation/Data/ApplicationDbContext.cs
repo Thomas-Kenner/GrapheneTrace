@@ -60,6 +60,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     /// </summary>
     public DbSet<PatientSettings> PatientSettings { get; set; }
 
+    /// <summary>
+    /// Real-time chat messages between patients and clinicians.
+    /// Author: SID:2412494
+    /// </summary>
+    public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
 
     /// <summary>
     /// Configures the database schema using Fluent API.
@@ -172,6 +177,37 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
             // This prevents duplicate active assignments
         });
 
+        // Configure PatientSettings
+        builder.Entity<PatientSettings>(entity =>
+        {
+            // Add index on UpdatedAt for querying recently modified settings
+            entity.HasIndex(ps => ps.UpdatedAt);
+
+            // Configure required fields with validation
+            entity.Property(ps => ps.LowPressureThreshold)
+                .IsRequired();
+
+            entity.Property(ps => ps.HighPressureThreshold)
+                .IsRequired();
+        });
+
+        // Configure ChatMessage
+        // Author: SID:2412494
+        builder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(m => m.Receiver)
+                .WithMany()
+                .HasForeignKey(m => m.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(m => m.SentAt);
+        });
+
         // Future: Add configurations for other entities here
         // Example:
         // builder.Entity<PressureReading>(entity =>
@@ -227,9 +263,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     // Connect the PatientSessionData and PatientSnapshotData models to the database
     public DbSet<PatientSessionData> PatientSessionDatas { get; set; }
     public DbSet<PatientSnapshotData> PatientSnapshotDatas { get; set; }
-    
+
     //Author:2415776
-    
+
     public DbSet<PressureComment> PressureComments { get; set; }
 
 }
