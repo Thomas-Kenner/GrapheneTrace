@@ -155,13 +155,7 @@ using (var scope = app.Services.CreateScope())
     await seeder.SeedAsync();
 }
 
-// Load in pressure data from files
-// Author: 2414111
-using (var scope = app.Services.CreateScope())
-{
-    var pressureData = scope.ServiceProvider.GetRequiredService<PressureDataService>();
-    await pressureData.ProcessInitialPressureData();
-}
+
 
 // Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())

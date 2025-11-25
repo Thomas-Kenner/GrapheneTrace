@@ -1,5 +1,7 @@
+using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrapheneTrace.Web.Services;
 
@@ -52,6 +54,7 @@ public class DatabaseSeeder
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<DatabaseSeeder> _logger;
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _context;
 
     /// <summary>
     /// System admin account credentials and configuration.
@@ -92,11 +95,13 @@ public class DatabaseSeeder
     public DatabaseSeeder(
         UserManager<ApplicationUser> userManager,
         ILogger<DatabaseSeeder> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ApplicationDbContext context)
     {
         _userManager = userManager;
         _logger = logger;
         _configuration = configuration;
+        _context = context;
     }
 
     /// <summary>
@@ -133,7 +138,10 @@ public class DatabaseSeeder
             var systemUser = await EnsureSystemAccountExistsAsync();
             await EnsureTestPatientExistsAsync(buildTime);
             await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
+            await EnsureTestPatientExistsAsync(buildTime);
+            await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
             await EnsureUnapprovedClinicianExistsAsync(buildTime);
+            await SeedPressureDataAsync();
 
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -415,6 +423,134 @@ public class DatabaseSeeder
             unapprovedClinician.ApprovedAt = null;
             unapprovedClinician.ApprovedBy = null;
             await _userManager.UpdateAsync(unapprovedClinician);
+        }
+    }
+
+
+    /// <summary>
+    /// Seeds pressure data from CSV files in the resources directory.
+    /// </summary>
+    private async Task SeedPressureDataAsync()
+    {
+        try
+        {
+            // Path to resources directory relative to the web app execution path
+            // Assuming web app runs from web-implementation/ or bin/Debug/net8.0/
+            // We need to find the repo root.
+            string resourcePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "resources", "GTLB-Data");
+            
+            // If running from bin/Debug/..., we might need to go up more levels. 
+            // A safer bet for dev environment is to look for the resources folder.
+            if (!Directory.Exists(resourcePath))
+            {
+                 // Try finding it relative to project root if running in dev
+                 resourcePath = Path.Combine(Directory.GetCurrentDirectory(), "resources", "GTLB-Data");
+                 if (!Directory.Exists(resourcePath))
+                 {
+                     // Fallback for when running inside web-implementation folder
+                     resourcePath = Path.Combine("..", "resources", "GTLB-Data");
+                 }
+            }
+
+            if (!Directory.Exists(resourcePath))
+            {
+                _logger.LogWarning("Pressure data resources directory not found at: {Path}", resourcePath);
+                return;
+            }
+
+            string[] files = Directory.GetFiles(resourcePath, "*.csv");
+            _logger.LogInformation("Found {Count} pressure data files to process.", files.Length);
+
+            foreach (string fileName in files)
+            {
+                // Split file path into separate bits of info
+                // Expect csv files with paths in the format deviceId_date.csv
+                string simpleFileName = Path.GetFileName(fileName);
+                char[] delimiterChar = ['_', '.'];
+                string[] fileNameSegments = simpleFileName.Split(delimiterChar);
+
+                // Expect deviceId_date.csv, so 3 segments (deviceId, date, csv)
+                if (fileNameSegments.Length != 3) 
+                {
+                    _logger.LogWarning("Skipping file with invalid format: {FileName}", simpleFileName);
+                    continue;
+                }
+
+                string deviceId = fileNameSegments[0];
+                string dateString = fileNameSegments[1];
+
+                if (!DateTime.TryParseExact(dateString, "yyyyMMdd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime date)) 
+                {
+                    _logger.LogWarning("Skipping file with invalid date format: {FileName}", simpleFileName);
+                    continue;
+                }
+                
+                var parsedDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+
+                // Check if session already exists
+                var existingSession = await _context.PatientSessionDatas
+                    .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.Start == parsedDate);
+
+                if (existingSession != null)
+                {
+                    _logger.LogDebug("Session already exists for {DeviceId} on {Date}. Skipping.", deviceId, parsedDate.ToShortDateString());
+                    continue;
+                }
+
+                _logger.LogInformation("Seeding pressure data for {DeviceId} on {Date}...", deviceId, parsedDate.ToShortDateString());
+
+                string fileContents = await File.ReadAllTextAsync(fileName);
+
+                // Create Session
+                var sessionData = new PatientSessionData
+                {
+                    DeviceId = deviceId,
+                    Start = parsedDate,
+                };
+
+                _context.PatientSessionDatas.Add(sessionData);
+                await _context.SaveChangesAsync();
+
+                // Process Snapshots using helper methods from PressureDataService
+                // Note: We need to make sure PressureDataService helpers are accessible or duplicate them.
+                // The plan said to keep them public in PressureDataService.
+                
+                List<string> sessionSnapshots = PressureDataService.SplitIntoSnapshots(fileContents, 32); // 32 rows
+                
+                // 15 snapshots per second
+                double millisec = 1000.0 / 15.0;
+                TimeSpan interval = TimeSpan.FromMilliseconds(millisec);
+                var snapshotTime = parsedDate;
+
+                var snapshotsToAdd = new List<PatientSnapshotData>(sessionSnapshots.Count);
+
+                foreach (string snapshot in sessionSnapshots)
+                {
+                    var snapshotInts = PressureDataService.ConvertSnapshotToInt(snapshot, 32); // 32 columns
+
+                    var snapshotData = new PatientSnapshotData
+                    {
+                        SessionId = sessionData.SessionId,
+                        SnapshotData = snapshot,
+                        ContactAreaPercent = PressureDataService.SensorsOverLimitInSession(snapshotInts, 0) * (100.0f / 1024.0f),
+                        SnapshotTime = snapshotTime,
+                    };
+
+                    snapshotsToAdd.Add(snapshotData);
+                    snapshotTime = snapshotTime.Add(interval);
+                }
+
+                _context.PatientSnapshotDatas.AddRange(snapshotsToAdd);
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error seeding pressure data.");
+            // Don't throw, just log error so other seeding can continue or app can start
         }
     }
 }
