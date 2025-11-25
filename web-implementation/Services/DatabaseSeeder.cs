@@ -505,18 +505,20 @@ public class DatabaseSeeder
             // Path to resources directory relative to the web app execution path
             // Assuming web app runs from web-implementation/ or bin/Debug/net8.0/
             // We need to find the repo root.
-            string resourcePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "resources", "GTLB-Data");
+            // Author: SID:2412494
+            // Updated to use capitalized Resources directory.
+            string resourcePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "Resources", "GTLB-Data");
             
             // If running from bin/Debug/..., we might need to go up more levels. 
             // A safer bet for dev environment is to look for the resources folder.
             if (!Directory.Exists(resourcePath))
             {
                  // Try finding it relative to project root if running in dev
-                 resourcePath = Path.Combine(Directory.GetCurrentDirectory(), "resources", "GTLB-Data");
+                 resourcePath = Path.Combine(Directory.GetCurrentDirectory(), "Resources", "GTLB-Data");
                  if (!Directory.Exists(resourcePath))
                  {
                      // Fallback for when running inside web-implementation folder
-                     resourcePath = Path.Combine("..", "resources", "GTLB-Data");
+                     resourcePath = Path.Combine("..", "Resources", "GTLB-Data");
                  }
             }
 
