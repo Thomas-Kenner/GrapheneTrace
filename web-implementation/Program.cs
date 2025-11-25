@@ -153,6 +153,10 @@ builder.Services.AddSignalR();
 // Author: SID:2412494
 builder.Services.AddScoped<DatabaseSeeder>();
 
+// Add Pressure Data Service
+// Author: 2414111
+builder.Services.AddScoped<PressureDataService>();
+
 var app = builder.Build();
 
 // Seed database with essential system accounts
@@ -162,6 +166,11 @@ using (var scope = app.Services.CreateScope())
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
 }
+
+// Author: SID:2412494
+// Removed ProcessInitialPressureData call. Seeding is now handled by DatabaseSeeder.SeedAsync().
+
+
 
 // Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())

@@ -25,6 +25,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
+@using GrapheneTrace.Web.Components.UI
 @inject AuthenticationStateProvider AuthStateProvider
 
 <div class="patient-container">
@@ -56,7 +57,7 @@
                     </div>
 
                     <div class="heatmap-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
+                        <Heatmap />
                         <p class="placeholder-description">Live pressure heatmap</p>
                         <p class="placeholder-description">Colour-coded grid</p>
                     </div>

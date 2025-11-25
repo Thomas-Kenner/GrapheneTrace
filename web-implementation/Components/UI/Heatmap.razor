@@ -1,0 +1,163 @@
+@namespace GrapheneTrace.Web.Components.UI
+@using System.Threading
+@using GrapheneTrace.Web.Data
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.EntityFrameworkCore.ChangeTracking
+@using Microsoft.EntityFrameworkCore.ChangeTracking.Internal
+@using Microsoft.EntityFrameworkCore.Diagnostics
+@using Microsoft.VisualBasic
+@using System.Runtime.CompilerServices
+@implements IAsyncDisposable
+@inject PressureDataService pressureDataService
+
+
+@* Author: SID:2412494
+   Refactored to use CSS class and remove inline styles. *@
+<div class="heatmap-grid">
+    @for(int y=0; y<GridSize; y++)
+    {
+        for(int x=0; x<GridSize; x++)
+        {
+            <div class="heatmap-cell" style="background-color: @ColorFor(data[x,y])"></div>
+        }
+    }
+</div>
+
+
+@code {
+    // Author: SID:2412494
+    // Defined constant for grid size to avoid magic numbers.
+    private const int GridSize = 32;
+    private readonly int[,] data = new int[GridSize, GridSize];
+    private CancellationTokenSource? _cts;
+    private Task? _loopTask;
+
+    // Author: SID:2412494
+    // Added parameters to allow dynamic data loading.
+    [Parameter]
+    public string? DeviceId { get; set; }
+
+    [Parameter]
+    public DateTime? Start { get; set; }
+
+    // Fallback/Default values for testing if parameters are not provided
+    private string defaultDeviceId = "1c0fd777";
+    private DateTime defaultStart = new DateTime(2025, 10, 11, 00, 00, 00, DateTimeKind.Utc);
+
+    // Author: 2414111
+    // Start background loop
+    // Author: 2414111
+    // Start background loop
+    protected override async Task OnInitializedAsync()
+    {
+        _cts = new CancellationTokenSource();
+        
+        // Author: SID:2412494
+        // Use provided parameters or fallbacks.
+        string targetDeviceId = DeviceId ?? defaultDeviceId;
+        DateTime targetStart = Start ?? defaultStart;
+
+        int sessionId = await pressureDataService.FindSessionId(targetDeviceId, targetStart) ?? -1;
+        if (sessionId != -1)
+        {
+            _loopTask = RunUpdateLoopAsync(_cts.Token, sessionId);
+        }
+    }
+
+    // Author: 2414111
+    // Function to get the heatmap to keep refreshing
+    // Author: SID:2412494
+    // Optimized to load data into memory and replay.
+    private async Task RunUpdateLoopAsync(CancellationToken ct, int sessionId)
+    {
+        // Get all snapshots for the session at once
+        var snapshots = await pressureDataService.FindSnapshotsInSession(sessionId);
+        
+        if (snapshots == null || !snapshots.Any()) return;
+
+        // Use PeriodicTimer to keep refreshing
+        // 15 snapshots per second = ~66ms, but keeping 100ms for now as per original timer
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                foreach (var snapshot in snapshots)
+                {
+                    if (ct.IsCancellationRequested) break;
+                    
+                    // Wait for the next tick before showing the frame
+                    await timer.WaitForNextTickAsync(ct);
+
+                    // Refresh the heatmap UI with the data from the current snapshot
+                    UpdateHeatmapFromMemory(snapshot);
+                    
+                    // Use InvokeAsync to ensure StateHasChanged runs on the right sync context
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on cancellation
+        }
+    }
+
+    // Author: 2414111
+    // Fill a snapshot of the heatmap with actual pressure data from memory
+    private void UpdateHeatmapFromMemory(PatientSnapshotData snapshotData)
+    {
+        if (string.IsNullOrEmpty(snapshotData.SnapshotData)) return;
+
+        // Convert the string data to ints
+        // Using the static helper from PressureDataService
+        List<int[]> snapshotRows = PressureDataService.ConvertSnapshotToInt(snapshotData.SnapshotData, 32);
+        
+        // To track which row is the current one
+        int y = 0;
+        foreach (int[] row in snapshotRows)
+        {
+            for (int x = 0; x < row.Length && x < 32; x++)
+            {
+                data[x, y] = row[x];
+            }
+            y++;
+            if (y >= 32) break;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_cts != null && !_cts.IsCancellationRequested)
+        {
+            _cts.Cancel();
+            try
+            {
+                // Wait a short time for the loop to finish
+                if (_loopTask != null)
+                    await Task.WhenAny(_loopTask, Task.Delay(500));
+            }
+            catch
+            {
+                // Ignore exceptions during shutdown
+            }
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    // Author: 2414111
+    // Convert pressure number to a colour between blue (0) and red (255)
+    // Using hsl as that's just one number to change for hue and convert to hex in HslToHex
+    string ColorFor(int count)
+    {
+        double hue = count;
+        // Display numbers less than 0 as 0, and numbers more than 255 as 255
+        hue = Math.Clamp(hue, 0, 255.0);
+        // Reverse order of blue to red
+        hue = 255.0 - hue;
+        return $"hsl({hue}deg 100% 50%)";
+    }
+}
