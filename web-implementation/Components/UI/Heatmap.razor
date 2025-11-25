@@ -51,18 +51,29 @@ For each row go through each column filling with the colour relating to the cell
     // Function to get the heatmap to keep refreshing
     private async Task RunUpdateLoopAsync(CancellationToken ct, int sessionId)
     {
+        // Get all snapshots for the session at once
+        var snapshots = await pressureDataService.FindSnapshotsInSession(sessionId);
+        
+        if (snapshots == null || !snapshots.Any()) return;
+
         // Use PeriodicTimer to keep refreshing
+        // 15 snapshots per second = ~66ms, but keeping 100ms for now as per original timer
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
-        // Get a list of timestamps for the session
-        var timestamps = await pressureDataService.ListTimestamps(sessionId);
+
         try
         {
-            while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
+            while (!ct.IsCancellationRequested)
             {
-                foreach(DateTime timestamp in timestamps)
+                foreach (var snapshot in snapshots)
                 {
-                    // Refresh the heatmap UI with the data from the current timestamp
-                    await UpdateHeatmap(sessionId, timestamp);
+                    if (ct.IsCancellationRequested) break;
+                    
+                    // Wait for the next tick before showing the frame
+                    await timer.WaitForNextTickAsync(ct);
+
+                    // Refresh the heatmap UI with the data from the current snapshot
+                    UpdateHeatmapFromMemory(snapshot);
+                    
                     // Use InvokeAsync to ensure StateHasChanged runs on the right sync context
                     await InvokeAsync(StateHasChanged);
                 }
@@ -75,20 +86,25 @@ For each row go through each column filling with the colour relating to the cell
     }
 
     // Author: 2414111
-    // Fill a snapshot of the heatmap with actual pressure data
-    private async Task UpdateHeatmap(int sessionId, DateTime timestamp)
+    // Fill a snapshot of the heatmap with actual pressure data from memory
+    private void UpdateHeatmapFromMemory(PatientSnapshotData snapshotData)
     {
-        // Get the columns x rows ints in the snapshot
-        List<int[]> snapshot = await pressureDataService.ReturnSnapshotDataFromTimestamp(sessionId, timestamp);
+        if (string.IsNullOrEmpty(snapshotData.SnapshotData)) return;
+
+        // Convert the string data to ints
+        // Using the static helper from PressureDataService
+        List<int[]> snapshotRows = PressureDataService.ConvertSnapshotToInt(snapshotData.SnapshotData, 32);
+        
         // To track which row is the current one
         int y = 0;
-        foreach (int[] row in snapshot)
+        foreach (int[] row in snapshotRows)
         {
-            for (int x = 0; x < row.Length; x++)
+            for (int x = 0; x < row.Length && x < 32; x++)
             {
                 data[x, y] = row[x];
             }
             y++;
+            if (y >= 32) break;
         }
     }
 
