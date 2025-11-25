@@ -1,0 +1,15 @@
+/* Author: SID:2412494 */
+/* Extracted styles from Heatmap.razor to remove magic numbers and inline styles */
+
+.heatmap-grid {
+    display: grid;
+    /* 32 columns, 10px each */
+    grid-template-columns: repeat(32, 10px);
+    /* 32 rows, 10px each */
+    grid-template-rows: repeat(32, 10px);
+}
+
+.heatmap-cell {
+    width: 10px;
+    height: 10px;
+}

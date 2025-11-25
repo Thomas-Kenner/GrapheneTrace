@@ -155,6 +155,9 @@ using (var scope = app.Services.CreateScope())
     await seeder.SeedAsync();
 }
 
+// Author: SID:2412494
+// Removed ProcessInitialPressureData call. Seeding is now handled by DatabaseSeeder.SeedAsync().
+
 
 
 // Configure the HTTP request pipeline

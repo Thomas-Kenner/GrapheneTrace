@@ -12,35 +12,53 @@
 @inject PressureDataService pressureDataService
 
 
-@* Author: 2414111
-Creating a 32x32 grid with each box being 10x10px
-For each row go through each column filling with the colour relating to the cell's value*@
-<div style="display: grid; grid-template-columns: repeat(32,10px); grid-template-rows: repeat(32,10px);">
-    @for(int y=0; y<32; y++)
+@* Author: SID:2412494
+   Refactored to use CSS class and remove inline styles. *@
+<div class="heatmap-grid">
+    @for(int y=0; y<GridSize; y++)
     {
-        for(int x=0; x<32; x++)
+        for(int x=0; x<GridSize; x++)
         {
-            <div style="width: 10px; height: 10px; background-color: @ColorFor(data[x,y])"></div>
+            <div class="heatmap-cell" style="background-color: @ColorFor(data[x,y])"></div>
         }
     }
 </div>
 
 
 @code {
-    private readonly int[,] data = new int[32, 32];
+    // Author: SID:2412494
+    // Defined constant for grid size to avoid magic numbers.
+    private const int GridSize = 32;
+    private readonly int[,] data = new int[GridSize, GridSize];
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
-    // DeviceId and Start have been hardcoded for getting it working but should be updated to act based on
-    // which patient is logged in and which day/time they select to view
-    private string deviceId = "1c0fd777";
-    private DateTime start = new DateTime(2025, 10, 11, 00, 00, 00, DateTimeKind.Utc);
 
+    // Author: SID:2412494
+    // Added parameters to allow dynamic data loading.
+    [Parameter]
+    public string? DeviceId { get; set; }
+
+    [Parameter]
+    public DateTime? Start { get; set; }
+
+    // Fallback/Default values for testing if parameters are not provided
+    private string defaultDeviceId = "1c0fd777";
+    private DateTime defaultStart = new DateTime(2025, 10, 11, 00, 00, 00, DateTimeKind.Utc);
+
+    // Author: 2414111
+    // Start background loop
     // Author: 2414111
     // Start background loop
     protected override async Task OnInitializedAsync()
     {
         _cts = new CancellationTokenSource();
-        int sessionId = await pressureDataService.FindSessionId(deviceId, start) ?? -1;
+        
+        // Author: SID:2412494
+        // Use provided parameters or fallbacks.
+        string targetDeviceId = DeviceId ?? defaultDeviceId;
+        DateTime targetStart = Start ?? defaultStart;
+
+        int sessionId = await pressureDataService.FindSessionId(targetDeviceId, targetStart) ?? -1;
         if (sessionId != -1)
         {
             _loopTask = RunUpdateLoopAsync(_cts.Token, sessionId);
@@ -49,6 +67,8 @@ For each row go through each column filling with the colour relating to the cell
 
     // Author: 2414111
     // Function to get the heatmap to keep refreshing
+    // Author: SID:2412494
+    // Optimized to load data into memory and replay.
     private async Task RunUpdateLoopAsync(CancellationToken ct, int sessionId)
     {
         // Get all snapshots for the session at once

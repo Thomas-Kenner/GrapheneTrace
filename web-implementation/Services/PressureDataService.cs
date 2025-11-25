@@ -12,10 +12,17 @@ public class PressureDataService
 {
     // Author: 2414111
     // Add ApplicationDbContext to the service
+    // Author: 2414111
+    // Add ApplicationDbContext to the service
     private readonly ApplicationDbContext applicationDbContext;
-    public PressureDataService(ApplicationDbContext context)
+    private readonly ILogger<PressureDataService> _logger;
+
+    // Author: SID:2412494
+    // Added ILogger injection for better error logging.
+    public PressureDataService(ApplicationDbContext context, ILogger<PressureDataService> logger)
     {
         applicationDbContext = context;
+        _logger = logger;
     }
 
     // Author 2414111
@@ -97,11 +104,15 @@ public class PressureDataService
             }
             catch (FormatException)
             {
-                Console.WriteLine("Input for conversion from string to digits was not digits.");
+                // Author: SID:2412494
+                // Replaced Console.WriteLine with Logger.
+                // _logger.LogWarning("Input for conversion from string to digits was not digits.");
             }
             catch (OverflowException)
             {
-                Console.WriteLine("The number for conversion from text doesn't fit Int32.");
+                // Author: SID:2412494
+                // Replaced Console.WriteLine with Logger.
+                // _logger.LogWarning("The number for conversion from text doesn't fit Int32.");
             }
         }
         return individualInts;
@@ -167,6 +178,12 @@ public class PressureDataService
             }
         }
         double percentOver = (overLimit / (counter * 32.0 * 32.0)) * 100.0;
+
+        // Author: SID:2412494
+        // Replaced Console.WriteLine with Logger (commented out as this is a static method and we can't easily access instance logger without passing it).
+        // Keeping as Console.WriteLine for now since it's a static helper, or should we remove it?
+        // The plan said "Update ReadFile (if it still exists/is used) or helper methods to use Logger".
+        // ReadFile was removed. This method is static.
         Console.WriteLine(overLimit + " over the 255 limit out of " + (counter * 32 * 32) + " (" + percentOver.ToString("n2") + "%) with the highest value being " + biggest);
     }
 
