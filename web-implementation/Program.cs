@@ -141,6 +141,10 @@ builder.Services.AddScoped<PatientSettingsService>();
 // Author: SID:2412494
 builder.Services.AddScoped<DatabaseSeeder>();
 
+// Add Pressure Data Service
+// Author: 2414111
+builder.Services.AddScoped<PressureDataService>();
+
 var app = builder.Build();
 
 // Seed database with essential system accounts
@@ -149,6 +153,14 @@ using (var scope = app.Services.CreateScope())
 {
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
+}
+
+// Load in pressure data from files
+// Author: 2414111
+using (var scope = app.Services.CreateScope())
+{
+    var pressureData = scope.ServiceProvider.GetRequiredService<PressureDataService>();
+    await pressureData.ProcessInitialPressureData();
 }
 
 // Configure the HTTP request pipeline

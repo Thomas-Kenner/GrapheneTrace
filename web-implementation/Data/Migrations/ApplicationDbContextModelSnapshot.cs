@@ -153,6 +153,76 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.ToTable("PatientSettings");
                 });
 
+            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSessionData", b =>
+                {
+                    b.Property<int>("SessionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SessionId"));
+
+                    b.Property<bool>("ClinicianFlag")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<DateTime?>("End")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("PeakSessionPressure")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Start")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("SessionId");
+
+                    b.HasIndex("DeviceId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("PatientSessionDatas");
+                });
+
+            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSnapshotData", b =>
+                {
+                    b.Property<int>("SnapshotId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SnapshotId"));
+
+                    b.Property<float?>("CoefficientOfVariation")
+                        .HasColumnType("real");
+
+                    b.Property<float?>("ContactAreaPercent")
+                        .HasColumnType("real");
+
+                    b.Property<int?>("PeakSnapshotPressure")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SnapshotData")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("SnapshotTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("SnapshotId");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("SnapshotId");
+
+                    b.ToTable("PatientSnapshotDatas");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -302,6 +372,15 @@ namespace GrapheneTrace.Web.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSnapshotData", b =>
+                {
+                    b.HasOne("GrapheneTrace.Web.Models.PatientSessionData", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
