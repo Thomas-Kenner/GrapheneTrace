@@ -6,6 +6,14 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
+// Author: SID:2412494
+// Check for --seed command-line argument to run database seeding separately
+if (args.Contains("--seed"))
+{
+    await RunDatabaseSeederAsync(args);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Validate PressureThresholds configuration at startup
@@ -147,10 +155,14 @@ builder.Services.AddScoped<PressureDataService>();
 
 var app = builder.Build();
 
-// Seed database with essential system accounts
+// Seed database with essential system accounts (if enabled)
 // Author: SID:2412494
-using (var scope = app.Services.CreateScope())
+// Seeding is disabled by default. Enable via DatabaseSeeding:SeedOnStartup = true in appsettings.json
+// or run separately via: dotnet run -- --seed
+var seedOnStartup = app.Configuration.GetValue<bool>("DatabaseSeeding:SeedOnStartup", false);
+if (seedOnStartup)
 {
+    using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
 }
@@ -186,3 +198,45 @@ app.MapRazorComponents<App>()
 app.MapControllers();  // Map controller endpoints
 
 app.Run();
+
+// Author: SID:2412494
+// Standalone database seeding function for running via: dotnet run -- --seed
+// This allows seeding to be run independently without starting the web server.
+async Task RunDatabaseSeederAsync(string[] args)
+{
+    Console.WriteLine("Running database seeder...");
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Add required services for seeding
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+    builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+    {
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequiredLength = 12;
+        options.Password.RequiredUniqueChars = 4;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+    builder.Services.AddScoped<DatabaseSeeder>();
+    builder.Services.AddScoped<PressureDataService>();
+    builder.Services.AddLogging(logging =>
+    {
+        logging.AddConsole();
+        logging.SetMinimumLevel(LogLevel.Information);
+    });
+
+    var app = builder.Build();
+
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+
+    Console.WriteLine("Database seeding completed.");
+}

@@ -27,8 +27,9 @@ public class PressureDataService
     // Find the csv files, read the contents, split into groups of rows x columns ints
     public async Task ProcessInitialPressureData()
     {
-        // Find the csv files in the GTLB-Data  directory
-        string[] files = Directory.GetFiles("GTLB-Data", "*.csv");
+        // Author: SID:2412494
+        // Find the csv files in the Resources/GTLB-Data directory (moved to project root)
+        string[] files = Directory.GetFiles("../Resources/GTLB-Data", "*.csv");
 
         // Process each file's contents
         foreach (string fileName in files)
@@ -37,18 +38,21 @@ public class PressureDataService
             char[] delimiterChar = ['\\', '/', '_', '.'];
             string[] fileNameSegments = fileName.Split(delimiterChar);
 
-            // Expect csv files with paths in the format GTLB-Data\deviceId_date.csv, so 4 sections
-            if (fileNameSegments.Length != 4) continue;
+            // Author: SID:2412494
+            // Path format: ../Resources/GTLB-Data/deviceId_date.csv
+            // Split yields: [.., Resources, GTLB-Data, deviceId, date, csv] = 6 segments
+            // deviceId at index 3, date at index 4
+            if (fileNameSegments.Length != 6) continue;
 
-            // Expect date to be the third section in the file path with format yyyyMMdd
-            if (!DateTime.TryParseExact(fileNameSegments[2], "yyyyMMdd",
+            // Expect date to be at index 4 with format yyyyMMdd
+            if (!DateTime.TryParseExact(fileNameSegments[4], "yyyyMMdd",
                 System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None,
                 out DateTime date)) continue;
             var parsedDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
 
             // Don't duplicate entries in database by checking for existing deviceId and date
-            if (await SessionAlreadyExists(fileNameSegments[1], parsedDate)) continue;
+            if (await SessionAlreadyExists(fileNameSegments[3], parsedDate)) continue;
 
             string fileContents = ReadFile(fileName);
 
@@ -74,14 +78,16 @@ public class PressureDataService
 
     // Author: 2414111
     // Save session to the database PatientSessionDatas table
+    // Author: SID:2412494
+    // Updated indices for new path format: deviceId at [3], date at [4]
     public async Task<int> SaveSessionToDB(string[] fileNameSegments)
     {
-        var date = DateTime.ParseExact(fileNameSegments[2], "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture);
+        var date = DateTime.ParseExact(fileNameSegments[4], "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture);
         var dateUTC = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
 
         var sessionData = new PatientSessionData
         {
-            DeviceId = fileNameSegments[1],
+            DeviceId = fileNameSegments[3],
             Start = dateUTC,
         };
 
