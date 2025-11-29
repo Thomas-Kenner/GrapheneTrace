@@ -66,16 +66,15 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add DbContext with PostgreSQL
+// Add DbContext with PostgreSQL (also registers IDbContextFactory for services that need it)
 // Author: SID:2412494
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Using pooled factory which supports both scoped DbContext injection and IDbContextFactory
+builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add DbContextFactory for services that need to create their own DbContext instances
-// Author: SID:2412494
-// Used by HeatmapPlaybackService which outlives a single request scope
-builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Also register scoped DbContext for components that inject it directly
+builder.Services.AddScoped(sp =>
+    sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
 // Add ASP.NET Core Identity
 // Author: SID:2412494
