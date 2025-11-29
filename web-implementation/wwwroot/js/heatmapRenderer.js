@@ -70,6 +70,7 @@ window.heatmapRenderer = {
 
     /**
      * Render pressure data using 7 discrete colors
+     * Values below min render as white, values above max render as black (data errors)
      * @param {string} canvasId - Canvas element ID
      * @param {number[]} values - Array of 1024 integers (32x32 grid, row-major)
      */
@@ -80,27 +81,37 @@ window.heatmapRenderer = {
             return;
         }
 
-        const { ctx, minValue, range, cellSize } = instance;
+        const { ctx, minValue, maxValue, range, cellSize } = instance;
         const numColors = this.discreteColors.length;
 
         for (let i = 0; i < 1024; i++) {
             const row = Math.floor(i / 32);
             const col = i % 32;
+            const value = values[i];
 
-            // Normalize value to 0-1 range, clamped
-            const normalized = Math.max(0, Math.min(1, (values[i] - minValue) / range));
+            // Check for out-of-range values (data errors)
+            if (value < minValue) {
+                ctx.fillStyle = '#FFFFFF'; // White for below minimum
+            } else if (value > maxValue) {
+                ctx.fillStyle = '#000000'; // Black for above maximum
+            } else {
+                // Normalize value to 0-1 range
+                const normalized = (value - minValue) / range;
 
-            // Map to discrete color index (0-6)
-            const colorIndex = Math.min(numColors - 1, Math.floor(normalized * numColors));
-            const color = this.discreteColors[colorIndex];
+                // Map to discrete color index (0-6)
+                const colorIndex = Math.min(numColors - 1, Math.floor(normalized * numColors));
+                const color = this.discreteColors[colorIndex];
 
-            ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+            }
+
             ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
     },
 
     /**
      * Render pressure data using smooth gradient between colors
+     * Values below min render as white, values above max render as black (data errors)
      * @param {string} canvasId - Canvas element ID
      * @param {number[]} values - Array of 1024 integers (32x32 grid, row-major)
      */
@@ -111,31 +122,40 @@ window.heatmapRenderer = {
             return;
         }
 
-        const { ctx, minValue, range, cellSize } = instance;
+        const { ctx, minValue, maxValue, range, cellSize } = instance;
         const colors = this.discreteColors;
         const numSegments = colors.length - 1;
 
         for (let i = 0; i < 1024; i++) {
             const row = Math.floor(i / 32);
             const col = i % 32;
+            const value = values[i];
 
-            // Normalize value to 0-1 range, clamped
-            const normalized = Math.max(0, Math.min(1, (values[i] - minValue) / range));
+            // Check for out-of-range values (data errors)
+            if (value < minValue) {
+                ctx.fillStyle = '#FFFFFF'; // White for below minimum
+            } else if (value > maxValue) {
+                ctx.fillStyle = '#000000'; // Black for above maximum
+            } else {
+                // Normalize value to 0-1 range
+                const normalized = (value - minValue) / range;
 
-            // Determine which segment of the gradient we're in
-            const scaledPos = normalized * numSegments;
-            const segmentIndex = Math.min(numSegments - 1, Math.floor(scaledPos));
-            const segmentProgress = scaledPos - segmentIndex;
+                // Determine which segment of the gradient we're in
+                const scaledPos = normalized * numSegments;
+                const segmentIndex = Math.min(numSegments - 1, Math.floor(scaledPos));
+                const segmentProgress = scaledPos - segmentIndex;
 
-            // Interpolate between adjacent colors
-            const color1 = colors[segmentIndex];
-            const color2 = colors[segmentIndex + 1];
+                // Interpolate between adjacent colors
+                const color1 = colors[segmentIndex];
+                const color2 = colors[segmentIndex + 1];
 
-            const r = Math.round(color1.r + (color2.r - color1.r) * segmentProgress);
-            const g = Math.round(color1.g + (color2.g - color1.g) * segmentProgress);
-            const b = Math.round(color1.b + (color2.b - color1.b) * segmentProgress);
+                const r = Math.round(color1.r + (color2.r - color1.r) * segmentProgress);
+                const g = Math.round(color1.g + (color2.g - color1.g) * segmentProgress);
+                const b = Math.round(color1.b + (color2.b - color1.b) * segmentProgress);
 
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            }
+
             ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
     },

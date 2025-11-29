@@ -71,6 +71,12 @@ builder.Services.AddRazorComponents()
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add DbContextFactory for services that need to create their own DbContext instances
+// Author: SID:2412494
+// Used by HeatmapPlaybackService which outlives a single request scope
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Add ASP.NET Core Identity
 // Author: SID:2412494
 // Configures authentication with medical device security standards
@@ -152,6 +158,10 @@ builder.Services.AddScoped<DatabaseSeeder>();
 // Add Pressure Data Service
 // Author: 2414111
 builder.Services.AddScoped<PressureDataService>();
+
+// Add Heatmap Playback Service (transient - each heatmap gets its own instance)
+// Author: SID:2412494
+builder.Services.AddTransient<HeatmapPlaybackService>();
 
 var app = builder.Build();
 
