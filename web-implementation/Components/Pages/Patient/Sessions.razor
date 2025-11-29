@@ -16,6 +16,7 @@
 @using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Web
 @inject AuthenticationStateProvider AuthStateProvider
 @inject PressureDataService PressureDataService
 @inject HeatmapPlaybackService PlaybackService
@@ -109,13 +110,44 @@
                 <div class="card visualization-card">
                     @if (selectedSession != null)
                     {
-                        <div class="heatmap-container" style="display: flex; justify-content: center; align-items: center; padding: 20px;">
-                            <canvas id="@canvasId" style="border: 1px solid #ccc;"></canvas>
+                        <div class="heatmap-container">
+                            <canvas id="@canvasId"></canvas>
                         </div>
                         @if (PlaybackService.TotalFrames > 0)
                         {
-                            <div style="text-align: center; padding: 10px; color: #666;">
-                                Frame @(PlaybackService.CurrentFrameIndex + 1) of @PlaybackService.TotalFrames
+                            <div class="playback-controls">
+                                @* Progress Bar *@
+                                <div class="progress-container @(isDragging ? "dragging" : "")"
+                                     @onmousedown="OnProgressMouseDown"
+                                     @onmousemove="OnProgressMouseMove"
+                                     @onmouseup="OnProgressMouseUp"
+                                     @onmouseleave="OnProgressMouseUp">
+                                    <div class="progress-track">
+                                        <div class="progress-fill" style="width: @(GetProgressPercent())%;"></div>
+                                    </div>
+                                    <div class="progress-label">
+                                        @(PlaybackService.CurrentFrameIndex + 1) / @PlaybackService.TotalFrames
+                                    </div>
+                                </div>
+
+                                @* Play/Pause Button *@
+                                <button class="playback-btn" @onclick="TogglePlayback">
+                                    @if (PlaybackService.IsPlaying)
+                                    {
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="6" y="4" width="4" height="16"></rect>
+                                            <rect x="14" y="4" width="4" height="16"></rect>
+                                        </svg>
+                                        <span>Pause</span>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polygon points="5,3 19,12 5,21"></polygon>
+                                        </svg>
+                                        <span>Play</span>
+                                    }
+                                </button>
                             </div>
                         }
                     }
@@ -261,6 +293,58 @@
     private void OnFrameChanged()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private double GetProgressPercent()
+    {
+        if (PlaybackService.TotalFrames == 0)
+            return 0;
+        return (double)PlaybackService.CurrentFrameIndex / (PlaybackService.TotalFrames - 1) * 100;
+    }
+
+    // Dragging state for progress bar
+    private bool isDragging;
+
+    private async Task OnProgressMouseDown(MouseEventArgs e)
+    {
+        isDragging = true;
+
+        // Pause playback when starting to drag
+        await PlaybackService.PausePlaybackAsync();
+
+        // Seek to clicked position
+        await SeekToMousePosition(e);
+    }
+
+    private async Task OnProgressMouseMove(MouseEventArgs e)
+    {
+        if (!isDragging)
+            return;
+
+        // Continue seeking while dragging
+        await SeekToMousePosition(e);
+    }
+
+    private void OnProgressMouseUp(MouseEventArgs e)
+    {
+        isDragging = false;
+    }
+
+    private async Task SeekToMousePosition(MouseEventArgs e)
+    {
+        // The progress track is 400px wide (fixed width)
+        const double trackWidth = 400.0;
+        var clickPercent = Math.Clamp(e.OffsetX / trackWidth, 0, 1);
+        var targetFrame = (int)(clickPercent * (PlaybackService.TotalFrames - 1));
+
+        await PlaybackService.SeekToFrameAsync(targetFrame);
+        StateHasChanged();
+    }
+
+    private async Task TogglePlayback()
+    {
+        await PlaybackService.TogglePlaybackAsync();
+        StateHasChanged();
     }
 
     private string FormatDuration(DateTime start, DateTime? end)
