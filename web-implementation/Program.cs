@@ -2,6 +2,7 @@ using GrapheneTrace.Web.Components;
 using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
 using GrapheneTrace.Web.Services;
+using GrapheneTrace.Web.Services.Mocking;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -161,6 +162,11 @@ builder.Services.AddScoped<PressureDataService>();
 // Add Heatmap Playback Service (transient - each heatmap gets its own instance)
 // Author: SID:2412494
 builder.Services.AddTransient<HeatmapPlaybackService>();
+
+// Add Mock Device Manager (singleton - shared access for patients and clinicians)
+// Author: SID:2412494
+// Creates one mock device per patient, clinicians access same instances
+builder.Services.AddSingleton<MockDeviceManager>();
 
 var app = builder.Build();
 
