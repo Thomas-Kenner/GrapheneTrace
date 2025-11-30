@@ -144,6 +144,7 @@
                             <button class="scenario-btn" @onclick="CycleScenario">Change Scenario</button>
                             <button class="fault-btn" @onclick="InjectRandomFault">Inject Fault</button>
                         </div>
+                        <button class="disconnect-btn" @onclick="DisconnectDeviceAsync">Disconnect Device</button>
                     }
                     else
                     {
@@ -262,6 +263,16 @@
             _device = existingDevice;
             _isConnected = true;
             SubscribeToDevice();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Initialize canvas after render if connected but canvas not yet initialized
+        // This handles the case where user navigates away and back while device is running
+        if (_isConnected && !_isCanvasInitialized)
+        {
+            await InitializeCanvasAsync();
         }
     }
 
@@ -388,6 +399,38 @@
         StateHasChanged();
     }
 
+    private async Task DisconnectDeviceAsync()
+    {
+        if (_device == null || _userId == Guid.Empty)
+            return;
+
+        UnsubscribeFromDevice();
+
+        // Dispose the device via manager
+        await DeviceManager.DisposeDeviceAsync(_userId);
+
+        // Clean up canvas
+        if (_isCanvasInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("heatmapRenderer.dispose", _canvasId);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Ignore
+            }
+            _isCanvasInitialized = false;
+        }
+
+        _device = null;
+        _currentFrame = null;
+        _isConnected = false;
+        _currentAlerts = MedicalAlert.None;
+
+        StateHasChanged();
+    }
+
     // Helper methods for UI state
     private string GetPeakPressureClass()
     {
@@ -471,6 +514,8 @@
             {
                 // Circuit disconnected - ignore
             }
+            // Reset flag so canvas re-initializes when component is recreated
+            _isCanvasInitialized = false;
         }
 
         // Note: We don't dispose the device here because it's managed by MockDeviceManager

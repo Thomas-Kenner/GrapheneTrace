@@ -559,6 +559,27 @@
   border-color: var(--danger-red);
 }
 
+::deep .disconnect-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .disconnect-btn:hover {
+  background: rgba(239, 68, 68, 0.05);
+  color: var(--danger-red);
+  border-color: var(--danger-red);
+  border-style: solid;
+}
+
 /* Pressure Value Colors */
 ::deep .metric-value.pressure-high {
   color: var(--danger-red);
