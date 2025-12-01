@@ -408,30 +408,187 @@
   animation: fadeIn 0.3s ease-out;
 }
 
-/* Future Enhancement Classes (commented for reference) */
+/* Author: SID:2412494 - Connect Device Button Styles */
 
-/*
-::deep .alert-card.active {
+::deep .connect-device-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+::deep .device-icon-large {
+  font-size: 4rem;
+  opacity: 0.5;
+}
+
+::deep .connect-message {
+  font-size: 1.1rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+::deep .connect-btn {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .connect-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+::deep .connect-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* Offline Badge */
+::deep .offline-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  background: rgba(113, 113, 130, 0.1);
+  color: var(--muted-foreground);
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Heatmap Container - for canvas */
+::deep .heatmap-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+::deep .heatmap-container canvas {
+  border-radius: calc(var(--radius) - 4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Alert Card Active States */
+::deep .alert-card.alert-active {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
   border-color: var(--danger-red);
 }
 
-::deep .alert-card.active .alert-icon {
+::deep .alert-card.alert-active .alert-icon {
   filter: none;
   opacity: 1;
 }
 
-::deep .alert-card.active .alert-title {
+::deep .alert-card.alert-active .alert-title {
   color: var(--danger-red);
+}
+
+::deep .alert-card.alert-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border-color: var(--warning-orange);
+}
+
+::deep .alert-card.alert-warning .alert-icon {
+  filter: none;
+  opacity: 1;
+}
+
+::deep .alert-card.alert-warning .alert-title {
+  color: var(--warning-orange);
+}
+
+/* Device Card Connected State */
+::deep .device-card.connected {
+  border-color: var(--success-green);
 }
 
 ::deep .device-card.connected .device-icon {
   filter: none;
   opacity: 1;
+  color: var(--success-green);
 }
 
-::deep .device-card.connected .device-status {
+::deep .device-card.connected .device-title {
   color: var(--success-green);
-  font-weight: 600;
 }
-*/
+
+/* Device Control Buttons */
+::deep .device-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+::deep .scenario-btn,
+::deep .fault-btn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .scenario-btn {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+::deep .scenario-btn:hover {
+  background: var(--accent);
+  border-color: var(--primary);
+}
+
+::deep .fault-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-red);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+::deep .fault-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--danger-red);
+}
+
+::deep .disconnect-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .disconnect-btn:hover {
+  background: rgba(239, 68, 68, 0.05);
+  color: var(--danger-red);
+  border-color: var(--danger-red);
+  border-style: solid;
+}
+
+/* Pressure Value Colors */
+::deep .metric-value.pressure-high {
+  color: var(--danger-red);
+}
+
+::deep .metric-value.pressure-medium {
+  color: var(--warning-orange);
+}
+
+::deep .metric-value.pressure-low {
+  color: var(--success-green);
+}

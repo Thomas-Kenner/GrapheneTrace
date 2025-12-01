@@ -8,6 +8,12 @@ public class PatientSessionData
 {
     [Key]
     public int SessionId { get; set; }
+
+    // Author: SID:2412494
+    // Added PatientId to directly associate sessions with patients
+    public Guid? PatientId { get; set; }
+    public ApplicationUser? Patient { get; set; }
+
     // String at the start of the file name
     public string DeviceId { get; set; } = string.Empty;
     // Date in the file name

@@ -2,6 +2,7 @@ using GrapheneTrace.Web.Components;
 using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
 using GrapheneTrace.Web.Services;
+using GrapheneTrace.Web.Services.Mocking;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -66,10 +67,15 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add DbContext with PostgreSQL
+// Add DbContext with PostgreSQL (also registers IDbContextFactory for services that need it)
 // Author: SID:2412494
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Using pooled factory which supports both scoped DbContext injection and IDbContextFactory
+builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Also register scoped DbContext for components that inject it directly
+builder.Services.AddScoped(sp =>
+    sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
 // Add ASP.NET Core Identity
 // Author: SID:2412494
@@ -152,6 +158,15 @@ builder.Services.AddScoped<DatabaseSeeder>();
 // Add Pressure Data Service
 // Author: 2414111
 builder.Services.AddScoped<PressureDataService>();
+
+// Add Heatmap Playback Service (transient - each heatmap gets its own instance)
+// Author: SID:2412494
+builder.Services.AddTransient<HeatmapPlaybackService>();
+
+// Add Mock Device Manager (singleton - shared access for patients and clinicians)
+// Author: SID:2412494
+// Creates one mock device per patient, clinicians access same instances
+builder.Services.AddSingleton<MockDeviceManager>();
 
 var app = builder.Build();
 

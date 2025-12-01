@@ -3,6 +3,7 @@
     PATIENT DASHBOARD PAGE
     ========================================
     Author: SID:2402513
+    Updated: SID:2412494 - Added live mock device heatmap with Connect Device button
 
     Purpose:
     Main patient dashboard providing real-time pressure monitoring, alerts,
@@ -11,22 +12,21 @@
     How it works:
     - Uses Blazor's @page directive to map to /patient/dashboard route
     - Implements InteractiveServer render mode for real-time updates
-    - Authorization attribute restricts access to Patient role only
-    - Displays placeholder content until sensor integration is complete
-
-    Why it was done this way:
-    - InteractiveServer enables future real-time pressure data updates via SignalR
-    - Placeholder content allows UI development to proceed independently of backend
-    - Matches wireframe design while maintaining flexibility for future enhancements
+    - Connect Device button creates a mock device and streams live data
+    - Uses JS canvas rendering for efficient heatmap visualization
 *@
 
 @page "/patient/dashboard"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services.Mocking
 @using Microsoft.AspNetCore.Components.Authorization
-@using GrapheneTrace.Web.Components.UI
 @inject AuthenticationStateProvider AuthStateProvider
+@inject MockDeviceManager DeviceManager
+@inject IJSRuntime JS
+@inject IConfiguration Configuration
+@implements IAsyncDisposable
 
 <div class="patient-container">
     <PatientHeader />
@@ -43,7 +43,7 @@
             <div class="left-column">
                 @*
                     LIVE MONITORING CARD
-                    Shows real-time pressure heatmap (placeholder for now)
+                    Shows real-time pressure heatmap from mock device
                 *@
                 <div class="card live-monitoring-card">
                     <div class="card-header">
@@ -51,29 +51,64 @@
                             <h3 class="card-title">Live Monitoring</h3>
                             <p class="card-subtitle">Real-time pressure</p>
                         </div>
-                        <span class="live-badge">
-                            <span class="live-dot"></span> Live
-                        </span>
+                        @if (_isConnected)
+                        {
+                            <span class="live-badge">
+                                <span class="live-dot"></span> Live
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="offline-badge">Offline</span>
+                        }
                     </div>
 
                     <div class="heatmap-placeholder">
-                        <Heatmap />
-                        <p class="placeholder-description">Live pressure heatmap</p>
-                        <p class="placeholder-description">Colour-coded grid</p>
+                        @if (_isConnected)
+                        {
+                            @* Author: SID:2412494 - JS Canvas heatmap *@
+                            <div class="heatmap-container">
+                                <canvas id="@_canvasId"></canvas>
+                            </div>
+                        }
+                        else
+                        {
+                            @* Connect Device Button *@
+                            <div class="connect-device-prompt">
+                                <div class="device-icon-large">📡</div>
+                                <p class="connect-message">No device connected</p>
+                                <button class="connect-btn" @onclick="ConnectDeviceAsync" disabled="@_isConnecting">
+                                    @if (_isConnecting)
+                                    {
+                                        <span>Connecting...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Connect Device</span>
+                                    }
+                                </button>
+                            </div>
+                        }
                     </div>
 
                     <div class="metrics-strip">
                         <div class="metric-item">
                             <span class="metric-label">Peak</span>
-                            <span class="metric-value">N/A</span>
+                            <span class="metric-value @GetPeakPressureClass()">
+                                @(_currentFrame?.PeakPressure.ToString() ?? "N/A")
+                            </span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-label">Average</span>
-                            <span class="metric-value">N/A</span>
+                            <span class="metric-label">Contact</span>
+                            <span class="metric-value">
+                                @(_currentFrame != null ? $"{_currentFrame.ContactAreaPercent:F1}%" : "N/A")
+                            </span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-label">Duration</span>
-                            <span class="metric-value">N/A</span>
+                            <span class="metric-label">Frame</span>
+                            <span class="metric-value">
+                                @(_device?.TotalFrames.ToString() ?? "N/A")
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -83,26 +118,39 @@
             <div class="right-column">
                 @*
                     HIGH PRESSURE ALERT CARD
-                    TODO: Will turn red when alert system detects threshold breach
+                    Turns red when alert system detects threshold breach
                 *@
-                <div class="card alert-card">
+                <div class="card alert-card @GetAlertCardClass()">
                     <div class="alert-icon-container">
-                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-icon">@GetAlertIcon()</div>
                     </div>
-                    <h4 class="alert-title">High Pressure Alert</h4>
-                    <p class="alert-message">Will notify when alert system is configured</p>
+                    <h4 class="alert-title">@GetAlertTitle()</h4>
+                    <p class="alert-message">@GetAlertMessage()</p>
                 </div>
 
                 @*
                     DEVICE CONNECTED STATUS CARD
                 *@
-                <div class="card device-card">
+                <div class="card device-card @(_isConnected ? "connected" : "")">
                     <div class="device-header">
-                        <div class="device-icon">⚡</div>
-                        <h4 class="device-title">Device Disconnected</h4>
+                        <div class="device-icon">@(_isConnected ? "✓" : "⚡")</div>
+                        <h4 class="device-title">@(_isConnected ? "Device Connected" : "Device Disconnected")</h4>
                     </div>
-                    <p class="device-status">Sensor offline. Awaiting connection.</p>
-                    <p class="device-update">Last update: --</p>
+                    @if (_isConnected && _device != null)
+                    {
+                        <p class="device-status">ID: @_device.DeviceId</p>
+                        <p class="device-update">Scenario: @_device.CurrentScenario</p>
+                        <div class="device-controls">
+                            <button class="scenario-btn" @onclick="CycleScenario">Change Scenario</button>
+                            <button class="fault-btn" @onclick="InjectRandomFault">Inject Fault</button>
+                        </div>
+                        <button class="disconnect-btn" @onclick="DisconnectDeviceAsync">Disconnect Device</button>
+                    }
+                    else
+                    {
+                        <p class="device-status">Sensor offline. Awaiting connection.</p>
+                        <p class="device-update">Last update: --</p>
+                    }
                 </div>
 
                 @*
@@ -133,8 +181,8 @@
                     </div>
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Device Status</h5>
-                        <p class="stat-mini-value">Upcoming</p>
-                        <p class="stat-mini-detail">Battery: N/A</p>
+                        <p class="stat-mini-value">@(_isConnected ? "Active" : "Offline")</p>
+                        <p class="stat-mini-detail">@(_device != null ? $"FPS: {_device.FramesPerSecond}" : "N/A")</p>
                     </div>
                 </div>
             </div>
@@ -143,8 +191,35 @@
 </div>
 
 @code {
+    // Author: SID:2412494
     private string userName = "";
     private string randomQuote = "";
+
+    // Mock device state
+    private MockHeatmapDevice? _device;
+    private HeatmapFrame? _currentFrame;
+    private bool _isConnected;
+    private bool _isConnecting;
+    private bool _isCanvasInitialized;
+    private string _canvasId = $"live-heatmap-{Guid.NewGuid():N}";
+    private Guid _userId;
+
+    // Configuration values
+    private int _minValue;
+    private int _maxValue;
+
+    // Current alert state
+    private MedicalAlert _currentAlerts = MedicalAlert.None;
+
+    // Scenario cycling
+    private int _scenarioIndex;
+    private readonly SimulationScenario[] _scenarios = new[]
+    {
+        SimulationScenario.NormalSitting,
+        SimulationScenario.PressureBuildupAlert,
+        SimulationScenario.WeightShiftingRelief,
+        SimulationScenario.SequentialDemo
+    };
 
     // Inspirational quotes array (placeholder for AI-generated insights)
     private readonly string[] inspirationalQuotes = new[]
@@ -161,16 +236,289 @@
         "Trust the process. Your efforts are making a difference."
     };
 
-    /// <summary>
-    /// Component initialization: loads user information and selects random quote
-    /// </summary>
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
+        // Get user ID for device connection
+        var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            _userId = userId;
+        }
+
+        // Load config values for JS renderer
+        _minValue = Configuration.GetValue("PressureThresholds:MinValue", 0);
+        _maxValue = Configuration.GetValue("PressureThresholds:MaxValue", 255);
+
         // Select a random inspirational quote for the weekly summary
         var random = new Random();
         randomQuote = inspirationalQuotes[random.Next(inspirationalQuotes.Length)];
+
+        // Check if device already exists (e.g., from previous session)
+        var existingDevice = DeviceManager.TryGetDevice(_userId);
+        if (existingDevice != null && existingDevice.Status == DeviceStatus.Running)
+        {
+            _device = existingDevice;
+            _isConnected = true;
+            SubscribeToDevice();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Initialize canvas after render if connected but canvas not yet initialized
+        // This handles the case where user navigates away and back while device is running
+        if (_isConnected && !_isCanvasInitialized)
+        {
+            await InitializeCanvasAsync();
+        }
+    }
+
+    private async Task ConnectDeviceAsync()
+    {
+        if (_isConnecting || _userId == Guid.Empty)
+            return;
+
+        try
+        {
+            _isConnecting = true;
+            StateHasChanged();
+
+            // Get or create mock device for this patient
+            _device = await DeviceManager.GetOrCreateDeviceForPatientAsync(_userId);
+            _isConnected = true;
+
+            // Force re-render to show canvas
+            StateHasChanged();
+
+            // Small delay to ensure canvas is in DOM
+            await Task.Delay(50);
+
+            // Initialize the JS heatmap renderer
+            await InitializeCanvasAsync();
+
+            // Subscribe to device events
+            SubscribeToDevice();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting device: {ex.Message}");
+            _isConnected = false;
+        }
+        finally
+        {
+            _isConnecting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task InitializeCanvasAsync()
+    {
+        if (_isCanvasInitialized)
+            return;
+
+        await JS.InvokeVoidAsync("heatmapRenderer.initialize", _canvasId, _minValue, _maxValue, 10);
+        _isCanvasInitialized = true;
+    }
+
+    private void SubscribeToDevice()
+    {
+        if (_device == null)
+            return;
+
+        _device.OnFrameGenerated += OnFrameGenerated;
+        _device.OnAlertDetected += OnAlertDetected;
+    }
+
+    private void UnsubscribeFromDevice()
+    {
+        if (_device == null)
+            return;
+
+        _device.OnFrameGenerated -= OnFrameGenerated;
+        _device.OnAlertDetected -= OnAlertDetected;
+    }
+
+    private void OnFrameGenerated(HeatmapFrame frame)
+    {
+        _currentFrame = frame;
+
+        // Render to canvas via JS interop
+        InvokeAsync(async () =>
+        {
+            try
+            {
+                if (_isCanvasInitialized)
+                {
+                    await JS.InvokeVoidAsync("heatmapRenderer.renderGradient", _canvasId, frame.PressureData);
+                }
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit disconnected - ignore
+            }
+        });
+    }
+
+    private void OnAlertDetected(MedicalAlert alerts, HeatmapFrame frame)
+    {
+        _currentAlerts = alerts;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void CycleScenario()
+    {
+        if (_device == null)
+            return;
+
+        _scenarioIndex = (_scenarioIndex + 1) % _scenarios.Length;
+        _device.SetScenario(_scenarios[_scenarioIndex]);
+        StateHasChanged();
+    }
+
+    private void InjectRandomFault()
+    {
+        if (_device == null)
+            return;
+
+        var faults = new[]
+        {
+            DeviceFault.DeadPixels,
+            DeviceFault.PartialDataLoss,
+            DeviceFault.CalibrationDrift,
+            DeviceFault.ElectricalNoise
+        };
+
+        var random = new Random();
+        var fault = faults[random.Next(faults.Length)];
+
+        _device.InjectFault(fault, TimeSpan.FromSeconds(3));
+        StateHasChanged();
+    }
+
+    private async Task DisconnectDeviceAsync()
+    {
+        if (_device == null || _userId == Guid.Empty)
+            return;
+
+        UnsubscribeFromDevice();
+
+        // Dispose the device via manager
+        await DeviceManager.DisposeDeviceAsync(_userId);
+
+        // Clean up canvas
+        if (_isCanvasInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("heatmapRenderer.dispose", _canvasId);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Ignore
+            }
+            _isCanvasInitialized = false;
+        }
+
+        _device = null;
+        _currentFrame = null;
+        _isConnected = false;
+        _currentAlerts = MedicalAlert.None;
+
+        StateHasChanged();
+    }
+
+    // Helper methods for UI state
+    private string GetPeakPressureClass()
+    {
+        if (_currentFrame == null)
+            return "";
+
+        var highThreshold = Configuration.GetValue("PressureThresholds:DefaultHighThreshold", 200);
+        if (_currentFrame.PeakPressure >= highThreshold)
+            return "pressure-high";
+
+        var lowThreshold = Configuration.GetValue("PressureThresholds:DefaultLowThreshold", 50);
+        if (_currentFrame.PeakPressure >= lowThreshold)
+            return "pressure-medium";
+
+        return "pressure-low";
+    }
+
+    private string GetAlertCardClass()
+    {
+        if (_currentAlerts.HasFlag(MedicalAlert.HighPressure) ||
+            _currentAlerts.HasFlag(MedicalAlert.SustainedPressure))
+            return "alert-active";
+
+        if (_currentAlerts.HasFlag(MedicalAlert.PositioningWarning))
+            return "alert-warning";
+
+        return "";
+    }
+
+    private string GetAlertIcon()
+    {
+        if (_currentAlerts.HasFlag(MedicalAlert.HighPressure) ||
+            _currentAlerts.HasFlag(MedicalAlert.SustainedPressure))
+            return "🚨";
+
+        if (_currentAlerts.HasFlag(MedicalAlert.PositioningWarning))
+            return "⚠️";
+
+        return "✓";
+    }
+
+    private string GetAlertTitle()
+    {
+        if (_currentAlerts.HasFlag(MedicalAlert.SustainedPressure))
+            return "Sustained High Pressure!";
+
+        if (_currentAlerts.HasFlag(MedicalAlert.HighPressure))
+            return "High Pressure Detected";
+
+        if (_currentAlerts.HasFlag(MedicalAlert.PositioningWarning))
+            return "Positioning Warning";
+
+        return _isConnected ? "All Clear" : "High Pressure Alert";
+    }
+
+    private string GetAlertMessage()
+    {
+        if (_currentAlerts.HasFlag(MedicalAlert.SustainedPressure))
+            return "Pressure has been elevated for an extended period. Please reposition.";
+
+        if (_currentAlerts.HasFlag(MedicalAlert.HighPressure))
+            return $"Peak pressure: {_currentFrame?.PeakPressure ?? 0}. Consider repositioning.";
+
+        if (_currentAlerts.HasFlag(MedicalAlert.PositioningWarning))
+            return "Uneven weight distribution detected.";
+
+        return _isConnected ? "No pressure alerts at this time." : "Will notify when alert system is configured";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        UnsubscribeFromDevice();
+
+        if (_isCanvasInitialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("heatmapRenderer.dispose", _canvasId);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit disconnected - ignore
+            }
+            // Reset flag so canvas re-initializes when component is recreated
+            _isCanvasInitialized = false;
+        }
+
+        // Note: We don't dispose the device here because it's managed by MockDeviceManager
+        // and should persist while the user is logged in
     }
 }

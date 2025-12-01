@@ -344,3 +344,122 @@
 ::deep .card {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* Heatmap Container - Author: SID:2412494 */
+::deep .heatmap-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+::deep .heatmap-container canvas {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+/* Playback Controls - Author: SID:2412494 */
+::deep .playback-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Progress Bar Container */
+::deep .progress-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 440px;
+  cursor: pointer;
+}
+
+/* Progress Track (background) */
+::deep .progress-track {
+  width: 400px;
+  height: 8px;
+  background: #ececf0;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: height 0.15s ease;
+}
+
+::deep .progress-container:hover .progress-track,
+::deep .progress-container.dragging .progress-track {
+  height: 10px;
+}
+
+::deep .progress-container.dragging {
+  cursor: grabbing;
+}
+
+::deep .progress-container.dragging .progress-fill {
+  transition: none;
+}
+
+/* Progress Fill (foreground) */
+::deep .progress-fill {
+  height: 100%;
+  background: #030213;
+  border-radius: 4px;
+  transition: width 0.05s linear;
+}
+
+/* Progress Label */
+::deep .progress-label {
+  font-size: 0.8rem;
+  color: #717182;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Play/Pause Button */
+::deep .playback-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #030213;
+  color: #ffffff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 0.625rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+::deep .playback-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+::deep .playback-btn:active {
+  transform: scale(0.98);
+}
+
+::deep .playback-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+::deep .playback-btn svg polygon {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* Responsive Progress Bar */
+@media (max-width: 480px) {
+  ::deep .progress-track {
+    width: 100%;
+    max-width: 300px;
+  }
+}

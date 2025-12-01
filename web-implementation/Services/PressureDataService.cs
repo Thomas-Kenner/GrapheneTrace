@@ -308,6 +308,16 @@ public class PressureDataService
         return await applicationDbContext.PatientSessionDatas.ToListAsync();
     }
 
+    // Author: SID:2412494
+    // Retrieve sessions for a specific patient, ordered by start date descending
+    public async Task<List<PatientSessionData>> GetSessionsForPatientAsync(Guid patientId)
+    {
+        return await applicationDbContext.PatientSessionDatas
+            .Where(s => s.PatientId == patientId)
+            .OrderByDescending(s => s.Start)
+            .ToListAsync();
+    }
+
     // Author: 2414111
     // Find sessionId in the database for deviceId and date
     public async Task<int?> FindSessionId(string deviceId, DateTime start)
