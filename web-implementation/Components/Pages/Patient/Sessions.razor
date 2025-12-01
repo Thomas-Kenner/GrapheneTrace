@@ -3,19 +3,25 @@
     SESSIONS PAGE
     ========================================
     Author: SID:2402513
+    Updated: SID:2412494 - Added real session data and heatmap playback
 
     Purpose:
     View past monitoring sessions with detailed pressure maps,
     comments, and alert history.
-
-    Current Implementation:
-    Uses placeholder session data. All dates, times, and pressure
-    values are hardcoded placeholders.
 *@
 
 @page "/patient/sessions"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PressureDataService PressureDataService
+@inject HeatmapPlaybackService PlaybackService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="patient-container">
     <PatientHeader />
@@ -29,53 +35,49 @@
                     <p class="sidebar-subtitle">Past monitoring sessions</p>
 
                     <div class="sessions-list">
-                        @* Placeholder Session 1 *@
-                        <div class="session-item @(selectedSession == 1 ? "active" : "")" @onclick="() => SelectSession(1)">
-                            <div class="session-header">
-                                <span class="session-date">Placeholder Date</span>
-                                <span class="alert-badge">1 Alert</span>
+                        @if (isLoading)
+                        {
+                            <div class="session-item">
+                                <div class="session-header">
+                                    <span class="session-date">Loading sessions...</span>
+                                </div>
                             </div>
-                            <div class="session-details">
-                                <span class="session-duration">Placeholder Duration</span>
-                                <span class="session-pressure">Placeholder mmHg</span>
+                        }
+                        else if (sessions == null || sessions.Count == 0)
+                        {
+                            <div class="session-item">
+                                <div class="session-header">
+                                    <span class="session-date">No sessions found</span>
+                                </div>
                             </div>
-                        </div>
-
-                        @* Placeholder Session 2 *@
-                        <div class="session-item @(selectedSession == 2 ? "active" : "")" @onclick="() => SelectSession(2)">
-                            <div class="session-header">
-                                <span class="session-date">Placeholder Date</span>
-                                <span class="no-alert">No Alerts</span>
-                            </div>
-                            <div class="session-details">
-                                <span class="session-duration">Placeholder Duration</span>
-                                <span class="session-pressure">Placeholder mmHg</span>
-                            </div>
-                        </div>
-
-                        @* Placeholder Session 3 *@
-                        <div class="session-item @(selectedSession == 3 ? "active" : "")" @onclick="() => SelectSession(3)">
-                            <div class="session-header">
-                                <span class="session-date">Placeholder Date</span>
-                                <span class="no-alert">No Alerts</span>
-                            </div>
-                            <div class="session-details">
-                                <span class="session-duration">Placeholder Duration</span>
-                                <span class="session-pressure">Placeholder mmHg</span>
-                            </div>
-                        </div>
-
-                        @* Placeholder Session 4 *@
-                        <div class="session-item @(selectedSession == 4 ? "active" : "")" @onclick="() => SelectSession(4)">
-                            <div class="session-header">
-                                <span class="session-date">Placeholder Date</span>
-                                <span class="no-alert">No Alerts</span>
-                            </div>
-                            <div class="session-details">
-                                <span class="session-duration">Placeholder Duration</span>
-                                <span class="session-pressure">Placeholder mmHg</span>
-                            </div>
-                        </div>
+                        }
+                        else
+                        {
+                            @foreach (var session in sessions)
+                            {
+                                <div class="session-item @(selectedSessionId == session.SessionId ? "active" : "")"
+                                     @onclick="() => SelectSessionAsync(session)">
+                                    <div class="session-header">
+                                        <span class="session-date">@session.Start.ToString("MMM dd, yyyy")</span>
+                                        @if (session.ClinicianFlag)
+                                        {
+                                            <span class="alert-badge">Flagged</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="no-alert">No Flags</span>
+                                        }
+                                    </div>
+                                    <div class="session-details">
+                                        <span class="session-duration">@FormatDuration(session.Start, session.End)</span>
+                                        @if (session.PeakSessionPressure.HasValue)
+                                        {
+                                            <span class="session-pressure">Peak: @session.PeakSessionPressure mmHg</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
                     </div>
                 </div>
             </div>
@@ -86,20 +88,76 @@
                 <div class="card session-header-card">
                     <div class="session-title-row">
                         <div>
-                            <h3 class="session-title">Session: Placeholder Date</h3>
-                            <p class="session-time">Placeholder Time (Placeholder Duration)</p>
+                            @if (selectedSession != null)
+                            {
+                                <h3 class="session-title">Session: @selectedSession.Start.ToString("MMMM dd, yyyy")</h3>
+                                <p class="session-time">
+                                    Started: @selectedSession.Start.ToString("HH:mm:ss")
+                                    (@FormatDuration(selectedSession.Start, selectedSession.End))
+                                </p>
+                            }
+                            else
+                            {
+                                <h3 class="session-title">Select a session</h3>
+                                <p class="session-time">Choose a session from the list to view details</p>
+                            }
                         </div>
-                        <button class="add-comment-btn">💬 Add Comment</button>
+                        <button class="add-comment-btn">Add Comment</button>
                     </div>
                 </div>
 
                 @* Pressure Map Visualization *@
                 <div class="card visualization-card">
-                    <div class="visualization-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
-                        <p class="placeholder-description">Session pressure map visualization</p>
-                        <p class="placeholder-description">Timeline with markers for comments and alerts</p>
-                    </div>
+                    @if (selectedSession != null)
+                    {
+                        <div class="heatmap-container">
+                            <canvas id="@canvasId"></canvas>
+                        </div>
+                        @if (PlaybackService.TotalFrames > 0)
+                        {
+                            <div class="playback-controls">
+                                @* Progress Bar *@
+                                <div class="progress-container @(isDragging ? "dragging" : "")"
+                                     @onmousedown="OnProgressMouseDown"
+                                     @onmousemove="OnProgressMouseMove"
+                                     @onmouseup="OnProgressMouseUp"
+                                     @onmouseleave="OnProgressMouseUp">
+                                    <div class="progress-track">
+                                        <div class="progress-fill" style="width: @(GetProgressPercent())%;"></div>
+                                    </div>
+                                    <div class="progress-label">
+                                        @(PlaybackService.CurrentFrameIndex + 1) / @PlaybackService.TotalFrames
+                                    </div>
+                                </div>
+
+                                @* Play/Pause Button *@
+                                <button class="playback-btn" @onclick="TogglePlayback">
+                                    @if (PlaybackService.IsPlaying)
+                                    {
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="6" y="4" width="4" height="16"></rect>
+                                            <rect x="14" y="4" width="4" height="16"></rect>
+                                        </svg>
+                                        <span>Pause</span>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polygon points="5,3 19,12 5,21"></polygon>
+                                        </svg>
+                                        <span>Play</span>
+                                    }
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="visualization-placeholder">
+                            <p class="placeholder-text">No Session Selected</p>
+                            <p class="placeholder-description">Select a session from the list to view the pressure heatmap</p>
+                        </div>
+                    }
                 </div>
 
                 @* Comments & Alerts Row *@
@@ -109,8 +167,8 @@
                         <h4 class="section-title">Comments & Notes</h4>
                         <div class="comments-list">
                             <div class="comment-item">
-                                <div class="comment-time">Placeholder Time</div>
-                                <div class="comment-text">Placeholder comment text - example note about session</div>
+                                <div class="comment-time">--</div>
+                                <div class="comment-text">No comments for this session</div>
                             </div>
                         </div>
                     </div>
@@ -120,8 +178,8 @@
                         <h4 class="section-title">Session Alerts</h4>
                         <div class="alerts-list">
                             <div class="alert-item-session">
-                                <div class="alert-time-badge">Placeholder Time</div>
-                                <div class="alert-text">Placeholder alert message - example high pressure detection</div>
+                                <div class="alert-time-badge">--</div>
+                                <div class="alert-text">No alerts for this session</div>
                             </div>
                         </div>
                     </div>
@@ -132,10 +190,179 @@
 </div>
 
 @code {
-    private int selectedSession = 1;
+    // Author: SID:2412494
+    private List<PatientSessionData>? sessions;
+    private PatientSessionData? selectedSession;
+    private int? selectedSessionId;
+    private bool isLoading = true;
+    private string canvasId = $"heatmap-{Guid.NewGuid():N}";
+    private bool isInitialized;
+    private bool isPlaybackInitialized;
 
-    private void SelectSession(int sessionNumber)
+    protected override async Task OnInitializedAsync()
     {
-        selectedSession = sessionNumber;
+        await LoadSessionsAsync();
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isInitialized = true;
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadSessionsAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                // Unable to identify user
+                sessions = new List<PatientSessionData>();
+                return;
+            }
+
+            sessions = await PressureDataService.GetSessionsForPatientAsync(userId);
+
+            // Auto-select first session if available
+            if (sessions.Count > 0)
+            {
+                // Don't await here - let it happen after render
+                _ = SelectSessionAsync(sessions[0]);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading sessions: {ex.Message}");
+            sessions = new List<PatientSessionData>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SelectSessionAsync(PatientSessionData session)
+    {
+        if (selectedSessionId == session.SessionId)
+            return;
+
+        selectedSession = session;
+        selectedSessionId = session.SessionId;
+        StateHasChanged();
+
+        // Wait for render if needed
+        if (!isInitialized)
+        {
+            await Task.Delay(100);
+        }
+
+        // Initialize playback service if not already done
+        if (!isPlaybackInitialized)
+        {
+            await PlaybackService.InitializeAsync(canvasId);
+            isPlaybackInitialized = true;
+        }
+        else
+        {
+            // Pause current playback before loading new session
+            await PlaybackService.PausePlaybackAsync();
+        }
+
+        // Load the session into the playback service
+        var loaded = await PlaybackService.LoadSessionAsync(session.SessionId);
+        if (loaded)
+        {
+            // Subscribe to frame changes to update UI
+            PlaybackService.OnFrameChanged += OnFrameChanged;
+
+            // Start playback (loops automatically)
+            PlaybackService.StartPlayback();
+        }
+
+        StateHasChanged();
+    }
+
+    private void OnFrameChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private double GetProgressPercent()
+    {
+        if (PlaybackService.TotalFrames == 0)
+            return 0;
+        return (double)PlaybackService.CurrentFrameIndex / (PlaybackService.TotalFrames - 1) * 100;
+    }
+
+    // Dragging state for progress bar
+    private bool isDragging;
+
+    private async Task OnProgressMouseDown(MouseEventArgs e)
+    {
+        isDragging = true;
+
+        // Pause playback when starting to drag
+        await PlaybackService.PausePlaybackAsync();
+
+        // Seek to clicked position
+        await SeekToMousePosition(e);
+    }
+
+    private async Task OnProgressMouseMove(MouseEventArgs e)
+    {
+        if (!isDragging)
+            return;
+
+        // Continue seeking while dragging
+        await SeekToMousePosition(e);
+    }
+
+    private void OnProgressMouseUp(MouseEventArgs e)
+    {
+        isDragging = false;
+    }
+
+    private async Task SeekToMousePosition(MouseEventArgs e)
+    {
+        // The progress track is 400px wide (fixed width)
+        const double trackWidth = 400.0;
+        var clickPercent = Math.Clamp(e.OffsetX / trackWidth, 0, 1);
+        var targetFrame = (int)(clickPercent * (PlaybackService.TotalFrames - 1));
+
+        await PlaybackService.SeekToFrameAsync(targetFrame);
+        StateHasChanged();
+    }
+
+    private async Task TogglePlayback()
+    {
+        await PlaybackService.TogglePlaybackAsync();
+        StateHasChanged();
+    }
+
+    private string FormatDuration(DateTime start, DateTime? end)
+    {
+        if (!end.HasValue)
+            return "Duration unknown";
+
+        var duration = end.Value - start;
+        if (duration.TotalHours >= 1)
+            return $"{duration.Hours}h {duration.Minutes}m";
+        if (duration.TotalMinutes >= 1)
+            return $"{duration.Minutes}m {duration.Seconds}s";
+        return $"{duration.Seconds}s";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        PlaybackService.OnFrameChanged -= OnFrameChanged;
+        await PlaybackService.DisposeAsync();
     }
 }

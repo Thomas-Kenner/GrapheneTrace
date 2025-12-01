@@ -487,3 +487,6 @@ $RECYCLE.BIN/
 # Temporary files
 references/*
 .vscode/settings.json
+
+# Local app settings (use appsettings.example.json as template)
+web-implementation/appsettings.json

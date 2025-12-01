@@ -1,0 +1,127 @@
+@namespace GrapheneTrace.Web.Components.UI
+@using System.Threading
+@using GrapheneTrace.Web.Data
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.EntityFrameworkCore.ChangeTracking
+@using Microsoft.EntityFrameworkCore.ChangeTracking.Internal
+@using Microsoft.EntityFrameworkCore.Diagnostics
+@using Microsoft.VisualBasic
+@using System.Runtime.CompilerServices
+@implements IAsyncDisposable
+@inject PressureDataService pressureDataService
+
+
+@* Author: 2414111
+Creating a 32x32 grid with each box being 10x10px
+For each row go through each column filling with the colour relating to the cell's value*@
+<div style="display: grid; grid-template-columns: repeat(32,10px); grid-template-rows: repeat(32,10px);">
+    @for(int y=0; y<32; y++)
+    {
+        for(int x=0; x<32; x++)
+        {
+            <div style="width: 10px; height: 10px; background-color: @ColorFor(data[x,y])"></div>
+        }
+    }
+</div>
+
+
+@code {
+    private readonly int[,] data = new int[32, 32];
+    private CancellationTokenSource? _cts;
+    private Task? _loopTask;
+    // DeviceId and Start have been hardcoded for getting it working but should be updated to act based on
+    // which patient is logged in and which day/time they select to view
+    private string deviceId = "1c0fd777";
+    private DateTime start = new DateTime(2025, 10, 11, 00, 00, 00, DateTimeKind.Utc);
+
+    // Author: 2414111
+    // Start background loop
+    protected override async Task OnInitializedAsync()
+    {
+        _cts = new CancellationTokenSource();
+        int sessionId = await pressureDataService.FindSessionId(deviceId, start) ?? -1;
+        if (sessionId != -1)
+        {
+            _loopTask = RunUpdateLoopAsync(_cts.Token, sessionId);
+        }
+    }
+
+    // Author: 2414111
+    // Function to get the heatmap to keep refreshing
+    private async Task RunUpdateLoopAsync(CancellationToken ct, int sessionId)
+    {
+        // Use PeriodicTimer to keep refreshing
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        // Get a list of timestamps for the session
+        var timestamps = await pressureDataService.ListTimestamps(sessionId);
+        try
+        {
+            while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
+            {
+                foreach(DateTime timestamp in timestamps)
+                {
+                    // Refresh the heatmap UI with the data from the current timestamp
+                    await UpdateHeatmap(sessionId, timestamp);
+                    // Use InvokeAsync to ensure StateHasChanged runs on the right sync context
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on cancellation
+        }
+    }
+
+    // Author: 2414111
+    // Fill a snapshot of the heatmap with actual pressure data
+    private async Task UpdateHeatmap(int sessionId, DateTime timestamp)
+    {
+        // Get the columns x rows ints in the snapshot
+        List<int[]> snapshot = await pressureDataService.ReturnSnapshotDataFromTimestamp(sessionId, timestamp);
+        // To track which row is the current one
+        int y = 0;
+        foreach (int[] row in snapshot)
+        {
+            for (int x = 0; x < row.Length; x++)
+            {
+                data[x, y] = row[x];
+            }
+            y++;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_cts != null && !_cts.IsCancellationRequested)
+        {
+            _cts.Cancel();
+            try
+            {
+                // Wait a short time for the loop to finish
+                if (_loopTask != null)
+                    await Task.WhenAny(_loopTask, Task.Delay(500));
+            }
+            catch
+            {
+                // Ignore exceptions during shutdown
+            }
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    // Author: 2414111
+    // Convert pressure number to a colour between blue (0) and red (255)
+    // Using hsl as that's just one number to change for hue and convert to hex in HslToHex
+    string ColorFor(int count)
+    {
+        double hue = count;
+        // Display numbers less than 0 as 0, and numbers more than 255 as 255
+        hue = Math.Clamp(hue, 0, 255.0);
+        // Reverse order of blue to red
+        hue = 255.0 - hue;
+        return $"hsl({hue}deg 100% 50%)";
+    }
+}

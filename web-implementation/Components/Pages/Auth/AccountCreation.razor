@@ -2,7 +2,7 @@
 @layout Layout.AuthLayout
 @using GrapheneTrace.Web.Components.UI
 @inject NavigationManager Navigation
-@inject IHttpClientFactory HttpClientFactory
+@inject HttpClient Http
 @rendermode InteractiveServer
 
 @*
@@ -437,11 +437,13 @@
 
             // POST to controller endpoint with custom header
             // X-Requested-With signals this is from Blazor component, not traditional form
-            var httpClient = HttpClientFactory.CreateClient();
-            httpClient.BaseAddress = new Uri(Navigation.BaseUri);
-            httpClient.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
+            // Author: SID:2412494 - Switched from IHttpClientFactory to injected HttpClient
+            // The scoped HttpClient already has BaseAddress configured from NavigationManager
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/account/register");
+            request.Content = formData;
+            request.Headers.Add("X-Requested-With", "XMLHttpRequest");
 
-            var response = await httpClient.PostAsync("/account/register", formData);
+            var response = await Http.SendAsync(request);
 
             if (response.IsSuccessStatusCode)
             {
