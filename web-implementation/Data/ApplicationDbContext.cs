@@ -44,10 +44,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     }
 
     /// <summary>
-    /// Patient-specific settings for pressure monitoring alerts.
-    /// Implements Story #9.
+    /// Requests for clinician assignment (patient-initiated workflow).
     /// </summary>
-    public DbSet<PatientSettings> PatientSettings { get; set; } = null!;
+    public DbSet<PatientClinicianRequest> PatientClinicianRequests { get; set; }
+
+    /// <summary>
+    /// Established relationships between patients and clinicians.
+    /// </summary>
+    public DbSet<PatientClinician> PatientClinicians { get; set; }
 
     /// <summary>
     /// Configures the database schema using Fluent API.
@@ -94,51 +98,70 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
 
             // Optional: Create index on DeactivatedAt for filtering active users
             entity.HasIndex(e => e.DeactivatedAt);
-
-            // Optional: Create index on ApprovedBy for approval history queries
-            entity.HasIndex(e => e.ApprovedBy);
-
-            // Configure AssignedClinician self-referencing foreign key
-            // This allows assigning patients to clinicians
-            entity.HasOne(e => e.AssignedClinician)
-                .WithMany()
-                .HasForeignKey(e => e.AssignedClinicianId)
-                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading deletes
-            
-            entity.HasIndex(e => e.AssignedClinicianId);
         });
 
-        // Configure PatientSettings entity (Story #9)
-        builder.Entity<PatientSettings>(entity =>
+        // Configure PatientClinicianRequest entity
+        builder.Entity<PatientClinicianRequest>(entity =>
         {
-            // Configure relationship: PatientSettings -> User (1:1)
-            entity.HasOne(ps => ps.User)
-                .WithMany()
-                .HasForeignKey(ps => ps.UserId)
-                .OnDelete(DeleteBehavior.Cascade);  // Delete settings when user deleted
+            entity.HasKey(e => e.Id);
 
-            // Enforce unique constraint: one settings record per patient
-            entity.HasIndex(ps => ps.UserId)
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.ResponseReason)
+                .HasMaxLength(500);
+
+            // Foreign key: PatientId
+            entity.HasOne(e => e.Patient)
+                .WithMany()
+                .HasForeignKey(e => e.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Foreign key: ClinicianId
+            entity.HasOne(e => e.Clinician)
+                .WithMany()
+                .HasForeignKey(e => e.ClinicianId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes for query performance
+            entity.HasIndex(e => e.PatientId);
+            entity.HasIndex(e => e.ClinicianId);
+            entity.HasIndex(e => e.Status)
+                .HasFilter("\"Status\" = 'pending'");
+
+            // Unique constraint on pending requests (only one pending per patient-clinician pair)
+            entity.HasIndex(e => new { e.PatientId, e.ClinicianId })
+                .HasFilter("\"Status\" = 'pending'")
+                .IsUnique();
+        });
+
+        // Configure PatientClinician entity
+        builder.Entity<PatientClinician>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Foreign key: PatientId
+            entity.HasOne(e => e.Patient)
+                .WithMany()
+                .HasForeignKey(e => e.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Foreign key: ClinicianId
+            entity.HasOne(e => e.Clinician)
+                .WithMany()
+                .HasForeignKey(e => e.ClinicianId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes for query performance
+            entity.HasIndex(e => e.PatientId);
+            entity.HasIndex(e => e.ClinicianId);
+            entity.HasIndex(e => new { e.PatientId, e.ClinicianId })
+                .HasFilter("\"UnassignedAt\" IS NULL")
                 .IsUnique();
 
-            // Add index on UpdatedAt for querying recently modified settings
-            entity.HasIndex(ps => ps.UpdatedAt);
-
-            // Configure required fields with validation
-            entity.Property(ps => ps.LowPressureThreshold)
-                .IsRequired();
-
-            entity.Property(ps => ps.HighPressureThreshold)
-                .IsRequired();
+            // Unique constraint on active assignments (only one active per patient-clinician pair)
+            // This prevents duplicate active assignments
         });
-
-        // Future: Add configurations for other entities here
-        // Example:
-        // builder.Entity<PressureReading>(entity =>
-        // {
-        //     entity.HasOne(p => p.User)
-        //         .WithMany()
-        //         .HasForeignKey(p => p.UserId);
-        // });
     }
 }
