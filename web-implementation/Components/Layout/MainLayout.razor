@@ -4,6 +4,11 @@
 @using Microsoft.AspNetCore.Identity
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject SignInManager<ApplicationUser> SignInManager
+@using GrapheneTrace.Web.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -34,15 +39,23 @@
 *@
 
 @if (isAuthenticated)
+@if (isAuthenticated)
 {
     <div class="page">
-        <div class="content-wrapper">
-            <main>
-                <article class="content">
-                    @Body
-                </article>
-            </main>
+        <div class="sidebar">
+            <NavMenu />
         </div>
+
+        <main>
+            <div class="top-row px-4">
+                <span>Welcome, @userName</span>
+                <button @onclick="HandleLogout" style="margin-left: 1rem; cursor: pointer;">Logout</button>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
     </div>
 }
 
@@ -56,6 +69,9 @@
     private bool isAuthenticated = false;
     private string userName = "";
 
+    private bool isAuthenticated = false;
+    private string userName = "";
+
     /// <summary>
     /// Component lifecycle hook: runs once when component is first rendered.
     /// Author: SID:2412494
@@ -63,7 +79,16 @@
     /// <remarks>
     /// Updated to use ASP.NET Core Identity's AuthenticationStateProvider.
     ///
+    /// Updated to use ASP.NET Core Identity's AuthenticationStateProvider.
+    ///
     /// Authentication Gate Logic:
+    /// - Check authentication state via GetAuthenticationStateAsync()
+    /// - Extract user identity and name from ClaimsPrincipal
+    /// - Redirect unauthenticated users to /login (except those on auth pages)
+    /// - Subscribe to authentication state changes
+    ///
+    /// Why AuthenticationStateProvider: Identity's built-in mechanism for tracking
+    /// authentication state in Blazor. Automatically updated by Identity on login/logout.
     /// - Check authentication state via GetAuthenticationStateAsync()
     /// - Extract user identity and name from ClaimsPrincipal
     /// - Redirect unauthenticated users to /login (except those on auth pages)
@@ -75,9 +100,30 @@
     /// Edge Case Handling:
     /// - Auth pages (/login, /account-creation) excluded from redirect
     /// - Prevents infinite redirect loop
+    /// - Auth pages (/login, /account-creation) excluded from redirect
+    /// - Prevents infinite redirect loop
     /// </remarks>
     protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
+        await CheckAuthenticationState();
+
+        // Subscribe to auth state changes for automatic UI updates
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+    }
+
+    /// <summary>
+    /// Checks current authentication state and updates component state.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task CheckAuthenticationState()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        isAuthenticated = user.Identity?.IsAuthenticated ?? false;
+        userName = user.Identity?.Name ?? "Unknown";
+
         await CheckAuthenticationState();
 
         // Subscribe to auth state changes for automatic UI updates
@@ -122,9 +168,35 @@
         var path = new Uri(Navigation.Uri).AbsolutePath;
         return path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
                path.Equals("/account-creation", StringComparison.OrdinalIgnoreCase);
+        if (!isAuthenticated && !IsAuthPage())
+        {
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
     }
 
     /// <summary>
+    /// Handles authentication state change events.
+    /// Author: SID:2412494
+    /// </summary>
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await CheckAuthenticationState();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Checks if current page is an authentication page.
+    /// Author: SID:2412494
+    /// </summary>
+    private bool IsAuthPage()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath;
+        return path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
+               path.Equals("/account-creation", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Handles user logout action using ASP.NET Core Identity.
     /// Handles user logout action using ASP.NET Core Identity.
     /// Author: SID:2412494
     /// </summary>
@@ -136,9 +208,19 @@
     ///
     /// Identity's SignOutAsync triggers AuthenticationStateChanged event,
     /// which updates all subscribed components.
+    /// Uses SignInManager.SignOutAsync() to:
+    /// - Invalidate authentication cookie
+    /// - Clear session
+    /// - Update AuthenticationStateProvider automatically
+    ///
+    /// Identity's SignOutAsync triggers AuthenticationStateChanged event,
+    /// which updates all subscribed components.
     /// </remarks>
     private async Task HandleLogout()
+    private async Task HandleLogout()
     {
+        await SignInManager.SignOutAsync();
+        Navigation.NavigateTo("/login", forceLoad: true);
         await SignInManager.SignOutAsync();
         Navigation.NavigateTo("/login", forceLoad: true);
     }
@@ -152,11 +234,14 @@
     /// Why necessary: Event handlers create strong references. If not unsubscribed,
     /// the AuthenticationStateProvider would maintain a reference to this component
     /// even after it's destroyed, preventing garbage collection.
+    /// the AuthenticationStateProvider would maintain a reference to this component
+    /// even after it's destroyed, preventing garbage collection.
     ///
     /// Blazor Lifecycle: Dispose is called when component is removed from render tree.
     /// </remarks>
     public void Dispose()
     {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

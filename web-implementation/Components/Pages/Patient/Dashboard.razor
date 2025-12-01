@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 @*
     ========================================
     PATIENT DASHBOARD PAGE
@@ -137,12 +138,67 @@
                     </div>
                 </div>
             </div>
+=======
+@page "/patient/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using GrapheneTrace.Web.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthStateProvider
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+@*
+    Patient Dashboard Page
+    Author: SID:2412494
+    Route: /patient/dashboard
+
+    Purpose: Main dashboard for patient users.
+
+    Authorization: Requires authenticated user (Authorize attribute).
+    Future: Add role-based authorization to restrict to patient users only.
+
+    Current Implementation: Simple placeholder for testing authentication flow.
+    Production TODO: Add patient-specific features (personal pressure data, alerts, settings, etc.)
+*@
+
+<div style="padding: 2rem;">
+    <div style="max-width: 64rem; margin: 0 auto;">
+        <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 1rem;">
+            Patient Dashboard
+        </h1>
+
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem;">
+            <p style="margin-bottom: 0.5rem;">
+                <strong>Welcome, @userName!</strong>
+            </p>
+            <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                Role: <strong>Patient</strong>
+            </p>
+            <p style="color: #6b7280;">
+                View your pressure data and manage your settings.
+            </p>
+        </div>
+
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
+                Quick Actions
+            </h2>
+            <p style="color: #6b7280; margin-bottom: 1rem;">
+                Patient features coming soon: Pressure data visualization, alert settings, personal information, etc.
+            </p>
+            <button @onclick="HandleLogout"
+                    style="background: #dc2626; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">
+                Logout
+            </button>
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
         </div>
     </div>
 </div>
 
 @code {
     private string userName = "";
+<<<<<<< HEAD
     private string randomQuote = "";
 
     // Inspirational quotes array (placeholder for AI-generated insights)
@@ -162,14 +218,35 @@
 
     /// <summary>
     /// Component initialization: loads user information and selects random quote
+=======
+
+    /// <summary>
+    /// Component initialization: loads user information from authentication state.
+    /// Author: SID:2412494
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userName = authState.User.Identity?.Name ?? "Unknown";
 
+<<<<<<< HEAD
         // Select a random inspirational quote for the weekly summary
         var random = new Random();
         randomQuote = inspirationalQuotes[random.Next(inspirationalQuotes.Length)];
+=======
+        // TODO: Add role verification to ensure user is actually a patient
+        // Redirect non-patient users to their appropriate dashboard
+    }
+
+    /// <summary>
+    /// Handles user logout using ASP.NET Core Identity.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task HandleLogout()
+    {
+        await SignInManager.SignOutAsync();
+        Navigation.NavigateTo("/login", forceLoad: true);
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
     }
 }

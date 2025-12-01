@@ -33,17 +33,26 @@ public class AccountController : ControllerBase
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly ILogger<AccountController> _logger;
 
+<<<<<<< HEAD
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
 
     public AccountController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         RoleManager<IdentityRole<Guid>> roleManager,
+=======
+    public AccountController(
+        UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
         ILogger<AccountController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
+<<<<<<< HEAD
         _roleManager = roleManager;
+=======
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
         _logger = logger;
     }
 
@@ -58,7 +67,11 @@ public class AccountController : ControllerBase
             // Validate input
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
+<<<<<<< HEAD
                 return Redirect("/login?error=" + Uri.EscapeDataString("Please enter both email and password"));
+=======
+                return BadRequest(new { error = "Please enter both email and password" });
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
             }
 
             // Find user
@@ -66,13 +79,18 @@ public class AccountController : ControllerBase
             if (user == null)
             {
                 _logger.LogWarning("Login attempt for non-existent user: {Email}", request.Email);
+<<<<<<< HEAD
                 return Redirect("/login?error=" + Uri.EscapeDataString("Invalid email or password"));
+=======
+                return Unauthorized(new { error = "Invalid email or password" });
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
             }
 
             // Check if deactivated
             if (user.DeactivatedAt != null)
             {
                 _logger.LogWarning("Login attempt for deactivated user: {UserId}", user.Id);
+<<<<<<< HEAD
                 return Redirect("/login?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
             }
 
@@ -144,11 +162,59 @@ public class AccountController : ControllerBase
 
             // Redirect via HTTP 302 so browser picks up authentication cookie
             return Redirect(redirectPath);
+=======
+                return Unauthorized(new { error = "This account has been deactivated. Please contact support." });
+            }
+
+            // Attempt sign in
+            var result = await _signInManager.PasswordSignInAsync(
+                user.UserName!,
+                request.Password,
+                isPersistent: request.RememberMe,
+                lockoutOnFailure: true
+            );
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("User {UserId} logged in successfully", user.Id);
+
+                // Determine redirect path based on user type
+                var redirectPath = user.UserType switch
+                {
+                    "admin" => "/admin/dashboard",
+                    "clinician" => "/clinician/dashboard",
+                    "patient" => "/patient/dashboard",
+                    _ => "/patient/dashboard"
+                };
+
+                // Redirect via HTTP 302 so browser picks up authentication cookie
+                return Redirect(redirectPath);
+            }
+
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("User {UserId} account locked out", user.Id);
+                return Unauthorized(new { error = "Account locked due to multiple failed login attempts. Please try again in 15 minutes." });
+            }
+
+            if (result.IsNotAllowed)
+            {
+                _logger.LogWarning("User {UserId} login not allowed", user.Id);
+                return Unauthorized(new { error = "Login not allowed. Please confirm your email address." });
+            }
+
+            _logger.LogWarning("Failed login attempt for user: {Email}", request.Email);
+            return Unauthorized(new { error = "Invalid email or password" });
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during login for email: {Email}", request.Email);
+<<<<<<< HEAD
             return Redirect("/login?error=" + Uri.EscapeDataString("An error occurred during login. Please try again."));
+=======
+            return StatusCode(500, new { error = "An error occurred during login. Please try again." });
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
         }
     }
 
@@ -179,9 +245,13 @@ public class AccountController : ControllerBase
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 UserType = request.UserType,
+<<<<<<< HEAD
                 EmailConfirmed = true,  // Skip email confirmation for now
                 // Auto-approve patient accounts - only admin/clinician accounts require manual approval
                 ApprovedAt = request.UserType == "patient" ? DateTime.UtcNow : null
+=======
+                EmailConfirmed = true  // Skip email confirmation for now
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -190,6 +260,7 @@ public class AccountController : ControllerBase
             {
                 _logger.LogInformation("User {UserId} created successfully", user.Id);
 
+<<<<<<< HEAD
                 // Assign user to role based on UserType
                 var roleName = user.UserType switch
                 {
@@ -230,6 +301,9 @@ public class AccountController : ControllerBase
                 }
 
                 // Patient accounts are auto-approved - sign in immediately
+=======
+                // Sign in the user
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
                 await _signInManager.SignInAsync(user, isPersistent: false);
 
                 // Determine redirect path
@@ -267,8 +341,12 @@ public class AccountController : ControllerBase
         {
             await _signInManager.SignOutAsync();
             _logger.LogInformation("User logged out successfully");
+<<<<<<< HEAD
             // Redirect via HTTP 302 so browser clears authentication cookie
             return Redirect("/login");
+=======
+            return Ok(new { redirectUrl = "/login" });
+>>>>>>> 87be01e ( Implemented ASPNET Core Identity based login. Using HTML form POST for login page, account creation page needs to be converted from HttpClient. Still needs more thorough testing)
         }
         catch (Exception ex)
         {

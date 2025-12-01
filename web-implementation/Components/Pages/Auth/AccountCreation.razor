@@ -2,7 +2,7 @@
 @layout Layout.AuthLayout
 @using GrapheneTrace.Web.Components.UI
 @inject NavigationManager Navigation
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @rendermode InteractiveServer
 
 @*
@@ -95,8 +95,14 @@
     private bool acceptedPolicy = false;
     private string firstName = "";
     private string lastName = "";
+    private string firstName = "";
+    private string lastName = "";
     private string email = "";
     private string password = "";
+    private string confirmPassword = "";
+    private string userType = "patient";  // Default to patient
+    private string? errorMessage = null;
+    private bool isLoading = false;
     private string confirmPassword = "";
     private string userType = "patient";  // Default to patient
     private string? errorMessage = null;
@@ -163,6 +169,15 @@
                        Id="lastName"
                        Placeholder="Doe"
                        @bind-Value="lastName" />
+            <FormGroup Label="First Name"
+                       Id="firstName"
+                       Placeholder="John"
+                       @bind-Value="firstName" />
+
+            <FormGroup Label="Last Name"
+                       Id="lastName"
+                       Placeholder="Doe"
+                       @bind-Value="lastName" />
 
             <FormGroup Label="Email Address"
                        Id="email"
@@ -174,7 +189,32 @@
                        Id="password"
                        InputType="password"
                        Placeholder="••••••••••••"
+                       Placeholder="••••••••••••"
                        @bind-Value="password" />
+
+            <FormGroup Label="Confirm Password"
+                       Id="confirmPassword"
+                       InputType="password"
+                       Placeholder="••••••••••••"
+                       @bind-Value="confirmPassword" />
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">
+                    Account Type
+                </label>
+                <select @bind="userType" style="width: 100%; padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;">
+                    <option value="patient">Patient</option>
+                    <option value="clinician">Clinician</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div style="color: var(--destructive); font-size: 0.875rem; margin-top: 0.5rem;">
+                    @errorMessage
+                </div>
+            }
 
             <FormGroup Label="Confirm Password"
                        Id="confirmPassword"
@@ -205,6 +245,7 @@
             <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/login"))">
                 Back
             </Button>
+            <Button OnClick="@(() => currentStep = 2)" Disabled="@isLoading">
             <Button OnClick="@(() => currentStep = 2)" Disabled="@isLoading">
                 Continue
             </Button>
@@ -339,9 +380,15 @@
                 <div class="summary-row">
                     <span class="summary-label">Name</span>
                     <span class="summary-value">@firstName @lastName</span>
+                    <span class="summary-value">@firstName @lastName</span>
                 </div>
                 <div class="summary-row">
                     <span class="summary-label">Email</span>
+                    <span class="summary-value">@email</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Account Type</span>
+                    <span class="summary-value">@(userType switch { "admin" => "Administrator", "clinician" => "Clinician", "patient" => "Patient", _ => userType })</span>
                     <span class="summary-value">@email</span>
                 </div>
                 <div class="summary-row">
@@ -356,44 +403,38 @@
         </CardContent>
 
         <CardFooter>
-            <form method="post" action="/account/login" style="width: 100%;">
-                <input type="hidden" name="Email" value="@email" />
-                <input type="hidden" name="Password" value="@password" />
-                <input type="hidden" name="RememberMe" value="false" />
-                <Button FullWidth="true" Type="submit">
-                    Continue to Dashboard
-                </Button>
-            </form>
+            <Button FullWidth="true" OnClick="HandleAccountCreated" Disabled="@isLoading">
+                @(isLoading ? "Creating Account..." : "Continue to Dashboard")
+            </Button>
         </CardFooter>
     </text>;
 
     /// <summary>
-    /// Handles account creation via HTTP POST to controller endpoint.
+    /// Handles account creation completion via HTTP POST to controller endpoint.
     /// Author: SID:2412494
     /// </summary>
     /// <remarks>
-    /// Two-Phase Account Creation:
-    /// Phase 1 (This method): Create account in database without signing in
-    ///   - POST to /account/register with X-Requested-With header
-    ///   - Controller creates user, assigns role, returns JSON
-    ///   - On success, display step 3 (success overlay)
+    /// Why Controller Endpoint:
+    /// Blazor Server components run over SignalR WebSocket. Calling SignInManager directly
+    /// throws "Headers are read-only" because cookies can't be set after response starts.
     ///
-    /// Phase 2 (Step 3 form): Sign in with newly created credentials
-    ///   - Traditional HTML form POST to /account/login
-    ///   - Sets authentication cookie properly
-    ///   - Redirects to role-specific dashboard
+    /// Solution: POST to /account/register controller endpoint via traditional HTTP,
+    /// which can set cookies before the response starts.
     ///
-    /// Why Two Phases:
-    /// Blazor Server components run over SignalR WebSocket. SignInManager can't set cookies
-    /// after the response starts. This approach lets us show a success overlay in the Blazor
-    /// component, then use a traditional form POST to complete authentication with cookies.
+    /// Flow:
+    /// 1. Validate required fields
+    /// 2. POST form data to /account/register
+    /// 3. Controller creates user and signs them in
+    /// 4. Redirect to dashboard on success
     ///
     /// Future Enhancements:
     /// - Send verification email with confirmation token
     /// - Log account creation event for audit trail (HIPAA requirement)
     /// - Add CAPTCHA to prevent automated account creation
+    /// - Log account creation event for audit trail (HIPAA requirement)
+    /// - Add CAPTCHA to prevent automated account creation
     /// </remarks>
-    private async Task HandleAccountCreation()
+    private async Task HandleAccountCreated()
     {
         errorMessage = null;
 
@@ -401,13 +442,6 @@
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
         {
             errorMessage = "First name and last name are required";
-            currentStep = 1;  // Go back to step 1
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
-        {
-            errorMessage = "Email and password are required";
             currentStep = 1;  // Go back to step 1
             return;
         }
@@ -435,22 +469,20 @@
                 { new StringContent(userType), "UserType" }
             };
 
-            // POST to controller endpoint with custom header
-            // X-Requested-With signals this is from Blazor component, not traditional form
-            // POST to controller endpoint with custom header
-            // X-Requested-With signals this is from Blazor component, not traditional form
-            // HttpClient is already configured with BaseAddress in Program.cs
-            Http.DefaultRequestHeaders.Remove("X-Requested-With"); // Ensure no duplicate if reused
-            Http.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
-
-            var response = await Http.PostAsync("/account/register", formData);
+            // POST to controller endpoint
+            var httpClient = HttpClientFactory.CreateClient();
+            httpClient.BaseAddress = new Uri(Navigation.BaseUri);
+            var response = await httpClient.PostAsync("/account/register", formData);
 
             if (response.IsSuccessStatusCode)
             {
-                // Account created successfully - move to step 3 (success overlay)
+                // Parse redirect URL from response
                 var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
-                Console.WriteLine("Account created successfully, showing success overlay");
-                currentStep = 3;
+                if (result?.RedirectUrl != null)
+                {
+                    // Force full page reload to pick up authentication cookie
+                    Navigation.NavigateTo(result.RedirectUrl, forceLoad: true);
+                }
             }
             else
             {
@@ -475,8 +507,7 @@
 
     private class RegisterResponse
     {
-        public bool Success { get; set; }
-        public string? Message { get; set; }
+        public string? RedirectUrl { get; set; }
     }
 
     private class ErrorResponse
