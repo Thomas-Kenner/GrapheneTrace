@@ -504,3 +504,37 @@
     width: 95%;
   }
 }
+
+/* Additional Styles */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.no-data-message {
+    color: var(--muted-foreground);
+}
+
+.password-hint {
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+    margin-top: 0.5rem;
+}
+
+.alert {
+    padding: 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}

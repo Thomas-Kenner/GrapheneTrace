@@ -540,3 +540,4 @@
 .alerts-section {
   animation: fadeIn 0.3s ease-out;
 }
+.support-message { color: var(--muted-foreground); margin: 0; }

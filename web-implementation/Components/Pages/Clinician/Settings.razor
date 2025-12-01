@@ -1,62 +1,51 @@
 @page "/clinician/settings"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
-@using GrapheneTrace.Web.Models
 @using GrapheneTrace.Web.Components.Layout
-@using Microsoft.AspNetCore.Components.Authorization
-@inject AuthenticationStateProvider AuthStateProvider
-
-@*
-    Clinician Settings Page
-    Author: SID:2402513
-    Route: /clinician/settings
-
-    Purpose: Allow clinicians to view and update their profile settings.
-*@
 
 <div class="admin-container">
     <ClinicianHeader />
 
     <div class="admin-content">
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
-            <h1 class="section-title" style="margin-bottom: 0.5rem;">Settings</h1>
-            <p style="color: #6b7280;">
+        <div class="page-header">
+            <h1 class="section-title page-title">Settings</h1>
+            <p class="page-description">
                 Manage your account settings and preferences.
             </p>
         </div>
 
         <div class="activity-card">
             <h3>Profile Information</h3>
-            
+
             <form @onsubmit="SaveSettings">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="form-grid">
                     <div>
-                        <label style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--foreground); margin-bottom: 0.5rem;">First Name</label>
-                        <input type="text" @bind="firstName" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--input-background);" />
+                        <label class="form-label">First Name</label>
+                        <input type="text" @bind="firstName" class="form-input" />
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--foreground); margin-bottom: 0.5rem;">Last Name</label>
-                        <input type="text" @bind="lastName" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--input-background);" />
+                        <label class="form-label">Last Name</label>
+                        <input type="text" @bind="lastName" class="form-input" />
                     </div>
                 </div>
 
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--foreground); margin-bottom: 0.5rem;">Email Address</label>
-                    <input type="email" @bind="email" readonly style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; background: #f3f4f6; color: #6b7280; cursor: not-allowed;" />
-                    <p style="font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem;">Email cannot be changed. Contact support for assistance.</p>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" @bind="email" readonly class="form-input" />
+                    <p class="form-hint">Email cannot be changed. Contact support for assistance.</p>
                 </div>
 
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-size: 0.9rem; font-weight: 500; color: var(--foreground); margin-bottom: 0.5rem;">Specialization</label>
-                    <input type="text" @bind="specialization" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--input-background);" />
+                <div class="form-group">
+                    <label class="form-label">Specialization</label>
+                    <input type="text" @bind="specialization" class="form-input" />
                 </div>
 
-                <button type="submit" style="background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; cursor: pointer; font-weight: 500; transition: opacity 0.2s;">
+                <button type="submit" class="save-btn">
                     Save Changes
                 </button>
 
                 @if (showSuccessMessage)
                 {
-                    <span style="color: #10b981; margin-left: 1rem; font-size: 0.9rem; font-weight: 500;">Settings saved successfully!</span>
+                    <span class="success-message">Settings saved successfully!</span>
                 }
             </form>
         </div>
@@ -66,50 +55,3 @@
         <p>Contact us · About · FAQ</p>
     </div>
 </div>
-
-@code {
-    private string firstName = "John";
-    private string lastName = "Doe";
-    private string email = "clinician@graphene.com";
-    private string specialization = "General Practice";
-    private bool showSuccessMessage = false;
-
-    protected override async Task OnInitializedAsync()
-    {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        
-        if (user.Identity?.IsAuthenticated ?? false)
-        {
-            // In a real app, we would fetch user details from a service
-            // For now, we'll just use the name from the claim if available
-            var name = user.Identity.Name;
-            if (!string.IsNullOrEmpty(name))
-            {
-                // Simple split for demo purposes
-                var parts = name.Split(' ');
-                if (parts.Length > 0) firstName = parts[0];
-                if (parts.Length > 1) lastName = parts[1];
-            }
-            
-            var emailClaim = user.FindFirst("email");
-            if (emailClaim != null) email = emailClaim.Value;
-        }
-    }
-
-    private void SaveSettings()
-    {
-        // In a real app, we would call a service to update the user's profile
-        showSuccessMessage = true;
-        
-        // Hide message after 3 seconds
-        var timer = new System.Timers.Timer(3000);
-        timer.Elapsed += (sender, e) => 
-        {
-            showSuccessMessage = false;
-            InvokeAsync(StateHasChanged);
-            timer.Dispose();
-        };
-        timer.Start();
-    }
-}
