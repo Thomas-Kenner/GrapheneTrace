@@ -4,6 +4,7 @@
     ========================================
     Author: SID:2402513
     Updated: SID:2412494 - Added live mock device heatmap with Connect Device button
+    Updated: SID:2412494 - Added browser notification integration (Stories #10, #18)
 
     Purpose:
     Main patient dashboard providing real-time pressure monitoring, alerts,
@@ -14,16 +15,26 @@
     - Implements InteractiveServer render mode for real-time updates
     - Connect Device button creates a mock device and streams live data
     - Uses JS canvas rendering for efficient heatmap visualization
+    - Triggers browser notifications when pressure exceeds thresholds (Story #10)
+    - Alerts on equipment faults (Story #18)
+    - Receives clinician notifications via SignalR (Story #28)
 *@
 
 @page "/patient/dashboard"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
 @using GrapheneTrace.Web.Services.Mocking
+@using GrapheneTrace.Web.Hubs
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
 @inject AuthenticationStateProvider AuthStateProvider
 @inject MockDeviceManager DeviceManager
+@inject NotificationService NotificationService
+@inject AlertService AlertService
+@inject PatientSettingsService PatientSettingsService
+@inject NavigationManager NavigationManager
 @inject IJSRuntime JS
 @inject IConfiguration Configuration
 @implements IAsyncDisposable
@@ -51,6 +62,33 @@
         <button class="nav-tab">Support</button>
     </nav>
 
+    @* Author: SID:2412494 - Notification permission banner (Story #10) *@
+    @if (_showNotificationBanner)
+    {
+        <div class="notification-permission-banner">
+            <div class="banner-content">
+                <span class="banner-icon">🔔</span>
+                <span class="banner-text">Enable notifications to receive pressure alerts even when this tab is in the background.</span>
+                <button class="banner-btn enable" @onclick="RequestNotificationPermissionAsync">Enable Notifications</button>
+                <button class="banner-btn dismiss" @onclick="DismissNotificationBanner">Not Now</button>
+            </div>
+        </div>
+    }
+
+    @* Author: SID:2412494 - Clinician message toast (Story #28) *@
+    @if (_clinicianMessage != null)
+    {
+        <div class="clinician-message-toast">
+            <div class="toast-icon">💬</div>
+            <div class="toast-content">
+                <strong>Message from your clinician:</strong>
+                <p>@_clinicianMessage</p>
+            </div>
+            <button class="toast-dismiss" @onclick="DismissClinicianMessage">×</button>
+        </div>
+    }
+
+    <!-- Main Content -->
     <div class="patient-content">
         <div class="dashboard-grid">
             <div class="left-column">
@@ -130,7 +168,9 @@
             <div class="right-column">
                 @*
                     HIGH PRESSURE ALERT CARD
+                    Author: SID:2412494 - Updated to show equipment faults (Story #18)
                     Turns red when alert system detects threshold breach
+                    Shows equipment fault icon when device has issues
                 *@
                 <div class="card alert-card @GetAlertCardClass()">
                     <div class="alert-icon-container">
@@ -138,7 +178,24 @@
                     </div>
                     <h4 class="alert-title">@GetAlertTitle()</h4>
                     <p class="alert-message">@GetAlertMessage()</p>
+                    @if (_patientSettings != null && _isConnected)
+                    {
+                        <p class="threshold-info">Your threshold: @_patientSettings.HighPressureThreshold</p>
+                    }
                 </div>
+
+                @* Author: SID:2412494 - Equipment fault indicator (Story #18) *@
+                @if (_currentFaults != DeviceFault.None)
+                {
+                    <div class="card equipment-fault-card">
+                        <div class="fault-header">
+                            <span class="fault-icon">🔧</span>
+                            <h4 class="fault-title">Equipment Issue</h4>
+                        </div>
+                        <p class="fault-description">@GetFaultDescription()</p>
+                        <p class="fault-advice">@GetFaultAdvice()</p>
+                    </div>
+                }
 
                 @*
                     DEVICE CONNECTED STATUS CARD
@@ -216,6 +273,14 @@
     // Current alert state
     private MedicalAlert _currentAlerts = MedicalAlert.None;
 
+    // Author: SID:2412494 - Notification state (Stories #10, #18, #28)
+    private bool _showNotificationBanner;
+    private bool _notificationsEnabled;
+    private PatientSettings? _patientSettings;
+    private DeviceFault _currentFaults = DeviceFault.None;
+    private string? _clinicianMessage;
+    private HubConnection? _alertHubConnection;
+
     // Scenario cycling
     private int _scenarioIndex;
     private readonly SimulationScenario[] _scenarios = new[]
@@ -261,6 +326,12 @@
         var random = new Random();
         randomQuote = inspirationalQuotes[random.Next(inspirationalQuotes.Length)];
 
+        // Author: SID:2412494 - Load patient-specific settings (Story #10)
+        if (_userId != Guid.Empty)
+        {
+            _patientSettings = await PatientSettingsService.GetSettingsAsync(_userId);
+        }
+
         // Check if device already exists (e.g., from previous session)
         var existingDevice = DeviceManager.TryGetDevice(_userId);
         if (existingDevice != null && existingDevice.Status == DeviceStatus.Running)
@@ -269,16 +340,137 @@
             _isConnected = true;
             SubscribeToDevice();
         }
+
+        // Author: SID:2412494 - Initialize SignalR connection for clinician notifications (Story #28)
+        await InitializeAlertHubAsync();
+    }
+
+    // Author: SID:2412494 - Initialize AlertHub SignalR connection (Story #28)
+    private async Task InitializeAlertHubAsync()
+    {
+        try
+        {
+            _alertHubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/alerthub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Handle clinician direct notifications (Story #28)
+            _alertHubConnection.On<object>("ReceiveClinicianNotification", async (data) =>
+            {
+                var message = data?.GetType().GetProperty("Message")?.GetValue(data)?.ToString();
+                if (!string.IsNullOrEmpty(message))
+                {
+                    _clinicianMessage = message;
+                    await InvokeAsync(StateHasChanged);
+
+                    // Show browser notification
+                    if (_notificationsEnabled)
+                    {
+                        await NotificationService.ShowNotificationAsync(
+                            title: "Message from your clinician",
+                            body: message,
+                            tag: "clinician-message",
+                            requireInteraction: true);
+                    }
+                }
+            });
+
+            // Handle pressure alerts from hub (backup to local detection)
+            _alertHubConnection.On<PressureAlertData>("ReceivePressureAlert", async (alert) =>
+            {
+                // This is handled locally, but hub can provide additional alerts
+                await InvokeAsync(StateHasChanged);
+            });
+
+            // Handle equipment fault alerts
+            _alertHubConnection.On<EquipmentFaultData>("ReceiveEquipmentFault", async (fault) =>
+            {
+                await InvokeAsync(StateHasChanged);
+            });
+
+            await _alertHubConnection.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to connect to AlertHub: {ex.Message}");
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Author: SID:2412494 - Check notification permissions on first render (Story #10)
+        if (firstRender)
+        {
+            await CheckNotificationPermissionsAsync();
+        }
+
         // Initialize canvas after render if connected but canvas not yet initialized
         // This handles the case where user navigates away and back while device is running
         if (_isConnected && !_isCanvasInitialized)
         {
             await InitializeCanvasAsync();
         }
+    }
+
+    // Author: SID:2412494 - Check and handle notification permissions (Story #10)
+    private async Task CheckNotificationPermissionsAsync()
+    {
+        try
+        {
+            var isSupported = await NotificationService.IsNotificationSupportedAsync();
+            if (!isSupported)
+            {
+                return;
+            }
+
+            var permission = await NotificationService.GetPermissionAsync();
+
+            if (permission == "granted")
+            {
+                _notificationsEnabled = true;
+            }
+            else if (permission == "default")
+            {
+                // User hasn't been asked yet - show the banner
+                _showNotificationBanner = true;
+                StateHasChanged();
+            }
+            // If denied, don't show banner - user made their choice
+        }
+        catch
+        {
+            // Notifications not available
+        }
+    }
+
+    // Author: SID:2412494 - Request notification permission from user (Story #10)
+    private async Task RequestNotificationPermissionAsync()
+    {
+        try
+        {
+            var result = await NotificationService.RequestPermissionAsync();
+            _notificationsEnabled = result == "granted";
+            _showNotificationBanner = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            _showNotificationBanner = false;
+            StateHasChanged();
+        }
+    }
+
+    // Author: SID:2412494 - Dismiss notification banner
+    private void DismissNotificationBanner()
+    {
+        _showNotificationBanner = false;
+    }
+
+    // Author: SID:2412494 - Dismiss clinician message toast (Story #28)
+    private void DismissClinicianMessage()
+    {
+        _clinicianMessage = null;
     }
 
     private async Task ConnectDeviceAsync()
@@ -368,10 +560,124 @@
         });
     }
 
+    // Author: SID:2412494 - Updated to trigger browser notifications (Stories #10, #18)
     private void OnAlertDetected(MedicalAlert alerts, HeatmapFrame frame)
     {
+        var previousAlerts = _currentAlerts;
+        var previousFaults = _currentFaults;
+
         _currentAlerts = alerts;
-        InvokeAsync(StateHasChanged);
+        _currentFaults = frame.ActiveFaults;
+
+        InvokeAsync(async () =>
+        {
+            // Only trigger notifications for NEW alerts (not already active)
+            if (_notificationsEnabled)
+            {
+                // Pressure alert notification (Story #10)
+                if (alerts.HasFlag(MedicalAlert.ThresholdBreach) &&
+                    !previousAlerts.HasFlag(MedicalAlert.ThresholdBreach))
+                {
+                    await TriggerPressureAlertNotificationAsync(frame);
+                }
+
+                // Sustained pressure notification (more urgent)
+                if (alerts.HasFlag(MedicalAlert.SustainedPressure) &&
+                    !previousAlerts.HasFlag(MedicalAlert.SustainedPressure))
+                {
+                    await NotificationService.ShowNotificationAsync(
+                        title: "Sustained High Pressure!",
+                        body: "Pressure has been elevated for an extended period. Please reposition immediately.",
+                        tag: "sustained-pressure",
+                        requireInteraction: true);
+                }
+
+                // Equipment fault notification (Story #18)
+                if (frame.ActiveFaults != DeviceFault.None &&
+                    frame.ActiveFaults != previousFaults)
+                {
+                    await TriggerEquipmentFaultNotificationAsync(frame.ActiveFaults);
+                }
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    // Author: SID:2412494 - Trigger browser notification for pressure alert (Story #10)
+    private async Task TriggerPressureAlertNotificationAsync(HeatmapFrame frame)
+    {
+        if (_patientSettings == null) return;
+
+        var evaluation = await AlertService.EvaluateFrameAsync(frame);
+
+        if (evaluation.ShouldNotifyPatient)
+        {
+            var notification = AlertService.CreatePressureAlertNotification(evaluation);
+
+            await NotificationService.ShowNotificationAsync(
+                title: notification.Title,
+                body: notification.Body,
+                icon: notification.Icon,
+                tag: notification.Tag,
+                requireInteraction: notification.RequireInteraction);
+
+            // Also notify assigned clinicians via SignalR (Story #7)
+            if (_alertHubConnection?.State == HubConnectionState.Connected)
+            {
+                try
+                {
+                    await _alertHubConnection.SendAsync("SendPressureAlert", _userId, new PressureAlertData
+                    {
+                        PeakPressure = frame.PeakPressure,
+                        Threshold = _patientSettings.HighPressureThreshold,
+                        Severity = evaluation.BreachSeverity,
+                        Message = notification.Body,
+                        RequireInteraction = notification.RequireInteraction
+                    });
+                }
+                catch
+                {
+                    // Hub connection issue - notification still shown locally
+                }
+            }
+        }
+    }
+
+    // Author: SID:2412494 - Trigger browser notification for equipment fault (Story #18)
+    private async Task TriggerEquipmentFaultNotificationAsync(DeviceFault faults)
+    {
+        var evaluation = AlertService.EvaluateEquipmentFault(_userId, faults);
+
+        if (evaluation.ShouldNotifyPatient)
+        {
+            var notification = AlertService.CreateEquipmentFaultNotification(evaluation);
+
+            await NotificationService.ShowNotificationAsync(
+                title: notification.Title,
+                body: notification.Body,
+                icon: notification.Icon,
+                tag: notification.Tag,
+                requireInteraction: notification.RequireInteraction);
+
+            // Notify assigned clinicians (Story #7)
+            if (_alertHubConnection?.State == HubConnectionState.Connected)
+            {
+                try
+                {
+                    await _alertHubConnection.SendAsync("SendEquipmentFaultAlert", _userId, new EquipmentFaultData
+                    {
+                        FaultType = faults.ToString(),
+                        Description = notification.Body,
+                        IsCritical = notification.RequireInteraction
+                    });
+                }
+                catch
+                {
+                    // Hub connection issue
+                }
+            }
+        }
     }
 
     private void CycleScenario()
@@ -437,20 +743,62 @@
     }
 
     // Helper methods for UI state
+    // Author: SID:2412494 - Updated to use patient-specific thresholds (Story #10)
     private string GetPeakPressureClass()
     {
         if (_currentFrame == null)
             return "";
 
-        var highThreshold = Configuration.GetValue("PressureThresholds:DefaultHighThreshold", 200);
+        // Use patient-specific thresholds if available, otherwise fall back to config
+        var highThreshold = _patientSettings?.HighPressureThreshold
+            ?? Configuration.GetValue("PressureThresholds:DefaultHighThreshold", 200);
         if (_currentFrame.PeakPressure >= highThreshold)
             return "pressure-high";
 
-        var lowThreshold = Configuration.GetValue("PressureThresholds:DefaultLowThreshold", 50);
+        var lowThreshold = _patientSettings?.LowPressureThreshold
+            ?? Configuration.GetValue("PressureThresholds:DefaultLowThreshold", 50);
         if (_currentFrame.PeakPressure >= lowThreshold)
             return "pressure-medium";
 
         return "pressure-low";
+    }
+
+    // Author: SID:2412494 - Equipment fault description (Story #18)
+    private string GetFaultDescription()
+    {
+        var descriptions = new List<string>();
+
+        if (_currentFaults.HasFlag(DeviceFault.Disconnected))
+            descriptions.Add("Device disconnected");
+        if (_currentFaults.HasFlag(DeviceFault.Saturation))
+            descriptions.Add("Sensor saturated");
+        if (_currentFaults.HasFlag(DeviceFault.DeadPixels))
+            descriptions.Add("Dead pixels detected");
+        if (_currentFaults.HasFlag(DeviceFault.PartialDataLoss))
+            descriptions.Add("Partial data loss");
+        if (_currentFaults.HasFlag(DeviceFault.CalibrationDrift))
+            descriptions.Add("Calibration drift");
+        if (_currentFaults.HasFlag(DeviceFault.ElectricalNoise))
+            descriptions.Add("Electrical noise");
+
+        return descriptions.Count > 0 ? string.Join(", ", descriptions) : "Unknown issue";
+    }
+
+    // Author: SID:2412494 - Equipment fault advice (Story #18)
+    private string GetFaultAdvice()
+    {
+        if (_currentFaults.HasFlag(DeviceFault.Disconnected))
+            return "Check device connection and try reconnecting.";
+        if (_currentFaults.HasFlag(DeviceFault.Saturation))
+            return "Sensor readings are at maximum. Contact support if this persists.";
+        if (_currentFaults.HasFlag(DeviceFault.CalibrationDrift))
+            return "Sensor may need recalibration. Contact your clinician.";
+        if (_currentFaults.HasFlag(DeviceFault.DeadPixels) || _currentFaults.HasFlag(DeviceFault.PartialDataLoss))
+            return "Some sensor areas may not be reading correctly.";
+        if (_currentFaults.HasFlag(DeviceFault.ElectricalNoise))
+            return "Readings may be temporarily affected by interference.";
+
+        return "If the issue persists, contact your clinician.";
     }
 
     private string GetAlertCardClass()
@@ -521,6 +869,12 @@
             }
             // Reset flag so canvas re-initializes when component is recreated
             _isCanvasInitialized = false;
+        }
+
+        // Author: SID:2412494 - Clean up AlertHub connection
+        if (_alertHubConnection != null)
+        {
+            await _alertHubConnection.DisposeAsync();
         }
 
         // Note: We don't dispose the device here because it's managed by MockDeviceManager

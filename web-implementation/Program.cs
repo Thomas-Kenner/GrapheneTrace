@@ -161,6 +161,12 @@ builder.Services.AddScoped<NotificationService>();
 // Add Chat Service
 builder.Services.AddScoped<ChatService>();
 
+// Add Alert Service
+// Author: SID:2412494
+// Central service for pressure alert detection and notification coordination
+// Implements Stories #7, #10, #18, #28
+builder.Services.AddScoped<AlertService>();
+
 // Add SignalR
 builder.Services.AddSignalR();
 
@@ -229,6 +235,10 @@ app.MapRazorComponents<App>()
 
 app.MapControllers();  // Map controller endpoints
 app.MapHub<GrapheneTrace.Web.Hubs.ChatHub>("/chathub");
+
+// Map AlertHub for real-time alert notifications
+// Author: SID:2412494
+app.MapHub<GrapheneTrace.Web.Hubs.AlertHub>("/alerthub");
 
 app.Run();
 

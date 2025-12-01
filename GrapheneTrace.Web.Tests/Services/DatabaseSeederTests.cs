@@ -89,7 +89,8 @@ public class DatabaseSeederTests : IDisposable
         mockSection.Setup(s => s.Value).Returns("true");
         _mockConfiguration.Setup(c => c.GetSection("DatabaseSeeding:Enabled")).Returns(mockSection.Object);
 
-        _seeder = new DatabaseSeeder(_userManager, _mockLogger.Object, _mockConfiguration.Object);
+        // Author: SID:2412494 - Added context parameter to match updated constructor
+        _seeder = new DatabaseSeeder(_userManager, _mockLogger.Object, _mockConfiguration.Object, _context);
     }
 
     public void Dispose()

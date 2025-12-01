@@ -592,3 +592,218 @@
 ::deep .metric-value.pressure-low {
   color: var(--success-green);
 }
+
+/* ========================================
+   Author: SID:2412494
+   Notification and Alert Styles (Stories #10, #18, #28)
+   ======================================== */
+
+/* Notification Permission Banner */
+::deep .notification-permission-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.75rem 2rem;
+  margin-bottom: 1rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+::deep .banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+::deep .banner-icon {
+  font-size: 1.5rem;
+}
+
+::deep .banner-text {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+::deep .banner-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+::deep .banner-btn.enable {
+  background: white;
+  color: #667eea;
+}
+
+::deep .banner-btn.enable:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+::deep .banner-btn.dismiss {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+::deep .banner-btn.dismiss:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Clinician Message Toast */
+::deep .clinician-message-toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  max-width: 400px;
+  background: white;
+  border: 2px solid #667eea;
+  border-radius: var(--radius);
+  padding: 1rem 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+::deep .toast-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+::deep .toast-content {
+  flex: 1;
+}
+
+::deep .toast-content strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #667eea;
+  margin-bottom: 0.25rem;
+}
+
+::deep .toast-content p {
+  font-size: 0.95rem;
+  color: var(--foreground);
+  margin: 0;
+  line-height: 1.4;
+}
+
+::deep .toast-dismiss {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+::deep .toast-dismiss:hover {
+  color: var(--danger-red);
+}
+
+/* Equipment Fault Card */
+::deep .equipment-fault-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border-color: var(--warning-orange);
+  animation: pulseWarning 2s ease-in-out infinite;
+}
+
+@keyframes pulseWarning {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+::deep .fault-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+::deep .fault-icon {
+  font-size: 1.5rem;
+}
+
+::deep .fault-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--warning-orange);
+  margin: 0;
+}
+
+::deep .fault-description {
+  font-size: 0.9rem;
+  color: var(--foreground);
+  margin: 0 0 0.5rem 0;
+}
+
+::deep .fault-advice {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  margin: 0;
+  font-style: italic;
+}
+
+/* Threshold Info Display */
+::deep .threshold-info {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin: 0.75rem 0 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Responsive adjustments for notification banner */
+@media (max-width: 768px) {
+  ::deep .notification-permission-banner {
+    padding: 0.75rem 1rem;
+  }
+
+  ::deep .banner-content {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  ::deep .banner-text {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  ::deep .banner-icon {
+    order: 0;
+  }
+
+  ::deep .banner-btn {
+    flex: 1;
+  }
+
+  ::deep .clinician-message-toast {
+    left: 1rem;
+    right: 1rem;
+    max-width: none;
+  }
+}
