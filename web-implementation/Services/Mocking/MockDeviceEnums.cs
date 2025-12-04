@@ -93,3 +93,23 @@ public enum MedicalAlert
     /// <summary>Patient-specific threshold breached</summary>
     ThresholdBreach = 1 << 3
 }
+
+// Author: SID:2412494
+// DTO for clinician dashboard to display assigned patients with their active device status.
+/// <summary>
+/// Information about a patient's mock device for clinician dashboard display.
+/// </summary>
+/// <param name="PatientId">Patient's database primary key</param>
+/// <param name="PatientName">Patient's display name (FirstName LastName)</param>
+/// <param name="HasActiveDevice">Whether the patient has an active mock device running</param>
+/// <param name="Device">Reference to the mock device if active, null otherwise</param>
+/// <param name="DeviceStatus">Current status of the device (null if no device)</param>
+/// <param name="ActiveAlerts">Any current medical alerts from the device</param>
+public record ClinicianPatientDeviceInfo(
+    Guid PatientId,
+    string PatientName,
+    bool HasActiveDevice,
+    MockHeatmapDevice? Device,
+    DeviceStatus? DeviceStatus,
+    MedicalAlert ActiveAlerts
+);
