@@ -116,15 +116,10 @@ public class MockDeviceManager : IAsyncDisposable
     }
 
     /// <summary>
-    /// Get all devices the clinician is authorized to view.
+    /// Get all active mock devices the clinician is authorized to view based on patient assignments.
     /// </summary>
     /// <param name="clinicianId">Clinician user ID</param>
-    /// <returns>Collection of authorized mock devices</returns>
-    /// <remarks>
-    /// TODO: When PatientClinicianAssignments table is implemented, update this method
-    /// to only return devices for assigned patients.
-    /// Currently returns all active devices for any approved clinician.
-    /// </remarks>
+    /// <returns>Collection of authorized mock devices (only running, non-disposed devices)</returns>
     public async Task<IReadOnlyList<MockHeatmapDevice>> GetDevicesForClinicianAsync(Guid clinicianId)
     {
         ThrowIfDisposed();
@@ -159,6 +154,71 @@ public class MockDeviceManager : IAsyncDisposable
         }
 
         return TryGetDevice(patientId);
+    }
+
+    // Author: SID:2412494
+    // Added method to retrieve all assigned patients with their active device status for clinician dashboard.
+    /// <summary>
+    /// Get all assigned patients with their device status for clinician dashboard display.
+    /// Returns all patients assigned to the clinician, whether or not they have an active device.
+    /// </summary>
+    /// <param name="clinicianId">Clinician user ID</param>
+    /// <returns>List of patient device info records, empty if clinician is not approved</returns>
+    public async Task<IReadOnlyList<ClinicianPatientDeviceInfo>> GetPatientDeviceInfoForClinicianAsync(Guid clinicianId)
+    {
+        ThrowIfDisposed();
+
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+
+        // Verify clinician is approved
+        var clinician = await dbContext.Users.FindAsync(clinicianId);
+        if (clinician?.UserType != "clinician" || clinician.ApprovedAt == null)
+        {
+            _logger.LogWarning("Clinician {ClinicianId} not found or not approved", clinicianId);
+            return Array.Empty<ClinicianPatientDeviceInfo>();
+        }
+
+        // Get all assigned patients with their names
+        var assignedPatients = await dbContext.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Join(dbContext.Users,
+                assignment => assignment.PatientId,
+                user => user.Id,
+                (assignment, user) => new
+                {
+                    user.Id,
+                    user.FirstName,
+                    user.LastName,
+                    user.DeactivatedAt
+                })
+            .Where(x => x.DeactivatedAt == null)
+            .ToListAsync();
+
+        // Build result list with device status
+        var result = new List<ClinicianPatientDeviceInfo>(assignedPatients.Count);
+
+        foreach (var patient in assignedPatients)
+        {
+            var device = TryGetDevice(patient.Id);
+            var hasActiveDevice = device != null && device.Status == DeviceStatus.Running;
+            var currentFrame = device?.GetCurrentFrame();
+            var alerts = currentFrame?.Alerts ?? MedicalAlert.None;
+
+            result.Add(new ClinicianPatientDeviceInfo(
+                PatientId: patient.Id,
+                PatientName: $"{patient.FirstName} {patient.LastName}".Trim(),
+                HasActiveDevice: hasActiveDevice,
+                Device: device,
+                DeviceStatus: device?.Status,
+                ActiveAlerts: alerts
+            ));
+        }
+
+        _logger.LogDebug(
+            "Retrieved {Count} patient device info records for clinician {ClinicianId}, {ActiveCount} with active devices",
+            result.Count, clinicianId, result.Count(r => r.HasActiveDevice));
+
+        return result;
     }
 
     /// <summary>
@@ -211,13 +271,12 @@ public class MockDeviceManager : IAsyncDisposable
             .ToList();
     }
 
+    // Author: SID:2412494
+    // Implemented actual PatientClinicianAssignments query to replace temporary all-patients implementation.
     /// <summary>
-    /// Gets authorized patient IDs for a clinician.
+    /// Gets authorized patient IDs for a clinician based on PatientClinicianAssignments.
     /// </summary>
-    /// <remarks>
-    /// TODO: Update this when PatientClinicianAssignments table is implemented.
-    /// Current implementation: All approved clinicians can access all patients.
-    /// </remarks>
+    /// <returns>List of patient IDs assigned to the clinician, empty if clinician is not approved.</returns>
     private async Task<IReadOnlyList<Guid>> GetAuthorizedPatientIdsForClinicianAsync(Guid clinicianId)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
@@ -229,16 +288,16 @@ public class MockDeviceManager : IAsyncDisposable
             return Array.Empty<Guid>();
         }
 
-        // TODO: Replace with PatientClinicianAssignments query when table exists
-        // return await dbContext.PatientClinicianAssignments
-        //     .Where(a => a.ClinicianId == clinicianId)
-        //     .Select(a => a.PatientId)
-        //     .ToListAsync();
-
-        // Temporary: Return all active patient IDs
-        return await dbContext.Users
-            .Where(u => u.UserType == "patient" && u.DeactivatedAt == null)
-            .Select(u => u.Id)
+        // Query PatientClinicians to get assigned patient IDs
+        // Only include active assignments (UnassignedAt == null) and non-deactivated patients
+        return await dbContext.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Join(dbContext.Users,
+                assignment => assignment.PatientId,
+                user => user.Id,
+                (assignment, user) => new { assignment.PatientId, user.DeactivatedAt })
+            .Where(x => x.DeactivatedAt == null)
+            .Select(x => x.PatientId)
             .ToListAsync();
     }
 
