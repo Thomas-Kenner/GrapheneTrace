@@ -28,6 +28,8 @@ public class MockDeviceManager : IAsyncDisposable
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly PressureThresholdsConfig _thresholdsConfig;
     private readonly ConcurrentDictionary<Guid, MockHeatmapDevice> _patientDevices = new();
+    // Author: SID:2412494 - Track session IDs for each device to update end time on dispose
+    private readonly ConcurrentDictionary<Guid, int> _deviceSessionIds = new();
     private readonly SemaphoreSlim _createLock = new(1, 1);
     private bool _disposed;
 
@@ -48,6 +50,8 @@ public class MockDeviceManager : IAsyncDisposable
     /// <summary>
     /// Get or create a mock device for a patient.
     /// Creates device if not exists and auto-starts it.
+    /// Uses existing device ID from database if patient has prior sessions.
+    /// Author: SID:2412494 - Updated to persist device IDs and create sessions
     /// </summary>
     /// <param name="patientId">Patient user ID</param>
     /// <returns>The patient's mock device (started automatically)</returns>
@@ -80,8 +84,9 @@ public class MockDeviceManager : IAsyncDisposable
                 _patientDevices.TryRemove(patientId, out _);
             }
 
-            // Verify patient exists
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+
+            // Verify patient exists
             var patient = await dbContext.Users
                 .FirstOrDefaultAsync(u => u.Id == patientId && u.UserType == "patient");
 
@@ -90,12 +95,20 @@ public class MockDeviceManager : IAsyncDisposable
                 throw new InvalidOperationException($"Patient with ID {patientId} not found");
             }
 
-            // Create new device
+            // Author: SID:2412494
+            // Look up patient's device ID from the most recent session, or generate new one
+            var deviceId = await GetDeviceIdForPatientAsync(dbContext, patientId);
+
+            // Create new device with the determined device ID
             var deviceLogger = _loggerFactory.CreateLogger<MockHeatmapDevice>();
-            var device = new MockHeatmapDevice(patientId, _thresholdsConfig, deviceLogger);
+            var device = new MockHeatmapDevice(patientId, _thresholdsConfig, deviceLogger, deviceId);
 
             if (_patientDevices.TryAdd(patientId, device))
             {
+                // Author: SID:2412494
+                // Create a new session in the database for this monitoring session
+                await CreateSessionForDeviceAsync(dbContext, device);
+
                 device.Start();
                 _logger.LogInformation(
                     "Created and started mock device {DeviceId} for patient {PatientId} ({PatientName})",
@@ -113,6 +126,66 @@ public class MockDeviceManager : IAsyncDisposable
         {
             _createLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Gets the device ID for a patient from their most recent session, or generates a new one.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="dbContext">Database context</param>
+    /// <param name="patientId">Patient user ID</param>
+    /// <returns>Device ID to use for this patient</returns>
+    private async Task<string> GetDeviceIdForPatientAsync(ApplicationDbContext dbContext, Guid patientId)
+    {
+        // Find the most recent session for this patient to get their device ID
+        var mostRecentSession = await dbContext.PatientSessionDatas
+            .Where(s => s.PatientId == patientId)
+            .OrderByDescending(s => s.Start)
+            .FirstOrDefaultAsync();
+
+        if (mostRecentSession != null && !string.IsNullOrEmpty(mostRecentSession.DeviceId))
+        {
+            _logger.LogDebug(
+                "Using existing device ID {DeviceId} for patient {PatientId} from session {SessionId}",
+                mostRecentSession.DeviceId, patientId, mostRecentSession.SessionId);
+            return mostRecentSession.DeviceId;
+        }
+
+        // No prior sessions - generate a new unique device ID
+        var newDeviceId = MockHeatmapDevice.GenerateUniqueDeviceId();
+        _logger.LogDebug(
+            "Generated new device ID {DeviceId} for patient {PatientId} (no prior sessions)",
+            newDeviceId, patientId);
+        return newDeviceId;
+    }
+
+    /// <summary>
+    /// Creates a new session in the database when a mock device starts.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="dbContext">Database context</param>
+    /// <param name="device">The mock device that was created</param>
+    private async Task CreateSessionForDeviceAsync(ApplicationDbContext dbContext, MockHeatmapDevice device)
+    {
+        var session = new PatientSessionData
+        {
+            PatientId = device.PatientId,
+            DeviceId = device.DeviceId,
+            Start = DateTime.UtcNow,
+            End = null, // Will be set when device is disposed
+            PeakSessionPressure = null,
+            ClinicianFlag = false
+        };
+
+        dbContext.PatientSessionDatas.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        // Store session ID for later update when device stops
+        _deviceSessionIds[device.PatientId] = session.SessionId;
+
+        _logger.LogInformation(
+            "Created session {SessionId} for device {DeviceId} patient {PatientId}",
+            session.SessionId, device.DeviceId, device.PatientId);
     }
 
     /// <summary>
@@ -245,13 +318,58 @@ public class MockDeviceManager : IAsyncDisposable
 
     /// <summary>
     /// Stop and remove a specific patient's device.
+    /// Also finalizes the session in the database with end time and peak pressure.
+    /// Author: SID:2412494 - Updated to finalize session on dispose
     /// </summary>
     public async Task DisposeDeviceAsync(Guid patientId)
     {
         if (_patientDevices.TryRemove(patientId, out var device))
         {
+            // Finalize the session before disposing the device
+            await FinalizeSessionAsync(patientId, device);
+
             await device.DisposeAsync();
             _logger.LogInformation("Disposed mock device for patient {PatientId}", patientId);
+        }
+    }
+
+    /// <summary>
+    /// Finalizes a session in the database when a device is disposed.
+    /// Sets end time and peak session pressure.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task FinalizeSessionAsync(Guid patientId, MockHeatmapDevice device)
+    {
+        if (!_deviceSessionIds.TryRemove(patientId, out var sessionId))
+        {
+            _logger.LogWarning("No session ID found for patient {PatientId} device disposal", patientId);
+            return;
+        }
+
+        try
+        {
+            await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+            var session = await dbContext.PatientSessionDatas.FindAsync(sessionId);
+
+            if (session != null)
+            {
+                session.End = DateTime.UtcNow;
+                // Get peak pressure from the current frame if available
+                var currentFrame = device.GetCurrentFrame();
+                if (currentFrame != null)
+                {
+                    session.PeakSessionPressure = currentFrame.PeakPressure;
+                }
+                await dbContext.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Finalized session {SessionId} for device {DeviceId}: End={End}, PeakPressure={Peak}",
+                    sessionId, device.DeviceId, session.End, session.PeakSessionPressure);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to finalize session {SessionId} for patient {PatientId}", sessionId, patientId);
         }
     }
 
@@ -311,6 +429,8 @@ public class MockDeviceManager : IAsyncDisposable
 
     /// <summary>
     /// Dispose all managed devices.
+    /// Also finalizes all active sessions in the database.
+    /// Author: SID:2412494 - Updated to finalize sessions on dispose
     /// </summary>
     public async ValueTask DisposeAsync()
     {
@@ -320,10 +440,17 @@ public class MockDeviceManager : IAsyncDisposable
         _disposed = true;
         _logger.LogInformation("Disposing MockDeviceManager with {Count} active devices", _patientDevices.Count);
 
+        // Finalize all sessions before disposing devices
+        foreach (var kvp in _patientDevices)
+        {
+            await FinalizeSessionAsync(kvp.Key, kvp.Value);
+        }
+
         var disposeTasks = _patientDevices.Values.Select(d => d.DisposeAsync().AsTask());
         await Task.WhenAll(disposeTasks);
 
         _patientDevices.Clear();
+        _deviceSessionIds.Clear();
         _createLock.Dispose();
 
         GC.SuppressFinalize(this);
