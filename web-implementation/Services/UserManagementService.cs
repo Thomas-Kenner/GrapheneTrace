@@ -1,5 +1,7 @@
+using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrapheneTrace.Web.Services;
 
@@ -17,22 +19,33 @@ namespace GrapheneTrace.Web.Services;
 /// - UpdateUserAsync(user): Update user details
 /// - DeleteUserAsync(userId): Delete/deactivate user
 /// - ChangePasswordAsync(userId, oldPassword, newPassword): Change user password
+/// - GetPatientsForClinicianAsync(clinicianId): Get patients assigned to a clinician (Author: SID:2412494)
+/// - GetAllPatientsAsync(): Get all active patients (Author: SID:2412494)
+/// - AssignPatientToClinicianAsync(clinicianId, patientId): Create assignment (Author: SID:2412494)
+/// - UnassignPatientFromClinicianAsync(clinicianId, patientId): Remove assignment (Author: SID:2412494)
 /// </remarks>
 public class UserManagementService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<UserManagementService> _logger;
+    // Author: SID:2412494
+    // Added DbContext factory for patient-clinician assignment management
+    private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
 
     /// <summary>
     /// Initializes the UserManagementService.
     /// Author: SID:2402513
     /// </summary>
+    // Author: SID:2412494
+    // Added IDbContextFactory parameter for assignment management
     public UserManagementService(
         UserManager<ApplicationUser> userManager,
-        ILogger<UserManagementService> logger)
+        ILogger<UserManagementService> logger,
+        IDbContextFactory<ApplicationDbContext> dbContextFactory)
     {
         _userManager = userManager;
         _logger = logger;
+        _dbContextFactory = dbContextFactory;
     }
 
     /// <summary>
@@ -295,21 +308,168 @@ public class UserManagementService
         }
     }
 
+    #region Patient-Clinician Assignment Management
+    // Author: SID:2412494
+    // Added methods for managing patient-clinician assignments from admin dashboard
+    // Updated to use PatientClinician model (main's model with soft-delete support)
+
     /// <summary>
-    /// Retrieves all patients assigned to a specific clinician.
-    /// Author: SID:2402513
+    /// Gets all active patients in the system.
+    /// Author: SID:2412494
     /// </summary>
-    public async Task<List<ApplicationUser>> GetPatientsByClinicianAsync(Guid clinicianId)
+    /// <returns>List of active patients (not deactivated)</returns>
+    public async Task<List<ApplicationUser>> GetAllPatientsAsync()
     {
-        // In a real scenario with EF Core, we would use .Where(u => u.AssignedClinicianId == clinicianId)
-        // Since we are using UserManager which doesn't expose IQueryable directly in the same way for custom fields easily without casting,
-        // we will fetch all users and filter in memory for this implementation, 
-        // or rely on the fact that we can access the context if needed.
-        // For simplicity and safety with UserManager abstraction:
-        
-        var allUsers = _userManager.Users.ToList();
-        return allUsers
-            .Where(u => u.UserType == "patient" && u.AssignedClinicianId == clinicianId)
-            .ToList();
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        return await context.Users
+            .Where(u => u.UserType == "patient" && u.DeactivatedAt == null)
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync();
     }
+
+    /// <summary>
+    /// Gets all patient IDs assigned to a specific clinician.
+    /// Uses PatientClinician model with soft-delete (UnassignedAt == null for active assignments).
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="clinicianId">The clinician's user ID</param>
+    /// <returns>Set of assigned patient IDs</returns>
+    public async Task<HashSet<Guid>> GetAssignedPatientIdsAsync(Guid clinicianId)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var patientIds = await context.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Select(a => a.PatientId)
+            .ToListAsync();
+        return patientIds.ToHashSet();
+    }
+
+    /// <summary>
+    /// Assigns a patient to a clinician.
+    /// Uses PatientClinician model with soft-delete support.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="clinicianId">The clinician's user ID</param>
+    /// <param name="patientId">The patient's user ID</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Idempotent operation: if active assignment already exists, returns success without creating duplicate.
+    /// If a soft-deleted assignment exists, reactivates it by setting UnassignedAt to null.
+    /// </remarks>
+    public async Task<(bool Success, string Message)> AssignPatientToClinicianAsync(Guid clinicianId, Guid patientId)
+    {
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+            // Check if active assignment already exists
+            var existingAssignment = await context.PatientClinicians
+                .FirstOrDefaultAsync(a => a.ClinicianId == clinicianId && a.PatientId == patientId);
+
+            if (existingAssignment != null)
+            {
+                if (existingAssignment.UnassignedAt == null)
+                {
+                    _logger.LogDebug("Assignment already exists between clinician {ClinicianId} and patient {PatientId}",
+                        clinicianId, patientId);
+                    return (true, "Assignment already exists");
+                }
+                else
+                {
+                    // Reactivate soft-deleted assignment
+                    existingAssignment.UnassignedAt = null;
+                    existingAssignment.AssignedAt = DateTime.UtcNow;
+                    await context.SaveChangesAsync();
+                    _logger.LogInformation("Reactivated assignment between clinician {ClinicianId} and patient {PatientId}",
+                        clinicianId, patientId);
+                    return (true, "Patient assigned successfully");
+                }
+            }
+
+            // Verify clinician exists and is a clinician
+            var clinician = await context.Users.FindAsync(clinicianId);
+            if (clinician == null || clinician.UserType != "clinician")
+            {
+                return (false, "Invalid clinician");
+            }
+
+            // Verify patient exists and is a patient
+            var patient = await context.Users.FindAsync(patientId);
+            if (patient == null || patient.UserType != "patient")
+            {
+                return (false, "Invalid patient");
+            }
+
+            // Create the assignment
+            var assignment = new PatientClinician
+            {
+                ClinicianId = clinicianId,
+                PatientId = patientId,
+                AssignedAt = DateTime.UtcNow
+            };
+
+            context.PatientClinicians.Add(assignment);
+            await context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Created assignment between clinician {ClinicianId} ({ClinicianName}) and patient {PatientId} ({PatientName})",
+                clinicianId, clinician.FullName, patientId, patient.FullName);
+
+            return (true, "Patient assigned successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error assigning patient {PatientId} to clinician {ClinicianId}",
+                patientId, clinicianId);
+            return (false, $"Error creating assignment: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Removes a patient assignment from a clinician (soft-delete).
+    /// Uses PatientClinician model - sets UnassignedAt instead of hard deleting.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="clinicianId">The clinician's user ID</param>
+    /// <param name="patientId">The patient's user ID</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Idempotent operation: if assignment doesn't exist or is already unassigned, returns success.
+    /// </remarks>
+    public async Task<(bool Success, string Message)> UnassignPatientFromClinicianAsync(Guid clinicianId, Guid patientId)
+    {
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+            var assignment = await context.PatientClinicians
+                .FirstOrDefaultAsync(a => a.ClinicianId == clinicianId && a.PatientId == patientId && a.UnassignedAt == null);
+
+            if (assignment == null)
+            {
+                _logger.LogDebug("No active assignment exists between clinician {ClinicianId} and patient {PatientId}",
+                    clinicianId, patientId);
+                return (true, "Assignment does not exist");
+            }
+
+            // Soft-delete the assignment
+            assignment.UnassignedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Soft-deleted assignment between clinician {ClinicianId} and patient {PatientId}",
+                clinicianId, patientId);
+
+            return (true, "Patient unassigned successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error unassigning patient {PatientId} from clinician {ClinicianId}",
+                patientId, clinicianId);
+            return (false, $"Error removing assignment: {ex.Message}");
+        }
+    }
+
+    #endregion
 }

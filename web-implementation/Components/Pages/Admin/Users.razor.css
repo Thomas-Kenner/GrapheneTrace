@@ -538,3 +538,134 @@
     background-color: #f8d7da;
     color: #721c24;
 }
+
+/* Author: SID:2412494 - Styles for clinician-patient assignment modal */
+
+/* Clinician name link button in table */
+.btn-link {
+  background: transparent;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: 500;
+  padding: 0;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* Wide modal for assignment list */
+.modal-wide {
+  max-width: 600px;
+}
+
+/* Patient assignment list container */
+.patient-assignment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  background: #f9fafb;
+}
+
+/* Individual patient assignment item */
+.patient-assignment-item {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.patient-assignment-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.patient-assignment-item.assigned {
+  background: #f0f9ff;
+  border-color: #3b82f6;
+}
+
+/* Checkbox and label styling */
+.patient-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.patient-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.patient-checkbox-label input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Patient info container */
+.patient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.patient-name {
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.patient-email {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Assignment badge */
+.assignment-badge {
+  background: #3b82f6;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+/* Responsive adjustments for assignment modal */
+@media (max-width: 768px) {
+  .modal-wide {
+    max-width: 95%;
+  }
+
+  .patient-assignment-list {
+    max-height: 300px;
+  }
+
+  .patient-checkbox-label {
+    flex-wrap: wrap;
+  }
+
+  .assignment-badge {
+    margin-left: auto;
+  }
+}
