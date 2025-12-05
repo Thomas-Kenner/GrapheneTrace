@@ -34,6 +34,7 @@ public class UserManagementServiceApprovalTests : IDisposable
     private ApplicationDbContext _context;
     private UserManager<ApplicationUser> _userManager;
     private Mock<ILogger<UserManagementService>> _mockLogger;
+    private Mock<IDbContextFactory<ApplicationDbContext>> _mockDbContextFactory;
     private UserManagementService _service;
 
     public UserManagementServiceApprovalTests()
@@ -62,7 +63,13 @@ public class UserManagementServiceApprovalTests : IDisposable
         // Setup mocks
         _mockLogger = new Mock<ILogger<UserManagementService>>();
 
-        _service = new UserManagementService(_userManager, _mockLogger.Object);
+        // Author: SID:2412494
+        // Added mock for IDbContextFactory to support new assignment management methods
+        _mockDbContextFactory = new Mock<IDbContextFactory<ApplicationDbContext>>();
+        _mockDbContextFactory.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new ApplicationDbContext(options));
+
+        _service = new UserManagementService(_userManager, _mockLogger.Object, _mockDbContextFactory.Object);
     }
 
     public void Dispose()

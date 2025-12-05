@@ -1,0 +1,633 @@
+/* Shared Clinician Pages Styles */
+/* Author: SID:2412494 */
+/* Applied globally to all clinician pages */
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --border: rgba(0, 0, 0, 0.1);
+  --input-background: #f3f3f5;
+  --radius: 0.625rem;
+  --success-green: #10b981;
+  --warning-orange: #f59e0b;
+  --danger-red: #ef4444;
+  --clinician-accent: #10b981; /* Green accent for clinician pages */
+}
+
+/* Container */
+.clinician-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Header */
+.clinician-header {
+  background: var(--background);
+  border-bottom: 2px solid var(--clinician-accent);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.clinician-header .header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.clinician-header .header-brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.clinician-header .header-subtitle {
+  font-size: 0.9rem;
+  color: var(--clinician-accent);
+  font-weight: 500;
+}
+
+.clinician-header .header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.clinician-header .icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+}
+
+.clinician-header .icon-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.clinician-header .icon-btn:hover {
+  background: var(--accent);
+  color: var(--clinician-accent);
+}
+
+.clinician-header .btn-signout {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clinician-header .btn-signout:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation Tabs */
+.clinician-nav {
+  background: var(--background);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 2rem;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.clinician-nav .nav-tab {
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--muted-foreground);
+  transition: all 0.2s ease;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.clinician-nav .nav-tab.active {
+  color: var(--foreground);
+  border-bottom-color: var(--clinician-accent);
+  font-weight: 600;
+}
+
+.clinician-nav .nav-tab:hover:not(.active) {
+  color: var(--foreground);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Main Content */
+.clinician-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Card Base */
+.card {
+  background: var(--card);
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Patient Selector */
+.patient-selector {
+  margin-bottom: 1.5rem;
+}
+
+.patient-selector-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--foreground);
+  margin-bottom: 0.5rem;
+}
+
+.patient-selector select {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: var(--radius);
+  background: var(--input-background);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.patient-selector select:hover {
+  border-color: #d1d5db;
+}
+
+.patient-selector select:focus {
+  outline: none;
+  border-color: var(--clinician-accent);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Patient Info Banner */
+.patient-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: rgba(16, 185, 129, 0.05);
+  border: 2px solid var(--clinician-accent);
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+}
+
+.patient-info-banner .patient-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.patient-info-banner .patient-details {
+  flex: 1;
+}
+
+.patient-info-banner .patient-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.patient-info-banner .patient-meta {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  margin: 0.25rem 0 0 0;
+}
+
+/* Sessions Grid - reuse from patient sessions */
+.sessions-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 1.5rem;
+}
+
+/* Sidebar */
+.sessions-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 350px);
+}
+
+.sidebar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.25rem 0;
+}
+
+.sidebar-subtitle {
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+  margin: 0 0 1.5rem 0;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.session-item {
+  padding: 1rem;
+  background: var(--muted);
+  border: 2px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.session-item:hover {
+  background: rgba(236, 236, 240, 0.7);
+  border-color: #e5e7eb;
+}
+
+.session-item.active {
+  background: var(--secondary);
+  border-color: var(--clinician-accent);
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.session-date {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.alert-badge {
+  padding: 0.25rem 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.no-alert {
+  padding: 0.25rem 0.5rem;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-green);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.session-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+/* Right Panel */
+.session-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.session-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.session-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.25rem 0;
+}
+
+.session-time {
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+/* Visualization */
+.visualization-card {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.visualization-placeholder {
+  flex: 1;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border: 2px dashed rgba(16, 185, 129, 0.3);
+  border-radius: calc(var(--radius) - 2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.placeholder-text {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(16, 185, 129, 0.6);
+  margin: 0 0 0.5rem 0;
+  letter-spacing: 0.05em;
+}
+
+.placeholder-description {
+  font-size: 0.95rem;
+  color: rgba(16, 185, 129, 0.5);
+  margin: 0.25rem 0;
+}
+
+/* Heatmap Container */
+.heatmap-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.heatmap-container canvas {
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+/* Playback Controls */
+.playback-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.progress-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 440px;
+  cursor: pointer;
+}
+
+.progress-track {
+  width: 400px;
+  height: 8px;
+  background: #ececf0;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: height 0.15s ease;
+}
+
+.progress-container:hover .progress-track,
+.progress-container.dragging .progress-track {
+  height: 10px;
+}
+
+.progress-container.dragging {
+  cursor: grabbing;
+}
+
+.progress-container.dragging .progress-fill {
+  transition: none;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--clinician-accent);
+  border-radius: 4px;
+  transition: width 0.05s linear;
+}
+
+.progress-label {
+  font-size: 0.8rem;
+  color: #717182;
+  font-variant-numeric: tabular-nums;
+}
+
+.playback-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--clinician-accent);
+  color: #ffffff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.playback-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.playback-btn:active {
+  transform: scale(0.98);
+}
+
+.playback-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.playback-btn svg polygon {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* Comments & Alerts Grid */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 1rem 0;
+}
+
+.comments-list,
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.comment-item {
+  padding: 0.75rem;
+  background: var(--muted);
+  border-radius: calc(var(--radius) - 2px);
+  border-left: 3px solid var(--clinician-accent);
+}
+
+.comment-time {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.5rem;
+}
+
+.comment-text {
+  font-size: 0.9rem;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+.alert-item-session {
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.05);
+  border-radius: calc(var(--radius) - 2px);
+  border-left: 3px solid #dc2626;
+}
+
+.alert-time-badge {
+  font-size: 0.75rem;
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.alert-text {
+  font-size: 0.9rem;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .sessions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-card {
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .clinician-content {
+    padding: 1rem;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-title-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .patient-info-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .progress-track {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .clinician-content {
+    padding: 0.75rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.3s ease-out;
+}
