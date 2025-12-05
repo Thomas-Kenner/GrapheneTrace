@@ -3,6 +3,7 @@ using System;
 using GrapheneTrace.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GrapheneTrace.Web.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251201140126_AddPatientClinicianRelationship")]
+    partial class AddPatientClinicianRelationship
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -31,26 +34,11 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("ApprovedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AssignedClinicianId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
-                    b.Property<string>("Condition")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("DeactivatedAt")
@@ -113,12 +101,6 @@ namespace GrapheneTrace.Web.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApprovedAt");
-
-                    b.HasIndex("ApprovedBy");
-
-                    b.HasIndex("AssignedClinicianId");
-
                     b.HasIndex("DeactivatedAt");
 
                     b.HasIndex("NormalizedEmail")
@@ -133,46 +115,7 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSessionData", b =>
-                {
-                    b.Property<int>("SessionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SessionId"));
-
-                    b.Property<bool>("ClinicianFlag")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("DeviceId")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("character varying(8)");
-
-                    b.Property<DateTime?>("End")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("PeakSessionPressure")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("Start")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("SessionId");
-
-                    b.HasIndex("DeviceId");
-
-                    b.HasIndex("PatientId");
-
-                    b.HasIndex("SessionId");
-
-                    b.ToTable("PatientSessionDatas");
-                });
-
-            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSettings", b =>
+            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientClinician", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -256,42 +199,6 @@ namespace GrapheneTrace.Web.Data.Migrations
                         .HasFilter("\"Status\" = 'pending'");
 
                     b.ToTable("PatientClinicianRequests");
-                });
-
-            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSnapshotData", b =>
-                {
-                    b.Property<int>("SnapshotId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SnapshotId"));
-
-                    b.Property<float?>("CoefficientOfVariation")
-                        .HasColumnType("real");
-
-                    b.Property<float?>("ContactAreaPercent")
-                        .HasColumnType("real");
-
-                    b.Property<int?>("PeakSnapshotPressure")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SessionId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SnapshotData")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("SnapshotTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("SnapshotId");
-
-                    b.HasIndex("SessionId");
-
-                    b.HasIndex("SnapshotId");
-
-                    b.ToTable("PatientSnapshotDatas");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -443,16 +350,7 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.Navigation("Patient");
                 });
 
-            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSessionData", b =>
-                {
-                    b.HasOne("GrapheneTrace.Web.Models.ApplicationUser", "Patient")
-                        .WithMany()
-                        .HasForeignKey("PatientId");
-
-                    b.Navigation("Patient");
-                });
-
-            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSettings", b =>
+            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientClinicianRequest", b =>
                 {
                     b.HasOne("GrapheneTrace.Web.Models.ApplicationUser", "Clinician")
                         .WithMany()
@@ -469,15 +367,6 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.Navigation("Clinician");
 
                     b.Navigation("Patient");
-                });
-
-            modelBuilder.Entity("GrapheneTrace.Web.Models.PatientSnapshotData", b =>
-                {
-                    b.HasOne("GrapheneTrace.Web.Models.PatientSessionData", null)
-                        .WithMany()
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

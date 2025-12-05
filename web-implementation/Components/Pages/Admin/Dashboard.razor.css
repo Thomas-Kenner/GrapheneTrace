@@ -19,6 +19,46 @@
   --radius: 0.625rem;
 }
 
+/* Welcome Card */
+.welcome-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.welcome-message {
+    margin-bottom: 0.5rem;
+}
+
+.role-info {
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.access-info {
+    color: #6b7280;
+    margin: 0;
+}
+
+/* Stat Dot Colors */
+.stat-dot-black {
+    background-color: #000;
+}
+
+.stat-dot-green {
+    background-color: #10b981;
+}
+
+.stat-dot-blue {
+    background-color: #3b82f6;
+}
+
+.stat-dot-orange {
+    background-color: #f59e0b;
+}
+
 ::deep .admin-container {
   min-height: 100vh;
   display: flex;

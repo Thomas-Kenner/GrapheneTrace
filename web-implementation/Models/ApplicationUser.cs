@@ -111,4 +111,24 @@ public class ApplicationUser : IdentityUser<Guid>
     /// Display name combining first and last name.
     /// </summary>
     public string FullName => $"{FirstName} {LastName}";
+
+    /// <summary>
+    /// Foreign key to the clinician assigned to this patient.
+    /// </summary>
+    public Guid? AssignedClinicianId { get; set; }
+
+    /// <summary>
+    /// Navigation property to the assigned clinician.
+    /// </summary>
+    public virtual ApplicationUser? AssignedClinician { get; set; }
+
+    /// <summary>
+    /// Patient's date of birth.
+    /// </summary>
+    public DateTime? DateOfBirth { get; set; }
+
+    /// <summary>
+    /// Patient's medical condition summary.
+    /// </summary>
+    public string? Condition { get; set; }
 }
