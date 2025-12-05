@@ -1,0 +1,392 @@
+@*
+    ========================================
+    PATIENT SETTINGS PAGE
+    ========================================
+    Merged implementation combining:
+    - Visual design from SettingsPlaceholder.razor (Author: SID:2402513)
+    - Functionality from Settings/Index.razor (Author: SID:2412494)
+
+    Route: /patient/settings
+
+    Purpose:
+    Allow patients to configure pressure alert thresholds (Story #9).
+
+    Features:
+    - Low/High pressure threshold configuration with visual sliders
+    - Real-time validation (low < high, range constraints)
+    - Database persistence via PatientSettingsService
+    - Success/error feedback with loading states
+    - Reset functionality
+    - Beautiful card-based UI with animations
+    - Placeholder notification preferences (UI only, not yet saved)
+
+    Design Notes:
+    - Uses PatientHeader for consistent navigation across patient pages
+    - Range sliders provide visual feedback, InputNumber handles validation
+    - Toggle switches are interactive but not yet persisted (future enhancement)
+*@
+
+@page "/patient/settings"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+@using System.ComponentModel.DataAnnotations
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject PatientSettingsService SettingsService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="patient-container">
+    @*
+        PATIENT HEADER
+        Author: SID:2412494
+        Purpose: Unified header component for all patient pages with tab navigation.
+    *@
+    <PatientHeader />
+
+    <div class="patient-content">
+        <div class="settings-grid">
+            @*
+                ALERT SETTINGS CARD
+                Visual Design: SID:2402513
+                Functionality: SID:2412494
+            *@
+            <div class="card settings-card">
+                <h3 class="settings-title">Pressure Alert Settings</h3>
+                <p class="settings-subtitle">Configure your pressure monitoring thresholds to receive alerts when readings exceed safe levels</p>
+
+                @* Loading State (Author: SID:2412494) *@
+                @if (isLoading)
+                {
+                    <div class="loading-message">
+                        Loading settings...
+                    </div>
+                }
+                @* Error State (Author: SID:2412494) *@
+                else if (errorMessage != null)
+                {
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> @errorMessage
+                    </div>
+                }
+                @* Main Form (Merged implementation) *@
+                else
+                {
+                    <EditForm Model="@settingsModel" OnValidSubmit="@HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        @* LOW PRESSURE THRESHOLD (Functionality: SID:2412494, UI: SID:2402513) *@
+                        <div class="form-group">
+                            <label class="form-label">Low Pressure Threshold</label>
+                            <p class="form-help">You'll receive an early warning when pressure reaches this level</p>
+                            <div class="threshold-display">@settingsModel.LowThreshold</div>
+                            <input type="range"
+                                   class="range-slider"
+                                   min="1"
+                                   max="254"
+                                   step="1"
+                                   value="@settingsModel.LowThreshold"
+                                   @oninput="@((e) => settingsModel.LowThreshold = int.Parse(e.Value?.ToString() ?? "50"))" />
+                            <div class="range-labels">
+                                <span>1</span>
+                                <span>254</span>
+                            </div>
+                            @* Hidden InputNumber for validation *@
+                            <InputNumber @bind-Value="settingsModel.LowThreshold" style="display:none;" />
+                            <ValidationMessage For="@(() => settingsModel.LowThreshold)" />
+                        </div>
+
+                        @* HIGH PRESSURE THRESHOLD (Functionality: SID:2412494, UI: SID:2402513) *@
+                        <div class="form-group">
+                            <label class="form-label">High Pressure Threshold</label>
+                            <p class="form-help">You'll receive an urgent alert when pressure reaches this level</p>
+                            <div class="threshold-display">@settingsModel.HighThreshold</div>
+                            <input type="range"
+                                   class="range-slider"
+                                   min="2"
+                                   max="255"
+                                   step="1"
+                                   value="@settingsModel.HighThreshold"
+                                   @oninput="@((e) => settingsModel.HighThreshold = int.Parse(e.Value?.ToString() ?? "200"))" />
+                            <div class="range-labels">
+                                <span>2</span>
+                                <span>255</span>
+                            </div>
+                            @* Hidden InputNumber for validation *@
+                            <InputNumber @bind-Value="settingsModel.HighThreshold" style="display:none;" />
+                            <ValidationMessage For="@(() => settingsModel.HighThreshold)" />
+                        </div>
+
+                        @*
+                            NOTIFICATION PREFERENCES
+                            Author: SID:2402513 (UI design)
+                            Note: Placeholder - toggles are interactive but not yet saved to database
+                            TODO: Wire to database when notification system is implemented
+                        *@
+                        <div class="notification-section">
+                            <label class="form-label">Notification Preferences</label>
+                            <p class="form-help">Manage how you receive alerts (coming soon)</p>
+
+                            <div class="toggle-group">
+                                <div class="toggle-item">
+                                    <div>
+                                        <div class="toggle-label">Push Notifications</div>
+                                        <div class="toggle-description">Mobile alerts</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" @bind="pushNotifications" />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="toggle-item">
+                                    <div>
+                                        <div class="toggle-label">Email Notifications</div>
+                                        <div class="toggle-description">Daily summaries</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" @bind="emailNotifications" />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="toggle-item">
+                                    <div>
+                                        <div class="toggle-label">Device Alerts</div>
+                                        <div class="toggle-description">Connection issues</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" @bind="deviceAlerts" />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Validation Error Display (Author: SID:2412494) *@
+                        @if (validationError != null)
+                        {
+                            <div class="alert alert-error">
+                                @validationError
+                            </div>
+                        }
+
+                        @* Success Message Display (Author: SID:2412494) *@
+                        @if (successMessage != null)
+                        {
+                            <div class="alert alert-success">
+                                @successMessage
+                            </div>
+                        }
+
+                        @*
+                            ACTION BUTTONS
+                            Visual Design: SID:2402513 (button styles)
+                            Functionality: SID:2412494 (save/reset logic)
+                        *@
+                        <div class="button-group">
+                            <button type="submit"
+                                    class="btn-primary"
+                                    disabled="@isSaving">
+                                @(isSaving ? "Saving..." : "Save Settings")
+                            </button>
+                            <button type="button"
+                                    class="btn-outline"
+                                    @onclick="LoadSettings"
+                                    disabled="@isSaving">
+                                Reset
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    @*
+                        INFORMATION PANEL
+                        Author: SID:2412494
+                    *@
+                    <div class="info-panel">
+                        <h5 class="info-title">Understanding Pressure Values</h5>
+                        <ul class="info-list">
+                            <li>Sensor range: 1-255</li>
+                            <li>Value 1: No pressure detected</li>
+                            <li>Value 255: Maximum sensor capacity</li>
+                            <li>Default low threshold: 50 (early warning)</li>
+                            <li>Default high threshold: 200 (urgent alert)</li>
+                        </ul>
+                        @if (lastUpdated.HasValue)
+                        {
+                            <p class="last-updated">
+                                <strong>Last updated:</strong> @lastUpdated.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                            </p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @*
+        FOOTER SECTION
+        Author: SID:2412494
+        Purpose: Provides global navigation links for help, information, and support resources.
+    *@
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@code {
+    // ========================================
+    // DATA MODEL
+    // Author: SID:2412494
+    // ========================================
+
+    /// <summary>
+    /// Model for settings form with validation attributes.
+    /// </summary>
+    private class SettingsModel
+    {
+        [Required]
+        [Range(1, 254, ErrorMessage = "Low threshold must be between 1 and 254")]
+        public int LowThreshold { get; set; } = 50;
+
+        [Required]
+        [Range(2, 255, ErrorMessage = "High threshold must be between 2 and 255")]
+        public int HighThreshold { get; set; } = 200;
+    }
+
+    // ========================================
+    // STATE VARIABLES
+    // Functionality: SID:2412494
+    // ========================================
+
+    private SettingsModel settingsModel = new();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+    private string? validationError;
+    private string? successMessage;
+    private DateTime? lastUpdated;
+
+    // Notification preferences (placeholder - not yet saved to database)
+    // UI Design: SID:2402513
+    private bool pushNotifications = false;
+    private bool emailNotifications = false;
+    private bool deviceAlerts = false;
+
+    // ========================================
+    // LIFECYCLE METHODS
+    // Author: SID:2412494
+    // ========================================
+
+    /// <summary>
+    /// Initialize component and load current settings from database.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    // ========================================
+    // METHODS
+    // Author: SID:2412494
+    // ========================================
+
+    /// <summary>
+    /// Load settings from database via PatientSettingsService.
+    /// Creates default settings if none exist.
+    /// </summary>
+    private async Task LoadSettings()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+            validationError = null;
+            StateHasChanged();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                errorMessage = "Unable to identify user. Please log in again.";
+                return;
+            }
+
+            var settings = await SettingsService.GetSettingsAsync(userId);
+            settingsModel.LowThreshold = settings.LowPressureThreshold;
+            settingsModel.HighThreshold = settings.HighPressureThreshold;
+            lastUpdated = settings.UpdatedAt;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading settings: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Handle form submission and update settings via PatientSettingsService.
+    /// Validates thresholds before submitting.
+    /// </summary>
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // Client-side validation
+            validationError = null;
+            successMessage = null;
+
+            if (settingsModel.LowThreshold >= settingsModel.HighThreshold)
+            {
+                validationError = "Low threshold must be less than high threshold.";
+                return;
+            }
+
+            isSaving = true;
+            StateHasChanged();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                validationError = "Unable to identify user. Please log in again.";
+                return;
+            }
+
+            var (success, message, settings) = await SettingsService.UpdateSettingsAsync(
+                userId,
+                settingsModel.LowThreshold,
+                settingsModel.HighThreshold);
+
+            if (success && settings != null)
+            {
+                lastUpdated = settings.UpdatedAt;
+                successMessage = message;
+
+                // Auto-hide success message after 3 seconds
+                await Task.Delay(3000);
+                successMessage = null;
+                StateHasChanged();
+            }
+            else
+            {
+                validationError = message;
+            }
+        }
+        catch (Exception ex)
+        {
+            validationError = $"Error saving settings: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+}

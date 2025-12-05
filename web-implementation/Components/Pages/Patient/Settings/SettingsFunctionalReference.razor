@@ -1,0 +1,296 @@
+@* Route temporarily disabled - replaced by Settings.razor in parent directory *@
+@* @page "/patient/settings" *@
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+@using System.ComponentModel.DataAnnotations
+@using GrapheneTrace.Web.Components.Layout
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject PatientSettingsService SettingsService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+@*
+    Patient Settings Page
+    Author: SID:2412494
+    Route: /patient/settings
+
+    Purpose: Allow patients to configure pressure alert thresholds.
+    Implements Story #9.
+
+    Features:
+    - View current low/high pressure thresholds
+    - Update thresholds with real-time validation
+    - Visual feedback on save success/error
+    - Responsive form layout
+    - Integrated with patient dashboard navigation via PatientHeader
+
+    Design Note: This component uses PatientHeader for consistent navigation
+    across all patient pages. It uses PatientSettingsService for server-side
+    data access (proper Blazor Server pattern instead of HttpClient).
+*@
+
+<div class="admin-container">
+    @*
+        PATIENT HEADER
+        Author: SID:2412494
+
+        Purpose:
+        Unified header component for all patient pages with tab navigation.
+    *@
+    <PatientHeader />
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <h1 style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">
+            Pressure Alert Settings
+        </h1>
+        <p style="color: #6b7280; margin-bottom: 2rem;">
+            Configure your pressure monitoring thresholds to receive alerts when readings exceed safe levels.
+        </p>
+
+        @if (isLoading)
+        {
+            <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                Loading settings...
+            </div>
+        }
+        else if (errorMessage != null)
+        {
+            <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                <strong>Error:</strong> @errorMessage
+            </div>
+        }
+        else
+        {
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 2rem;">
+                <EditForm Model="@settingsModel" OnValidSubmit="@HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    <!-- Low Threshold -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 500; margin-bottom: 0.5rem;">
+                            Low Pressure Threshold
+                        </label>
+                        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                            You'll receive an early warning when pressure reaches this level.
+                        </p>
+                        <InputNumber @bind-Value="settingsModel.LowThreshold"
+                                     class="form-control"
+                                     style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;"
+                                     min="1" max="254" />
+                        <ValidationMessage For="@(() => settingsModel.LowThreshold)" />
+                        <p style="color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem;">
+                            Valid range: 1-254 (current: @settingsModel.LowThreshold)
+                        </p>
+                    </div>
+
+                    <!-- High Threshold -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 500; margin-bottom: 0.5rem;">
+                            High Pressure Threshold
+                        </label>
+                        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                            You'll receive an urgent alert when pressure reaches this level.
+                        </p>
+                        <InputNumber @bind-Value="settingsModel.HighThreshold"
+                                     class="form-control"
+                                     style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;"
+                                     min="2" max="255" />
+                        <ValidationMessage For="@(() => settingsModel.HighThreshold)" />
+                        <p style="color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem;">
+                            Valid range: 2-255 (current: @settingsModel.HighThreshold)
+                        </p>
+                    </div>
+
+                    <!-- Validation Error -->
+                    @if (validationError != null)
+                    {
+                        <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                            @validationError
+                        </div>
+                    }
+
+                    <!-- Success Message -->
+                    @if (successMessage != null)
+                    {
+                        <div style="background: #d1fae5; border: 1px solid #6ee7b7; color: #065f46; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                            @successMessage
+                        </div>
+                    }
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="submit"
+                                disabled="@isSaving"
+                                style="background: #2563eb; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: @(isSaving ? "not-allowed" : "pointer"); font-weight: 500; flex: 1; opacity: @(isSaving ? "0.6" : "1");">
+                            @(isSaving ? "Saving..." : "Save Settings")
+                        </button>
+                        <button type="button"
+                                @onclick="LoadSettings"
+                                disabled="@isSaving"
+                                style="background: #6b7280; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: @(isSaving ? "not-allowed" : "pointer"); font-weight: 500; opacity: @(isSaving ? "0.6" : "1");">
+                            Reset
+                        </button>
+                    </div>
+                </EditForm>
+
+                <!-- Information Panel -->
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; margin-top: 2rem;">
+                    <h3 style="font-weight: 600; margin-bottom: 0.5rem;">Understanding Pressure Values</h3>
+                    <ul style="color: #6b7280; font-size: 0.875rem; margin-left: 1.5rem;">
+                        <li>Sensor range: 1-255</li>
+                        <li>Value 1: No pressure detected</li>
+                        <li>Value 255: Maximum sensor capacity</li>
+                        <li>Default low threshold: 50 (early warning)</li>
+                        <li>Default high threshold: 200 (urgent alert)</li>
+                    </ul>
+                    @if (lastUpdated.HasValue)
+                    {
+                        <p style="color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
+                            <strong>Last updated:</strong> @lastUpdated.Value.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                        </p>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @*
+        FOOTER SECTION
+        Author: SID:2412494
+
+        Purpose:
+        Provides global navigation links for help, information, and support resources.
+    *@
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@code {
+    private SettingsModel settingsModel = new();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+    private string? validationError;
+    private string? successMessage;
+    private DateTime? lastUpdated;
+
+    /// <summary>
+    /// Initialize component and load current settings from API.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    /// <summary>
+    /// Load settings from database via service.
+    /// Creates default settings if none exist.
+    /// </summary>
+    private async Task LoadSettings()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+            validationError = null;
+            StateHasChanged();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                errorMessage = "Unable to identify user. Please log in again.";
+                return;
+            }
+
+            var settings = await SettingsService.GetSettingsAsync(userId);
+            settingsModel.LowThreshold = settings.LowPressureThreshold;
+            settingsModel.HighThreshold = settings.HighPressureThreshold;
+            lastUpdated = settings.UpdatedAt;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading settings: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Handle form submission and update settings via service.
+    /// Validates thresholds before submitting.
+    /// </summary>
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // Client-side validation
+            validationError = null;
+            successMessage = null;
+
+            if (settingsModel.LowThreshold >= settingsModel.HighThreshold)
+            {
+                validationError = "Low threshold must be less than high threshold.";
+                return;
+            }
+
+            isSaving = true;
+            StateHasChanged();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                validationError = "Unable to identify user. Please log in again.";
+                return;
+            }
+
+            var (success, message, settings) = await SettingsService.UpdateSettingsAsync(
+                userId,
+                settingsModel.LowThreshold,
+                settingsModel.HighThreshold);
+
+            if (success && settings != null)
+            {
+                lastUpdated = settings.UpdatedAt;
+                successMessage = message;
+            }
+            else
+            {
+                validationError = message;
+            }
+        }
+        catch (Exception ex)
+        {
+            validationError = $"Error saving settings: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Model for settings form with validation attributes.
+    /// </summary>
+    private class SettingsModel
+    {
+        [Required]
+        [Range(1, 254, ErrorMessage = "Low threshold must be between 1 and 254")]
+        public int LowThreshold { get; set; } = 50;
+
+        [Required]
+        [Range(2, 255, ErrorMessage = "High threshold must be between 2 and 255")]
+        public int HighThreshold { get; set; } = 200;
+    }
+}

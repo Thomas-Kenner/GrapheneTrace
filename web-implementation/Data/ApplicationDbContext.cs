@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using GrapheneTrace.Web.Models;
+using System.Security.Cryptography.X509Certificates;
 
 namespace GrapheneTrace.Web.Data;
 
@@ -169,5 +170,60 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
             // Unique constraint on active assignments (only one active per patient-clinician pair)
             // This prevents duplicate active assignments
         });
+
+        // Future: Add configurations for other entities here
+        // Example:
+        // builder.Entity<PressureReading>(entity =>
+        // {
+        //     entity.HasOne(p => p.User)
+        //         .WithMany()
+        //         .HasForeignKey(p => p.UserId);
+        // });
+
+        // Author: 2414111
+        // Configure PatientSessionData properties
+        builder.Entity<PatientSessionData>(entity =>
+        {
+            entity.HasKey(a => a.SessionId);
+            entity.Property(a => a.SessionId)
+                .IsRequired()
+                .ValueGeneratedOnAdd();
+
+            entity.Property(a => a.DeviceId)
+                .IsRequired()
+                .HasMaxLength(8);
+
+            entity.HasIndex(a => a.SessionId);
+            entity.HasIndex(a => a.DeviceId);
+        });
+
+        // Author: 2414111
+        // Configure PatientSnapshotData properties
+        builder.Entity<PatientSnapshotData>(entity =>
+        {
+            entity.HasKey(b => b.SnapshotId);
+            entity.Property(b => b.SnapshotId)
+                .IsRequired()
+                .ValueGeneratedOnAdd();
+
+            entity.Property(b => b.SessionId)
+                .IsRequired();
+
+            entity.Property(b => b.SnapshotData)
+                .IsRequired();
+
+            entity.HasIndex(b => b.SnapshotId);
+            entity.HasIndex(b => b.SessionId);
+
+            entity.HasOne<PatientSessionData>()
+                .WithMany()
+                .HasForeignKey(b => b.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
+
+    // Author: 2414111
+    // Connect the PatientSessionData and PatientSnapshotData models to the database
+    public DbSet<PatientSessionData> PatientSessionDatas { get; set; }
+    public DbSet<PatientSnapshotData> PatientSnapshotDatas { get; set; }
 }

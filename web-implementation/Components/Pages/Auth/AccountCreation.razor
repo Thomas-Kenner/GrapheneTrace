@@ -6,7 +6,8 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager Navigation
-@implements IDisposable
+@inject HttpClient Http
+@rendermode InteractiveServer
 
 @*
     Main Application Layout
@@ -158,6 +159,87 @@
     /// </remarks>
     public void Dispose()
     {
-        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        errorMessage = null;
+
+        // Client-side validation
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        {
+            errorMessage = "First name and last name are required";
+            currentStep = 1;  // Go back to step 1
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Email and password are required";
+            currentStep = 1;  // Go back to step 1
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "Passwords do not match";
+            currentStep = 1;  // Go back to step 1
+            return;
+        }
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Create form data
+            var formData = new MultipartFormDataContent
+            {
+                { new StringContent(firstName), "FirstName" },
+                { new StringContent(lastName), "LastName" },
+                { new StringContent(email), "Email" },
+                { new StringContent(password), "Password" },
+                { new StringContent(confirmPassword), "ConfirmPassword" },
+                { new StringContent(userType), "UserType" }
+            };
+
+            // POST to controller endpoint with custom header
+            // X-Requested-With signals this is from Blazor component, not traditional form
+            // Author: SID:2412494 - Switched from IHttpClientFactory to injected HttpClient
+            // The scoped HttpClient already has BaseAddress configured from NavigationManager
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/account/register");
+            request.Content = formData;
+            request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Account created successfully - move to step 3 (success overlay)
+                var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
+                Console.WriteLine("Account created successfully, showing success overlay");
+                currentStep = 3;
+            }
+            else
+            {
+                // Parse error message
+                var errorResult = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                errorMessage = errorResult?.Error ?? "An error occurred while creating your account";
+                currentStep = 1;  // Go back to step 1
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while creating your account. Please try again.";
+            currentStep = 1;  // Go back to step 1
+            Console.WriteLine($"Account Creation Exception: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private class RegisterResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
     }
 }

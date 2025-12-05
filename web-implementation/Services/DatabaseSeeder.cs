@@ -1,5 +1,7 @@
+using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrapheneTrace.Web.Services;
 
@@ -17,10 +19,8 @@ namespace GrapheneTrace.Web.Services;
 /// - Auto-approved: ApprovedAt set to build time
 /// - Used for: Initial account approvals, system-generated actions, development testing
 ///
-/// Test Patient Account:
-/// - Username: patient.test@graphenetrace.local
-/// - Password: Patient@Test123
-/// - UserType: patient
+/// Test Patient Accounts:
+/// - 5 patients (Alice, Bob, Carol, David, Emma) each mapped to a device ID
 /// - Auto-approved: ApprovedAt set to build time (patients are auto-approved)
 ///
 /// Approved Clinician Account:
@@ -52,6 +52,7 @@ public class DatabaseSeeder
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<DatabaseSeeder> _logger;
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _context;
 
     /// <summary>
     /// System admin account credentials and configuration.
@@ -63,13 +64,19 @@ public class DatabaseSeeder
     private const string SystemUserType = "admin";
 
     /// <summary>
-    /// Test patient account credentials (auto-approved).
+    /// Patient account configuration records.
+    /// Each patient is mapped to a specific device ID for session assignment.
+    /// Author: SID:2412494
     /// </summary>
-    private const string TestPatientEmail = "patient.test@graphenetrace.local";
-    private const string TestPatientPassword = "Patient@Test123";
-    private const string TestPatientFirstName = "Test";
-    private const string TestPatientLastName = "Patient";
-    private const string TestPatientUserType = "patient";
+    private static readonly (string Email, string Password, string FirstName, string LastName, string DeviceId)[] PatientConfigs =
+    [
+        ("patient.alice@graphenetrace.local", "Patient@Alice123", "Alice", "Thompson", "1c0fd777"),
+        ("patient.bob@graphenetrace.local", "Patient@Bob123", "Bob", "Martinez", "543d4676"),
+        ("patient.carol@graphenetrace.local", "Patient@Carol123", "Carol", "Johnson", "71e66ab3"),
+        ("patient.david@graphenetrace.local", "Patient@David123", "David", "Williams", "d13043b3"),
+        ("patient.emma@graphenetrace.local", "Patient@Emma123", "Emma", "Davis", "de0e9b2c")
+    ];
+    private const string PatientUserType = "patient";
 
     /// <summary>
     /// Test approved clinician account credentials.
@@ -89,14 +96,18 @@ public class DatabaseSeeder
     private const string UnapprovedClinicianLastName = "Clinician";
     private const string UnapprovedClinicianUserType = "clinician";
 
+    // Author: SID:2412494
+    // Added ApplicationDbContext for session assignment operations
     public DatabaseSeeder(
         UserManager<ApplicationUser> userManager,
         ILogger<DatabaseSeeder> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ApplicationDbContext context)
     {
         _userManager = userManager;
         _logger = logger;
         _configuration = configuration;
+        _context = context;
     }
 
     /// <summary>
@@ -131,9 +142,10 @@ public class DatabaseSeeder
 
             var buildTime = DateTime.UtcNow;
             var systemUser = await EnsureSystemAccountExistsAsync();
-            await EnsureTestPatientExistsAsync(buildTime);
+            var patients = await EnsurePatientsExistAsync(buildTime);
             await EnsureApprovedClinicianExistsAsync(systemUser, buildTime);
             await EnsureUnapprovedClinicianExistsAsync(buildTime);
+            await SeedPressureDataAsync(patients);
 
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -229,66 +241,75 @@ public class DatabaseSeeder
     }
 
     /// <summary>
-    /// Ensures a test patient account exists (auto-approved).
+    /// Ensures all patient accounts exist (auto-approved).
+    /// Returns a dictionary mapping device IDs to patient users.
+    /// Author: SID:2412494
     /// </summary>
     /// <param name="buildTime">The build time to use for approval timestamps</param>
-    private async Task EnsureTestPatientExistsAsync(DateTime buildTime)
+    private async Task<Dictionary<string, ApplicationUser>> EnsurePatientsExistAsync(DateTime buildTime)
     {
-        var testPatient = await _userManager.FindByEmailAsync(TestPatientEmail);
+        var patients = new Dictionary<string, ApplicationUser>();
 
-        if (testPatient == null)
+        foreach (var config in PatientConfigs)
         {
-            _logger.LogInformation("Test patient account not found, creating new account...");
+            var patient = await _userManager.FindByEmailAsync(config.Email);
 
-            testPatient = new ApplicationUser
+            if (patient == null)
             {
-                UserName = TestPatientEmail,
-                Email = TestPatientEmail,
-                EmailConfirmed = true,
-                FirstName = TestPatientFirstName,
-                LastName = TestPatientLastName,
-                UserType = TestPatientUserType,
-                CreatedAt = buildTime,
-                ApprovedAt = buildTime, // Auto-approve patient account
-                ApprovedBy = null // Patients are auto-approved
-            };
+                _logger.LogInformation("Patient account not found, creating: {Email}", config.Email);
 
-            var createResult = await _userManager.CreateAsync(testPatient, TestPatientPassword);
+                patient = new ApplicationUser
+                {
+                    UserName = config.Email,
+                    Email = config.Email,
+                    EmailConfirmed = true,
+                    FirstName = config.FirstName,
+                    LastName = config.LastName,
+                    UserType = PatientUserType,
+                    CreatedAt = buildTime,
+                    ApprovedAt = buildTime,
+                    ApprovedBy = null
+                };
 
-            if (createResult.Succeeded)
-            {
-                _logger.LogInformation(
-                    "Test patient account created successfully: {Email} (ID: {UserId})",
-                    TestPatientEmail, testPatient.Id);
+                var createResult = await _userManager.CreateAsync(patient, config.Password);
+
+                if (createResult.Succeeded)
+                {
+                    _logger.LogInformation(
+                        "Patient account created: {Email} (ID: {UserId})",
+                        config.Email, patient.Id);
+                }
+                else
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    _logger.LogError("Failed to create patient account {Email}: {Errors}", config.Email, errors);
+                    throw new InvalidOperationException($"Failed to create patient account {config.Email}: {errors}");
+                }
             }
             else
             {
-                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-                _logger.LogError("Failed to create test patient account: {Errors}", errors);
-                throw new InvalidOperationException($"Failed to create test patient account: {errors}");
-            }
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Test patient account found (ID: {UserId}), resetting password and approval status...",
-                testPatient.Id);
+                _logger.LogInformation(
+                    "Patient account found (ID: {UserId}), resetting password...",
+                    patient.Id);
 
-            // Reset password
-            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(testPatient);
-            var resetResult = await _userManager.ResetPasswordAsync(testPatient, resetToken, TestPatientPassword);
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(patient);
+                var resetResult = await _userManager.ResetPasswordAsync(patient, resetToken, config.Password);
 
-            if (!resetResult.Succeeded)
-            {
-                var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
-                _logger.LogWarning("Failed to reset test patient password: {Errors}", errors);
+                if (!resetResult.Succeeded)
+                {
+                    var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
+                    _logger.LogWarning("Failed to reset patient password {Email}: {Errors}", config.Email, errors);
+                }
+
+                patient.ApprovedAt = buildTime;
+                patient.ApprovedBy = null;
+                await _userManager.UpdateAsync(patient);
             }
 
-            // Reset approval status
-            testPatient.ApprovedAt = buildTime;
-            testPatient.ApprovedBy = null;
-            await _userManager.UpdateAsync(testPatient);
+            patients[config.DeviceId] = patient;
         }
+
+        return patients;
     }
 
     /// <summary>
@@ -296,7 +317,7 @@ public class DatabaseSeeder
     /// </summary>
     /// <param name="systemUser">The system admin who approved the account</param>
     /// <param name="buildTime">The build time to use for approval timestamps</param>
-    private async Task EnsureApprovedClinicianExistsAsync(ApplicationUser systemUser, DateTime buildTime)
+    private async Task<ApplicationUser> EnsureApprovedClinicianExistsAsync(ApplicationUser systemUser, DateTime buildTime)
     {
         var approvedClinician = await _userManager.FindByEmailAsync(ApprovedClinicianEmail);
 
@@ -353,6 +374,8 @@ public class DatabaseSeeder
             approvedClinician.ApprovedBy = systemUser.Id;
             await _userManager.UpdateAsync(approvedClinician);
         }
+
+        return approvedClinician;
     }
 
     /// <summary>
@@ -415,6 +438,135 @@ public class DatabaseSeeder
             unapprovedClinician.ApprovedAt = null;
             unapprovedClinician.ApprovedBy = null;
             await _userManager.UpdateAsync(unapprovedClinician);
+        }
+    }
+
+    /// <summary>
+    /// Seeds pressure data from CSV files in the resources directory.
+    /// Assigns sessions to patients based on device ID mapping.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="patients">Dictionary mapping device IDs to patient users</param>
+    private async Task SeedPressureDataAsync(Dictionary<string, ApplicationUser> patients)
+    {
+        try
+        {
+            // Path to resources directory - use the path from PressureDataService
+            string resourcePath = "../Resources/GTLB-Data";
+
+            if (!Directory.Exists(resourcePath))
+            {
+                _logger.LogWarning("Pressure data resources directory not found at: {Path}", resourcePath);
+                return;
+            }
+
+            string[] files = Directory.GetFiles(resourcePath, "*.csv");
+            _logger.LogInformation("Found {Count} pressure data files to process.", files.Length);
+
+            foreach (string fileName in files)
+            {
+                // Split file path into separate bits of info
+                // Expect csv files with paths in the format deviceId_date.csv
+                string simpleFileName = Path.GetFileName(fileName);
+                char[] delimiterChar = ['_', '.'];
+                string[] fileNameSegments = simpleFileName.Split(delimiterChar);
+
+                // Expect deviceId_date.csv, so 3 segments (deviceId, date, csv)
+                if (fileNameSegments.Length != 3)
+                {
+                    _logger.LogWarning("Skipping file with invalid format: {FileName}", simpleFileName);
+                    continue;
+                }
+
+                string deviceId = fileNameSegments[0];
+                string dateString = fileNameSegments[1];
+
+                if (!DateTime.TryParseExact(dateString, "yyyyMMdd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime date))
+                {
+                    _logger.LogWarning("Skipping file with invalid date format: {FileName}", simpleFileName);
+                    continue;
+                }
+
+                var parsedDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+
+                // Check if session already exists
+                var existingSession = await _context.PatientSessionDatas
+                    .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.Start == parsedDate);
+
+                // Look up patient by device ID
+                Guid? patientId = null;
+                patients.TryGetValue(deviceId, out var patient);
+                if (patient != null)
+                {
+                    patientId = patient.Id;
+                }
+
+                // If session exists, ensure patient assignment is correct
+                if (existingSession != null)
+                {
+                    if (existingSession.PatientId != patientId)
+                    {
+                        existingSession.PatientId = patientId;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("Updated patient assignment for session {DeviceId} on {Date} (Patient: {PatientName})",
+                            deviceId, parsedDate.ToShortDateString(), patient != null ? $"{patient.FirstName} {patient.LastName}" : "none");
+                    }
+                    continue;
+                }
+
+                _logger.LogInformation("Seeding pressure data for {DeviceId} on {Date} (Patient: {PatientName})...",
+                    deviceId, parsedDate.ToShortDateString(), patient != null ? $"{patient.FirstName} {patient.LastName}" : "none");
+
+                string fileContents = await File.ReadAllTextAsync(fileName);
+
+                // Create Session
+                var sessionData = new PatientSessionData
+                {
+                    DeviceId = deviceId,
+                    Start = parsedDate,
+                    PatientId = patientId
+                };
+
+                _context.PatientSessionDatas.Add(sessionData);
+                await _context.SaveChangesAsync();
+
+                // Process Snapshots using helper methods from PressureDataService
+                List<string> sessionSnapshots = PressureDataService.SplitIntoSnapshots(fileContents, 32);
+
+                // 15 snapshots per second
+                double millisec = 1000.0 / 15.0;
+                TimeSpan interval = TimeSpan.FromMilliseconds(millisec);
+                var snapshotTime = parsedDate;
+
+                var snapshotsToAdd = new List<PatientSnapshotData>(sessionSnapshots.Count);
+
+                foreach (string snapshot in sessionSnapshots)
+                {
+                    var snapshotInts = PressureDataService.ConvertSnapshotToInt(snapshot, 32);
+
+                    var snapshotData = new PatientSnapshotData
+                    {
+                        SessionId = sessionData.SessionId,
+                        SnapshotData = snapshot,
+                        ContactAreaPercent = PressureDataService.SensorsOverLimitInSession(snapshotInts, 0) * (100.0f / 1024.0f),
+                        SnapshotTime = snapshotTime,
+                    };
+
+                    snapshotsToAdd.Add(snapshotData);
+                    snapshotTime = snapshotTime.Add(interval);
+                }
+
+                _context.PatientSnapshotDatas.AddRange(snapshotsToAdd);
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error seeding pressure data.");
+            // Don't throw, just log error so other seeding can continue or app can start
         }
     }
 }
