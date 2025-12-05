@@ -54,12 +54,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<PatientClinician> PatientClinicians { get; set; }
 
     /// <summary>
-    /// Patient-specific settings for pressure monitoring alerts.
-    /// </summary>
-    public DbSet<PatientSettings> PatientSettings { get; set; }
-
-
-    /// <summary>
     /// Configures the database schema using Fluent API.
     /// </summary>
     /// <remarks>

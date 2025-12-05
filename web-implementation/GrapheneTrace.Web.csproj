@@ -23,4 +23,15 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
   </ItemGroup>
 
+  <!-- Copy appsettings.example.json to appsettings.json if it doesn't exist -->
+  <!-- Author: SID:2412494 -->
+  <Target Name="EnsureAppSettings" BeforeTargets="Build">
+    <Copy SourceFiles="appsettings.example.json"
+          DestinationFiles="appsettings.json"
+          Condition="!Exists('appsettings.json')" />
+    <Message Importance="high"
+             Text="Created appsettings.json from appsettings.example.json"
+             Condition="!Exists('appsettings.json')" />
+  </Target>
+
 </Project>

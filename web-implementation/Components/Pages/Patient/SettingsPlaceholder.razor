@@ -1,40 +1,13 @@
-@*
-    ========================================
-    PATIENT SETTINGS PAGE (PLACEHOLDER/VISUAL DESIGN REFERENCE)
-    ========================================
-    Author: SID:2402513
-
-    NOTE: This file has been renamed to SettingsPlaceholder.razor during merge.
-    The actual working settings page is at Settings/Index.razor (from main branch).
-    This file is preserved as a visual design reference for future UI improvements.
-
-    Original Purpose:
-    Manage personal details, alert settings, and device connections.
-
-    Original Implementation Status:
-    - Personal Details: WORKING - saves to database
-    - Alert Settings: TODO - Pressure threshold not yet in DB schema
-    - Device Connection: Placeholder only
-*@
-
-@* Route removed - this is now a reference file only *@
-@* @page "/patient/settings" *@
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Models
-@using GrapheneTrace.Web.Services
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@inject AuthenticationStateProvider AuthStateProvider
-@inject UserManager<ApplicationUser> UserManager
-@inject UserManagementService UserManagementService
+@using GrapheneTrace.Web.Components.Layout
 
 <div class="patient-container">
     <PatientHeader />
 
     <div class="patient-content">
         <div class="settings-grid">
-            @* PERSONAL DETAILS CARD *@
             <div class="card settings-card">
                 <h3 class="settings-title">Personal Details</h3>
                 <p class="settings-subtitle">Contact information</p>
@@ -93,7 +66,6 @@
                 </button>
             </div>
 
-            @* ALERT SETTINGS CARD *@
             <div class="card settings-card">
                 <h3 class="settings-title">Alert Settings</h3>
                 <p class="settings-subtitle">Configure notifications</p>
@@ -107,8 +79,6 @@
                         <span>60</span>
                         <span>120</span>
                     </div>
-                    @* TODO: Pressure threshold not yet saved - awaiting DB schema update
-                        Need to add PressureAlertThreshold field to ApplicationUser or create PatientSettings table *@
                 </div>
 
                 <div class="toggle-group">
@@ -151,7 +121,6 @@
                 </button>
             </div>
 
-            @* DEVICE CONNECTION CARD *@
             <div class="card settings-card">
                 <h3 class="settings-title">Device Connection</h3>
                 <p class="settings-subtitle">Manage your sensor</p>
@@ -199,90 +168,3 @@
         </div>
     </div>
 </div>
-
-@code {
-    // Personal Details (WORKING - saves to database)
-    private string firstName = "";
-    private string lastName = "";
-    private string email = "";
-    private string personalMessage = "";
-    private bool personalSuccess = false;
-    private bool isSavingPersonal = false;
-    private Guid currentUserId;
-
-    // Alert Settings (PLACEHOLDER - not saved to DB yet)
-    private int pressureThreshold = 80;
-    private bool pushNotifications = false;
-    private bool emailNotifications = false;
-    private bool deviceAlerts = false;
-
-    protected override async Task OnInitializedAsync()
-    {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity?.IsAuthenticated == true)
-        {
-            var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-            {
-                currentUserId = userId;
-                var currentUser = await UserManager.FindByIdAsync(userId.ToString());
-                if (currentUser != null)
-                {
-                    firstName = currentUser.FirstName;
-                    lastName = currentUser.LastName;
-                    email = currentUser.Email ?? "";
-                }
-            }
-        }
-    }
-
-    private async Task SavePersonalDetails()
-    {
-        isSavingPersonal = true;
-        personalMessage = "";
-
-        try
-        {
-            var user = await UserManager.FindByIdAsync(currentUserId.ToString());
-            if (user == null)
-            {
-                personalMessage = "User not found";
-                personalSuccess = false;
-                return;
-            }
-
-            user.FirstName = firstName;
-            user.LastName = lastName;
-            user.Email = email;
-            user.UserName = email;
-
-            var result = await UserManager.UpdateAsync(user);
-
-            if (result.Succeeded)
-            {
-                personalMessage = "Details saved successfully!";
-                personalSuccess = true;
-                // Auto-hide message after 2 seconds
-                await Task.Delay(2000);
-                personalMessage = "";
-            }
-            else
-            {
-                personalMessage = "Failed to save: " + string.Join(", ", result.Errors.Select(e => e.Description));
-                personalSuccess = false;
-            }
-        }
-        catch (Exception ex)
-        {
-            personalMessage = $"Error: {ex.Message}";
-            personalSuccess = false;
-        }
-        finally
-        {
-            isSavingPersonal = false;
-            StateHasChanged();
-        }
-    }
-}

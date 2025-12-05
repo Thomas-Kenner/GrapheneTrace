@@ -1,29 +1,14 @@
-@*
-    ========================================
-    PRESSURE DATA PAGE
-    ========================================
-    Author: SID:2402513
-
-    Purpose:
-    Historical pressure data visualization with timeline playback,
-    charts, and analytics for patient pressure monitoring.
-
-    Current Implementation:
-    All visualizations are placeholders pending sensor data integration.
-*@
-
 @page "/patient/pressure-data"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+@using GrapheneTrace.Web.Components.Layout
 
 <div class="patient-container">
     <PatientHeader />
 
     <div class="patient-content">
         <div class="pressure-data-grid">
-            @* LEFT COLUMN - Timeline and Metrics *@
             <div class="left-column">
-                @* PRESSURE TIMELINE CARD *@
                 <div class="card timeline-card">
                     <div class="card-header-row">
                         <div>
@@ -57,7 +42,6 @@
                     </div>
                 </div>
 
-                @* METRICS STRIP *@
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <span class="metric-label">Avg Peak</span>
@@ -78,9 +62,7 @@
                 </div>
             </div>
 
-            @* RIGHT COLUMN - 2x2 Chart Grid *@
             <div class="right-column">
-                @* PEAK PRESSURE INDEX *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Peak Pressure Index</h4>
                     <p class="chart-subtitle">Maximum over time</p>
@@ -91,7 +73,6 @@
                     </div>
                 </div>
 
-                @* TIME ABOVE THRESHOLD *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Time Above Threshold</h4>
                     <p class="chart-subtitle">High pressure duration</p>
@@ -102,7 +83,6 @@
                     </div>
                 </div>
 
-                @* PRESSURE BY AREA *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Pressure by Area</h4>
                     <p class="chart-subtitle">Regional averages</p>
@@ -113,7 +93,6 @@
                     </div>
                 </div>
 
-                @* PRESSURE TRENDS *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Pressure Trends</h4>
                     <p class="chart-subtitle">Weekly comparison</p>
@@ -127,7 +106,3 @@
         </div>
     </div>
 </div>
-
-@code {
-    // No backend logic yet - all placeholders
-}
