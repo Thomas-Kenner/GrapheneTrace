@@ -495,7 +495,12 @@ public class MockHeatmapDevice : IAsyncDisposable
 
     private HeatmapFrame CreateFrame(int[] pressureData, DeviceFault faults, MedicalAlert alerts)
     {
-        var peakPressure = pressureData.Max();
+        // Author: SID:2412494
+        // Use proper Peak Pressure Index calculation that excludes isolated areas < 10 pixels
+        var peakPressure = PressureDataService.CalculatePeakPressureIndex(pressureData, BasePressure);
+        // Fallback to simple max if no valid clusters found (e.g., very sparse data)
+        if (peakPressure == 0) peakPressure = pressureData.Max();
+
         var contactCells = pressureData.Count(p => p > BasePressure);
         var contactPercent = (float)contactCells / TotalCells * 100f;
 

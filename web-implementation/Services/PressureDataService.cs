@@ -365,4 +365,142 @@ public class PressureDataService
         if (snapshot == null) return new List<int[]>();
         return ConvertSnapshotToInt(snapshot.SnapshotData, snapshotColumns);
     }
+
+    // Author: SID:2412494
+    // Get count of sessions for a patient within a date range
+    public async Task<int> GetSessionCountAsync(Guid patientId, DateTime? since = null)
+    {
+        var query = applicationDbContext.PatientSessionDatas
+            .Where(s => s.PatientId == patientId);
+
+        if (since.HasValue)
+        {
+            query = query.Where(s => s.Start >= since.Value);
+        }
+
+        return await query.CountAsync();
+    }
+
+    // Author: SID:2412494
+    // Get count of sessions flagged for clinician review
+    public async Task<int> GetFlaggedSessionCountAsync(Guid patientId, DateTime? since = null)
+    {
+        var query = applicationDbContext.PatientSessionDatas
+            .Where(s => s.PatientId == patientId && s.ClinicianFlag);
+
+        if (since.HasValue)
+        {
+            query = query.Where(s => s.Start >= since.Value);
+        }
+
+        return await query.CountAsync();
+    }
+
+    // Author: SID:2412494
+    // Flag a session for clinician review (used when alerts are triggered)
+    public async Task FlagSessionForReviewAsync(int sessionId)
+    {
+        var session = await applicationDbContext.PatientSessionDatas
+            .FirstOrDefaultAsync(s => s.SessionId == sessionId);
+
+        if (session != null && !session.ClinicianFlag)
+        {
+            session.ClinicianFlag = true;
+            await applicationDbContext.SaveChangesAsync();
+        }
+    }
+
+    // Author: SID:2412494
+    // Flag session by device ID and date (for live monitoring where session ID may not be known)
+    public async Task FlagSessionForReviewAsync(string deviceId, DateTime sessionStart)
+    {
+        var session = await applicationDbContext.PatientSessionDatas
+            .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.Start.Date == sessionStart.Date);
+
+        if (session != null && !session.ClinicianFlag)
+        {
+            session.ClinicianFlag = true;
+            await applicationDbContext.SaveChangesAsync();
+        }
+    }
+
+    // Author: SID:2412494
+    // Get count of snapshots with peak pressure above threshold for a patient
+    public async Task<int> GetHighPressureAlertCountAsync(Guid patientId, int threshold, DateTime? since = null)
+    {
+        var sessionIds = await applicationDbContext.PatientSessionDatas
+            .Where(s => s.PatientId == patientId)
+            .Select(s => s.SessionId)
+            .ToListAsync();
+
+        if (!sessionIds.Any()) return 0;
+
+        var query = applicationDbContext.PatientSnapshotDatas
+            .Where(s => sessionIds.Contains(s.SessionId) && s.PeakSnapshotPressure >= threshold);
+
+        if (since.HasValue)
+        {
+            query = query.Where(s => s.SnapshotTime >= since.Value);
+        }
+
+        return await query.CountAsync();
+    }
+
+    // Author: SID:2412494
+    // Calculate Peak Pressure Index properly - excluding isolated high-pressure areas < 10 pixels
+    // This uses flood-fill to identify connected regions and only considers clusters >= 10 pixels
+    public static int CalculatePeakPressureIndex(int[] pressureData, int threshold = 50)
+    {
+        const int size = 32;
+        const int minClusterSize = 10;
+
+        if (pressureData.Length != size * size) return pressureData.Max();
+
+        // Track visited cells
+        var visited = new bool[size * size];
+        int peakPressureIndex = 0;
+
+        for (int i = 0; i < pressureData.Length; i++)
+        {
+            if (visited[i] || pressureData[i] <= threshold) continue;
+
+            // Found an unvisited high-pressure cell, flood fill to find cluster
+            var cluster = new List<int>();
+            var stack = new Stack<int>();
+            stack.Push(i);
+
+            while (stack.Count > 0)
+            {
+                int idx = stack.Pop();
+                if (idx < 0 || idx >= pressureData.Length) continue;
+                if (visited[idx]) continue;
+                if (pressureData[idx] <= threshold) continue;
+
+                visited[idx] = true;
+                cluster.Add(idx);
+
+                // Get row and column
+                int row = idx / size;
+                int col = idx % size;
+
+                // Add 4-connected neighbors
+                if (row > 0) stack.Push(idx - size);        // up
+                if (row < size - 1) stack.Push(idx + size); // down
+                if (col > 0) stack.Push(idx - 1);           // left
+                if (col < size - 1) stack.Push(idx + 1);    // right
+            }
+
+            // Only consider clusters with 10+ pixels
+            if (cluster.Count >= minClusterSize)
+            {
+                int clusterMax = cluster.Max(idx => pressureData[idx]);
+                if (clusterMax > peakPressureIndex)
+                {
+                    peakPressureIndex = clusterMax;
+                }
+            }
+        }
+
+        return peakPressureIndex;
+    }
 }

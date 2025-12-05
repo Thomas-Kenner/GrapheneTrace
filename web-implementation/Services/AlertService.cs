@@ -84,6 +84,10 @@ public class AlertService
                 frame.PeakPressure,
                 settings.LowPressureThreshold,
                 settings.HighPressureThreshold);
+
+            // Author: SID:2412494
+            // Flag any existing session for this patient for clinician review
+            await FlagPatientSessionForReviewAsync(frame.PatientId, frame.DeviceId);
         }
 
         // Determine if notifications should be sent (respecting cooldowns)
@@ -99,6 +103,37 @@ public class AlertService
                 PressureAlertCooldown);
 
         return result;
+    }
+
+    /// <summary>
+    /// Flags any active session for this patient for clinician review.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task FlagPatientSessionForReviewAsync(Guid patientId, string deviceId)
+    {
+        try
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Find the most recent unflagged session for this patient's device
+            var session = await context.PatientSessionDatas
+                .Where(s => s.PatientId == patientId && s.DeviceId == deviceId && !s.ClinicianFlag)
+                .OrderByDescending(s => s.Start)
+                .FirstOrDefaultAsync();
+
+            if (session != null)
+            {
+                session.ClinicianFlag = true;
+                await context.SaveChangesAsync();
+                _logger.LogInformation(
+                    "Session {SessionId} flagged for clinician review due to threshold breach for patient {PatientId}",
+                    session.SessionId, patientId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to flag session for review for patient {PatientId}", patientId);
+        }
     }
 
     /// <summary>

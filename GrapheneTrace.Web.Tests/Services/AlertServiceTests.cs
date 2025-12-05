@@ -38,15 +38,18 @@ public class AlertServiceTests : IDisposable
     private readonly PressureThresholdsConfig _config;
     private readonly Guid _testPatientId = Guid.NewGuid();
     private readonly Guid _testClinicianId = Guid.NewGuid();
+    // Author: SID:2412494 - Store options for creating new contexts
+    private readonly DbContextOptions<ApplicationDbContext> _dbOptions;
 
     public AlertServiceTests()
     {
         // Setup in-memory database
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+        // Author: SID:2412494 - Store options so factory can create new instances
+        _dbOptions = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: $"AlertServiceTests_{Guid.NewGuid()}")
             .Options;
 
-        _context = new ApplicationDbContext(options);
+        _context = new ApplicationDbContext(_dbOptions);
 
         // Setup configuration
         _config = new PressureThresholdsConfig
@@ -65,10 +68,11 @@ public class AlertServiceTests : IDisposable
         var settingsLogger = new Mock<ILogger<PatientSettingsService>>();
         _patientSettingsService = new PatientSettingsService(_context, _config, settingsLogger.Object);
 
-        // Setup alert service with mock DB context factory
+        // Author: SID:2412494 - Setup alert service with mock DB context factory
+        // Factory returns new context instances (using same in-memory DB) to avoid disposal issues
         var contextFactory = new Mock<IDbContextFactory<ApplicationDbContext>>();
         contextFactory.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(_context);
+            .ReturnsAsync(() => new ApplicationDbContext(_dbOptions));
 
         var alertLogger = new Mock<ILogger<AlertService>>();
         _alertService = new AlertService(

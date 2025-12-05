@@ -37,6 +37,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
 @inject IConfiguration Configuration
+@inject PressureDataService PressureDataService
 @implements IAsyncDisposable
 
 <div class="patient-container">
@@ -222,24 +223,49 @@
                     }
                 </div>
 
+                @*
+                    WEEKLY SUMMARY CARD
+                    Author: SID:2412494 - Updated to show real weekly stats with motivational message
+                *@
                 <div class="card summary-card">
                     <h4 class="summary-title">Weekly Summary</h4>
-                    <p class="summary-subtitle">AI-Generated Insights</p>
+                    <p class="summary-subtitle">Your Progress</p>
                     <div class="summary-content">
+                        @if (_sessionsThisWeek > 0 || _alertsThisWeek > 0)
+                        {
+                            <p class="summary-stats">
+                                @if (_sessionsThisWeek > 0)
+                                {
+                                    <span>@_sessionsThisWeek monitoring session@(_sessionsThisWeek != 1 ? "s" : "") this week.</span>
+                                }
+                                @if (_alertsThisWeek == 0)
+                                {
+                                    <span> No pressure alerts - great job!</span>
+                                }
+                                else if (_alertsThisWeek < _alertsLastWeek)
+                                {
+                                    <span> Alerts down from last week - keep it up!</span>
+                                }
+                            </p>
+                        }
                         <p class="inspirational-quote">"@randomQuote"</p>
                     </div>
                 </div>
 
+                @*
+                    STATS GRID - 3 mini cards
+                    Author: SID:2412494 - Updated to show real stats from database
+                *@
                 <div class="stats-mini-grid">
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Sessions This Week</h5>
-                        <p class="stat-mini-value">Placeholder</p>
-                        <p class="stat-mini-detail">Total: --</p>
+                        <p class="stat-mini-value">@_sessionsThisWeek</p>
+                        <p class="stat-mini-detail">Total: @_sessionsTotal</p>
                     </div>
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Alerts This Week</h5>
-                        <p class="stat-mini-value">Placeholder</p>
-                        <p class="stat-mini-detail">Down from: --</p>
+                        <p class="stat-mini-value">@_alertsThisWeek</p>
+                        <p class="stat-mini-detail">@GetAlertComparisonText()</p>
                     </div>
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Device Status</h5>
@@ -291,6 +317,12 @@
         SimulationScenario.SequentialDemo
     };
 
+    // Author: SID:2412494 - Weekly stats for dashboard
+    private int _sessionsThisWeek;
+    private int _sessionsTotal;
+    private int _alertsThisWeek;
+    private int _alertsLastWeek;
+
     // Inspirational quotes array (placeholder for AI-generated insights)
     private readonly string[] inspirationalQuotes = new[]
     {
@@ -330,6 +362,9 @@
         if (_userId != Guid.Empty)
         {
             _patientSettings = await PatientSettingsService.GetSettingsAsync(_userId);
+
+            // Author: SID:2412494 - Load weekly stats for dashboard
+            await LoadWeeklyStatsAsync();
         }
 
         // Check if device already exists (e.g., from previous session)
@@ -343,6 +378,30 @@
 
         // Author: SID:2412494 - Initialize SignalR connection for clinician notifications (Story #28)
         await InitializeAlertHubAsync();
+    }
+
+    // Author: SID:2412494 - Load weekly stats from database
+    private async Task LoadWeeklyStatsAsync()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var weekAgo = now.AddDays(-7);
+            var twoWeeksAgo = now.AddDays(-14);
+
+            // Get session counts
+            _sessionsTotal = await PressureDataService.GetSessionCountAsync(_userId);
+            _sessionsThisWeek = await PressureDataService.GetSessionCountAsync(_userId, weekAgo);
+
+            // Get alert counts (flagged sessions as proxy for alerts)
+            _alertsThisWeek = await PressureDataService.GetFlaggedSessionCountAsync(_userId, weekAgo);
+            _alertsLastWeek = await PressureDataService.GetFlaggedSessionCountAsync(_userId, twoWeeksAgo)
+                             - _alertsThisWeek;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load weekly stats: {ex.Message}");
+        }
     }
 
     // Author: SID:2412494 - Initialize AlertHub SignalR connection (Story #28)
@@ -851,6 +910,21 @@
             return "Uneven weight distribution detected.";
 
         return _isConnected ? "No pressure alerts at this time." : "Will notify when alert system is configured";
+    }
+
+    // Author: SID:2412494 - Compare alerts to last week
+    private string GetAlertComparisonText()
+    {
+        if (_alertsLastWeek == 0 && _alertsThisWeek == 0)
+            return "No alerts";
+
+        var diff = _alertsThisWeek - _alertsLastWeek;
+        if (diff > 0)
+            return $"Up {diff} from last week";
+        if (diff < 0)
+            return $"Down {Math.Abs(diff)} from last week";
+
+        return "Same as last week";
     }
 
     public async ValueTask DisposeAsync()
