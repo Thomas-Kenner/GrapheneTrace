@@ -147,30 +147,48 @@ public class MockHeatmapDevice : IAsyncDisposable
     /// <param name="patientId">Patient user ID</param>
     /// <param name="thresholdsConfig">Pressure thresholds configuration</param>
     /// <param name="logger">Logger instance</param>
+    /// <param name="deviceId">Optional device ID (if null, generates a new unique ID)</param>
     /// <param name="seed">Optional random seed for reproducible patterns</param>
+    /// Author: SID:2412494 - Added deviceId parameter to support persisting device IDs across sessions
     internal MockHeatmapDevice(
         Guid patientId,
         PressureThresholdsConfig thresholdsConfig,
         ILogger<MockHeatmapDevice> logger,
+        string? deviceId = null,
         int? seed = null)
     {
         PatientId = patientId;
         _config = thresholdsConfig;
         _logger = logger;
         _random = seed.HasValue ? new Random(seed.Value) : new Random();
-        DeviceId = GenerateDeviceId();
+        DeviceId = deviceId ?? GenerateDeviceId();
         _startTime = DateTime.UtcNow;
         _scenarioStartTime = TimeSpan.Zero;
 
         _logger.LogInformation(
-            "Created mock device {DeviceId} for patient {PatientId} with range {Min}-{Max}",
-            DeviceId, PatientId, _config.MinValue, _config.MaxValue);
+            "Created mock device {DeviceId} for patient {PatientId} with range {Min}-{Max} (deviceId was {Source})",
+            DeviceId, PatientId, _config.MinValue, _config.MaxValue, deviceId != null ? "provided" : "generated");
     }
 
+    // Author: SID:2412494
+    // Generates a unique device ID in hex format (e.g., "a1b2c3d4")
     private string GenerateDeviceId()
     {
         var bytes = new byte[4];
         _random.NextBytes(bytes);
+        return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Generates a unique device ID that doesn't exist in the database.
+    /// Used by MockDeviceManager when creating devices for patients with no prior sessions.
+    /// Author: SID:2412494
+    /// </summary>
+    public static string GenerateUniqueDeviceId()
+    {
+        var random = new Random();
+        var bytes = new byte[4];
+        random.NextBytes(bytes);
         return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
     }
 
