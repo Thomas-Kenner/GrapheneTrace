@@ -571,4 +571,34 @@ public class UserManagementService
             .OrderByDescending(pc => pc.AssignedAt)
             .ToListAsync();
     }
+
+    /// <summary>
+    /// Gets all active patients in the system.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <returns>List of active patient users ordered by name</returns>
+    public async Task<List<ApplicationUser>> GetAllPatientsAsync()
+    {
+        return await _context.Users
+            .Where(u => u.UserType == "patient" && u.DeactivatedAt == null)
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Gets all patient IDs assigned to a specific clinician.
+    /// Uses PatientClinician model with soft-delete (UnassignedAt == null for active assignments).
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="clinicianId">The clinician's user ID</param>
+    /// <returns>Set of assigned patient IDs</returns>
+    public async Task<HashSet<Guid>> GetAssignedPatientIdsAsync(Guid clinicianId)
+    {
+        var patientIds = await _context.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Select(a => a.PatientId)
+            .ToListAsync();
+        return patientIds.ToHashSet();
+    }
 }

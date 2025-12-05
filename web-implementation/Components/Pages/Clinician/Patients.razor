@@ -1,0 +1,482 @@
+@*
+    ========================================
+    CLINICIAN PATIENTS PAGE
+    ========================================
+    Author: SID:2412494
+
+    Purpose:
+    Allow clinicians to view assigned patients and playback their
+    historical pressure monitoring sessions.
+
+    How it works:
+    - Shows dropdown of assigned patients
+    - Displays session history for selected patient
+    - Provides heatmap playback with controls
+    - Reuses HeatmapPlaybackService from patient sessions
+
+    Why it was done this way:
+    - Reuses existing playback infrastructure
+    - Consistent UX with patient sessions page
+    - Patient selector at top for easy switching
+*@
+
+@page "/clinician/patients"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Components.Layout
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManagementService UserManagementService
+@inject PressureDataService PressureDataService
+@inject HeatmapPlaybackService PlaybackService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="clinician-container">
+    <ClinicianHeader />
+
+    <div class="clinician-content">
+        @* Patient Selector *@
+        <div class="patient-selector card">
+            <label class="patient-selector-label">Select Patient</label>
+            <select @onchange="OnPatientSelected" disabled="@isLoadingPatients">
+                <option value="">-- Select a patient --</option>
+                @if (assignedPatients != null)
+                {
+                    @foreach (var patient in assignedPatients)
+                    {
+                        <option value="@patient.Id" selected="@(selectedPatientId == patient.Id)">
+                            @patient.FullName (@patient.Email)
+                        </option>
+                    }
+                }
+            </select>
+        </div>
+
+        @if (selectedPatient != null)
+        {
+            @* Patient Info Banner *@
+            <div class="patient-info-banner">
+                <div class="patient-avatar">@GetInitials(selectedPatient.FullName)</div>
+                <div class="patient-details">
+                    <p class="patient-name">@selectedPatient.FullName</p>
+                    <p class="patient-meta">@selectedPatient.Email</p>
+                </div>
+            </div>
+
+            @* Sessions Grid *@
+            <div class="sessions-grid">
+                @* LEFT SIDEBAR - Session History *@
+                <div class="sessions-sidebar">
+                    <div class="card sidebar-card">
+                        <h3 class="sidebar-title">Session History</h3>
+                        <p class="sidebar-subtitle">Past monitoring sessions for @selectedPatient.FirstName</p>
+
+                        <div class="sessions-list">
+                            @if (isLoadingSessions)
+                            {
+                                <div class="session-item">
+                                    <div class="session-header">
+                                        <span class="session-date">Loading sessions...</span>
+                                    </div>
+                                </div>
+                            }
+                            else if (sessions == null || sessions.Count == 0)
+                            {
+                                <div class="session-item">
+                                    <div class="session-header">
+                                        <span class="session-date">No sessions found</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var session in sessions)
+                                {
+                                    <div class="session-item @(selectedSessionId == session.SessionId ? "active" : "")"
+                                         @onclick="() => SelectSessionAsync(session)">
+                                        <div class="session-header">
+                                            <span class="session-date">@session.Start.ToString("MMM dd, yyyy")</span>
+                                            @if (session.ClinicianFlag)
+                                            {
+                                                <span class="alert-badge">Flagged</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="no-alert">No Flags</span>
+                                            }
+                                        </div>
+                                        <div class="session-details">
+                                            <span class="session-duration">@FormatDuration(session.Start, session.End)</span>
+                                            @if (session.PeakSessionPressure.HasValue)
+                                            {
+                                                <span class="session-pressure">Peak: @session.PeakSessionPressure mmHg</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @* RIGHT PANEL - Session Detail *@
+                <div class="session-detail">
+                    @* Session Header *@
+                    <div class="card session-header-card">
+                        <div class="session-title-row">
+                            <div>
+                                @if (selectedSession != null)
+                                {
+                                    <h3 class="session-title">Session: @selectedSession.Start.ToString("MMMM dd, yyyy")</h3>
+                                    <p class="session-time">
+                                        Started: @selectedSession.Start.ToString("HH:mm:ss")
+                                        (@FormatDuration(selectedSession.Start, selectedSession.End))
+                                    </p>
+                                }
+                                else
+                                {
+                                    <h3 class="session-title">Select a session</h3>
+                                    <p class="session-time">Choose a session from the list to view details</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Pressure Map Visualization *@
+                    <div class="card visualization-card">
+                        @if (selectedSession != null)
+                        {
+                            <div class="heatmap-container">
+                                <canvas id="@canvasId"></canvas>
+                            </div>
+                            @if (PlaybackService.TotalFrames > 0)
+                            {
+                                <div class="playback-controls">
+                                    @* Progress Bar *@
+                                    <div class="progress-container @(isDragging ? "dragging" : "")"
+                                         @onmousedown="OnProgressMouseDown"
+                                         @onmousemove="OnProgressMouseMove"
+                                         @onmouseup="OnProgressMouseUp"
+                                         @onmouseleave="OnProgressMouseUp">
+                                        <div class="progress-track">
+                                            <div class="progress-fill" style="width: @(GetProgressPercent())%;"></div>
+                                        </div>
+                                        <div class="progress-label">
+                                            @(PlaybackService.CurrentFrameIndex + 1) / @PlaybackService.TotalFrames
+                                        </div>
+                                    </div>
+
+                                    @* Play/Pause Button *@
+                                    <button class="playback-btn" @onclick="TogglePlayback">
+                                        @if (PlaybackService.IsPlaying)
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="6" y="4" width="4" height="16"></rect>
+                                                <rect x="14" y="4" width="4" height="16"></rect>
+                                            </svg>
+                                            <span>Pause</span>
+                                        }
+                                        else
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polygon points="5,3 19,12 5,21"></polygon>
+                                            </svg>
+                                            <span>Play</span>
+                                        }
+                                    </button>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="visualization-placeholder">
+                                <p class="placeholder-text">No Session Selected</p>
+                                <p class="placeholder-description">Select a session from the list to view the pressure heatmap</p>
+                            </div>
+                        }
+                    </div>
+
+                    @* Comments & Alerts Row *@
+                    <div class="detail-grid">
+                        @* Comments & Notes *@
+                        <div class="card comments-card">
+                            <h4 class="section-title">Comments & Notes</h4>
+                            <div class="comments-list">
+                                <div class="comment-item">
+                                    <div class="comment-time">--</div>
+                                    <div class="comment-text">No comments for this session</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Session Alerts *@
+                        <div class="card alerts-card">
+                            <h4 class="section-title">Session Alerts</h4>
+                            <div class="alerts-list">
+                                <div class="alert-item-session">
+                                    <div class="alert-time-badge">--</div>
+                                    <div class="alert-text">No alerts for this session</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (!isLoadingPatients && assignedPatients?.Count == 0)
+        {
+            <div class="card" style="text-align: center; padding: 3rem;">
+                <p class="placeholder-text">No Patients Assigned</p>
+                <p class="placeholder-description">Contact your administrator to be assigned patients.</p>
+            </div>
+        }
+        else if (!isLoadingPatients && selectedPatientId == null)
+        {
+            <div class="card" style="text-align: center; padding: 3rem;">
+                <p class="placeholder-text">Select a Patient</p>
+                <p class="placeholder-description">Choose a patient from the dropdown above to view their session history.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // State variables
+    private Guid clinicianId;
+    private List<ApplicationUser>? assignedPatients;
+    private ApplicationUser? selectedPatient;
+    private Guid? selectedPatientId;
+    private List<PatientSessionData>? sessions;
+    private PatientSessionData? selectedSession;
+    private int? selectedSessionId;
+
+    // Loading states
+    private bool isLoadingPatients = true;
+    private bool isLoadingSessions = false;
+
+    // Playback state
+    private string canvasId = $"heatmap-{Guid.NewGuid():N}";
+    private bool isInitialized;
+    private bool isPlaybackInitialized;
+    private bool isDragging;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get current clinician ID
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            clinicianId = userId;
+            await LoadAssignedPatientsAsync();
+        }
+
+        isLoadingPatients = false;
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isInitialized = true;
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadAssignedPatientsAsync()
+    {
+        try
+        {
+            // Get all patients and filter to assigned ones
+            var allPatients = await UserManagementService.GetAllPatientsAsync();
+            var assignedIds = await UserManagementService.GetAssignedPatientIdsAsync(clinicianId);
+
+            assignedPatients = allPatients
+                .Where(p => assignedIds.Contains(p.Id))
+                .OrderBy(p => p.LastName)
+                .ThenBy(p => p.FirstName)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading assigned patients: {ex.Message}");
+            assignedPatients = new List<ApplicationUser>();
+        }
+    }
+
+    private async Task OnPatientSelected(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+
+        if (string.IsNullOrEmpty(value) || !Guid.TryParse(value, out var patientId))
+        {
+            selectedPatient = null;
+            selectedPatientId = null;
+            sessions = null;
+            selectedSession = null;
+            selectedSessionId = null;
+            return;
+        }
+
+        selectedPatientId = patientId;
+        selectedPatient = assignedPatients?.FirstOrDefault(p => p.Id == patientId);
+
+        // Reset session state
+        selectedSession = null;
+        selectedSessionId = null;
+
+        // Pause and reset playback
+        if (isPlaybackInitialized)
+        {
+            await PlaybackService.PausePlaybackAsync();
+        }
+
+        // Load sessions for selected patient
+        await LoadSessionsAsync(patientId);
+    }
+
+    private async Task LoadSessionsAsync(Guid patientId)
+    {
+        try
+        {
+            isLoadingSessions = true;
+            StateHasChanged();
+
+            sessions = await PressureDataService.GetSessionsForPatientAsync(patientId);
+
+            // Auto-select first session if available
+            if (sessions.Count > 0)
+            {
+                _ = SelectSessionAsync(sessions[0]);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading sessions: {ex.Message}");
+            sessions = new List<PatientSessionData>();
+        }
+        finally
+        {
+            isLoadingSessions = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectSessionAsync(PatientSessionData session)
+    {
+        if (selectedSessionId == session.SessionId)
+            return;
+
+        selectedSession = session;
+        selectedSessionId = session.SessionId;
+        StateHasChanged();
+
+        // Wait for render if needed
+        if (!isInitialized)
+        {
+            await Task.Delay(100);
+        }
+
+        // Initialize playback service if not already done
+        if (!isPlaybackInitialized)
+        {
+            await PlaybackService.InitializeAsync(canvasId);
+            isPlaybackInitialized = true;
+        }
+        else
+        {
+            await PlaybackService.PausePlaybackAsync();
+        }
+
+        // Load the session into the playback service
+        var loaded = await PlaybackService.LoadSessionAsync(session.SessionId);
+        if (loaded)
+        {
+            PlaybackService.OnFrameChanged += OnFrameChanged;
+            PlaybackService.StartPlayback();
+        }
+
+        StateHasChanged();
+    }
+
+    private void OnFrameChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private double GetProgressPercent()
+    {
+        if (PlaybackService.TotalFrames == 0)
+            return 0;
+        return (double)PlaybackService.CurrentFrameIndex / (PlaybackService.TotalFrames - 1) * 100;
+    }
+
+    private async Task OnProgressMouseDown(MouseEventArgs e)
+    {
+        isDragging = true;
+        await PlaybackService.PausePlaybackAsync();
+        await SeekToMousePosition(e);
+    }
+
+    private async Task OnProgressMouseMove(MouseEventArgs e)
+    {
+        if (!isDragging)
+            return;
+        await SeekToMousePosition(e);
+    }
+
+    private void OnProgressMouseUp(MouseEventArgs e)
+    {
+        isDragging = false;
+    }
+
+    private async Task SeekToMousePosition(MouseEventArgs e)
+    {
+        const double trackWidth = 400.0;
+        var clickPercent = Math.Clamp(e.OffsetX / trackWidth, 0, 1);
+        var targetFrame = (int)(clickPercent * (PlaybackService.TotalFrames - 1));
+
+        await PlaybackService.SeekToFrameAsync(targetFrame);
+        StateHasChanged();
+    }
+
+    private async Task TogglePlayback()
+    {
+        await PlaybackService.TogglePlaybackAsync();
+        StateHasChanged();
+    }
+
+    private string FormatDuration(DateTime start, DateTime? end)
+    {
+        if (!end.HasValue)
+            return "Duration unknown";
+
+        var duration = end.Value - start;
+        if (duration.TotalHours >= 1)
+            return $"{duration.Hours}h {duration.Minutes}m";
+        if (duration.TotalMinutes >= 1)
+            return $"{duration.Minutes}m {duration.Seconds}s";
+        return $"{duration.Seconds}s";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        if (parts.Length == 1 && parts[0].Length > 0)
+            return parts[0][0].ToString().ToUpper();
+        return "?";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        PlaybackService.OnFrameChanged -= OnFrameChanged;
+        await PlaybackService.DisposeAsync();
+    }
+}
