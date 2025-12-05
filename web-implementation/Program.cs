@@ -145,6 +145,11 @@ builder.Services.AddScoped<DatabaseSeeder>();
 // Author: 2414111
 builder.Services.AddScoped<PressureDataService>();
 
+// Add Pressure Comment Service
+// Author: 2415776
+builder.Services.AddScoped<PressureCommentService>();
+
+
 var app = builder.Build();
 
 // Seed database with essential system accounts

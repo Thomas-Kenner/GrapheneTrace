@@ -1,0 +1,82 @@
+﻿@page "/clinician/comments"
+@rendermode InteractiveServer
+@inject PressureCommentService CommentService
+@using GrapheneTrace.Web.Data.Entities
+@using GrapheneTrace.Web.Services
+
+<h3>Clinician - Patient Comments</h3>
+
+@if (Comments == null)
+{
+    <p>Loading comments...</p>
+}
+else if (!Comments.Any())
+{
+    <p>No patient comments found.</p>
+}
+else
+{
+    @foreach (var comment in Comments)
+    {
+        <div class="card mb-3 p-3">
+
+            <b>Patient ID:</b> @comment.PatientId <br />
+            <b>Time:</b> @comment.CreatedAt.ToLocalTime() <br />
+            <b>Comment:</b> @comment.Comment
+
+            <hr />
+
+            @if (string.IsNullOrWhiteSpace(comment.Reply))
+            {
+                <textarea class="form-control"
+                          placeholder="Write reply..."
+                          @bind="comment.TempReply">
+                </textarea>
+
+                <br />
+                <button class="btn btn-success"
+                        @onclick="() => SubmitReply(comment)">
+                    Reply
+                </button>
+            }
+            else
+            {
+                <p style="color: green;">
+                    <b>Replied:</b> @comment.Reply
+                    <br />
+                    <small>@comment.RepliedAt?.ToLocalTime()</small>
+                </p>
+            }
+
+        </div>
+    }
+}
+
+@code {
+
+    private List<PressureComment> Comments = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Comments = await CommentService.GetAllCommentsAsync();
+    }
+
+    private async Task SubmitReply(PressureComment comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment.TempReply))
+            return;
+
+        var success = await CommentService.AddReplyAsync(comment.Id, comment.TempReply);
+
+        if (success)
+        {
+            comment.Reply = comment.TempReply;
+            comment.RepliedAt = DateTime.UtcNow;
+            comment.TempReply = "";
+        }
+        else
+        {
+            Console.WriteLine("❌ REPLY FAILED");
+        }
+    }
+}
