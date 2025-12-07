@@ -13,19 +13,21 @@ public class ChatService
         _context = context;
     }
 
+    // Author: SID:2412494
+    // Updated to use PatientClinicians model with soft-delete filter (UnassignedAt == null)
     public async Task<List<ApplicationUser>> GetAssignedUsersAsync(Guid userId, string userType)
     {
         if (userType == "clinician")
         {
-            return await _context.PatientClinicianAssignments
-                .Where(a => a.ClinicianId == userId)
+            return await _context.PatientClinicians
+                .Where(a => a.ClinicianId == userId && a.UnassignedAt == null)
                 .Select(a => a.Patient!)
                 .ToListAsync();
         }
         else if (userType == "patient")
         {
-            return await _context.PatientClinicianAssignments
-                .Where(a => a.PatientId == userId)
+            return await _context.PatientClinicians
+                .Where(a => a.PatientId == userId && a.UnassignedAt == null)
                 .Select(a => a.Clinician!)
                 .ToListAsync();
         }

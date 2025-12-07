@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace GrapheneTrace.Web.Data.Migrations
 {
     /// <inheritdoc />
+    /// Author: SID:2412494
+    /// Updated to only add ChatMessages table (PatientClinicianAssignments replaced by PatientClinicians from main)
     public partial class AddChatSupport : Migration
     {
         /// <inheritdoc />
@@ -39,32 +41,6 @@ namespace GrapheneTrace.Web.Data.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "PatientClinicianAssignments",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    PatientId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ClinicianId = table.Column<Guid>(type: "uuid", nullable: false),
-                    AssignedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PatientClinicianAssignments", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PatientClinicianAssignments_AspNetUsers_ClinicianId",
-                        column: x => x.ClinicianId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PatientClinicianAssignments_AspNetUsers_PatientId",
-                        column: x => x.PatientId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
             migrationBuilder.CreateIndex(
                 name: "IX_ChatMessages_ReceiverId",
                 table: "ChatMessages",
@@ -79,17 +55,6 @@ namespace GrapheneTrace.Web.Data.Migrations
                 name: "IX_ChatMessages_SentAt",
                 table: "ChatMessages",
                 column: "SentAt");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PatientClinicianAssignments_ClinicianId",
-                table: "PatientClinicianAssignments",
-                column: "ClinicianId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PatientClinicianAssignments_PatientId_ClinicianId",
-                table: "PatientClinicianAssignments",
-                columns: new[] { "PatientId", "ClinicianId" },
-                unique: true);
         }
 
         /// <inheritdoc />
@@ -97,9 +62,6 @@ namespace GrapheneTrace.Web.Data.Migrations
         {
             migrationBuilder.DropTable(
                 name: "ChatMessages");
-
-            migrationBuilder.DropTable(
-                name: "PatientClinicianAssignments");
         }
     }
 }

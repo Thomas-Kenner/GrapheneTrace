@@ -329,6 +329,28 @@ public class UserManagementService
     }
 
     /// <summary>
+    /// Gets all patients assigned to a specific clinician.
+    /// Uses PatientClinician model with soft-delete (UnassignedAt == null for active assignments).
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="clinicianId">The clinician's user ID</param>
+    /// <returns>List of assigned patients</returns>
+    public async Task<List<ApplicationUser>> GetPatientsByClinicianAsync(Guid clinicianId)
+    {
+        await using var context = await _dbContextFactory.CreateDbContextAsync();
+        var patientIds = await context.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Select(a => a.PatientId)
+            .ToListAsync();
+
+        return await context.Users
+            .Where(u => patientIds.Contains(u.Id) && u.DeactivatedAt == null)
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Gets all patient IDs assigned to a specific clinician.
     /// Uses PatientClinician model with soft-delete (UnassignedAt == null for active assignments).
     /// Author: SID:2412494

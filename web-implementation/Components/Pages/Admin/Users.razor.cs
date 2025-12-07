@@ -153,4 +153,113 @@ public partial class Users
             _ => "#6b7280"
         };
     }
+
+    #region Patient Assignment Modal
+    // Author: SID:2412494
+    // Patient assignment modal state variables and methods
+
+    private bool showAssignmentModal = false;
+    private ApplicationUser? selectedClinicianForAssignment;
+    private List<ApplicationUser>? allPatients;
+    private HashSet<Guid> assignedPatientIds = new();
+    private bool isLoadingAssignments = false;
+    private bool isProcessingAssignment = false;
+    private string assignmentMessage = "";
+    private bool assignmentSuccess = false;
+
+    /// <summary>
+    /// Opens the patient assignment modal for a clinician.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task OpenAssignmentModal(ApplicationUser clinician)
+    {
+        selectedClinicianForAssignment = clinician;
+        showAssignmentModal = true;
+        isLoadingAssignments = true;
+        assignmentMessage = "";
+
+        allPatients = await UserManagementService.GetAllPatientsAsync();
+        assignedPatientIds = await UserManagementService.GetAssignedPatientIdsAsync(clinician.Id);
+
+        isLoadingAssignments = false;
+    }
+
+    /// <summary>
+    /// Closes the patient assignment modal and resets state.
+    /// Author: SID:2412494
+    /// </summary>
+    private void CloseAssignmentModal()
+    {
+        showAssignmentModal = false;
+        selectedClinicianForAssignment = null;
+        allPatients = null;
+        assignedPatientIds = new HashSet<Guid>();
+        assignmentMessage = "";
+    }
+
+    /// <summary>
+    /// Toggles a patient's assignment to the selected clinician.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task TogglePatientAssignment(Guid patientId, bool shouldAssign)
+    {
+        if (selectedClinicianForAssignment == null)
+            return;
+
+        isProcessingAssignment = true;
+        assignmentMessage = "";
+
+        try
+        {
+            (bool success, string message) result;
+
+            if (shouldAssign)
+            {
+                result = await UserManagementService.AssignPatientToClinicianAsync(
+                    selectedClinicianForAssignment.Id, patientId);
+
+                if (result.success)
+                {
+                    assignedPatientIds.Add(patientId);
+                }
+            }
+            else
+            {
+                result = await UserManagementService.UnassignPatientFromClinicianAsync(
+                    selectedClinicianForAssignment.Id, patientId);
+
+                if (result.success)
+                {
+                    assignedPatientIds.Remove(patientId);
+                }
+            }
+
+            assignmentSuccess = result.success;
+            assignmentMessage = result.message;
+
+            if (result.success)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000);
+                    await InvokeAsync(() =>
+                    {
+                        assignmentMessage = "";
+                        StateHasChanged();
+                    });
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            assignmentSuccess = false;
+            assignmentMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessingAssignment = false;
+        }
+    }
+
+    #endregion
 }

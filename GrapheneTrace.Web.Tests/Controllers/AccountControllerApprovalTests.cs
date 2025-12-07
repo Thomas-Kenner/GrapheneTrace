@@ -103,7 +103,8 @@ public class AccountControllerApprovalTests : IDisposable
 
         // Setup controller
         _mockLogger = new Mock<ILogger<AccountController>>();
-        _controller = new AccountController(_userManager, signInManager, _roleManager, _mockLogger.Object);
+        // Author: SID:2412494 - Fixed to match controller's 3-argument constructor
+        _controller = new AccountController(_userManager, signInManager, _mockLogger.Object);
 
         // Set ControllerContext with HttpContext for redirect operations
         _controller.ControllerContext = new ControllerContext

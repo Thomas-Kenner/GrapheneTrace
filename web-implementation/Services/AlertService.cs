@@ -166,6 +166,7 @@ public class AlertService
     /// <summary>
     /// Gets the list of clinicians assigned to a patient.
     /// Author: SID:2412494
+    /// Updated to use PatientClinicians model with soft-delete filter (UnassignedAt == null)
     /// </summary>
     /// <param name="patientId">The patient's user ID</param>
     /// <returns>List of assigned clinician user IDs</returns>
@@ -173,8 +174,8 @@ public class AlertService
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
 
-        return await context.PatientClinicianAssignments
-            .Where(a => a.PatientId == patientId)
+        return await context.PatientClinicians
+            .Where(a => a.PatientId == patientId && a.UnassignedAt == null)
             .Select(a => a.ClinicianId)
             .ToListAsync();
     }
@@ -182,6 +183,7 @@ public class AlertService
     /// <summary>
     /// Gets all patients assigned to a clinician.
     /// Author: SID:2412494
+    /// Updated to use PatientClinicians model with soft-delete filter (UnassignedAt == null)
     /// </summary>
     /// <param name="clinicianId">The clinician's user ID</param>
     /// <returns>List of assigned patient user IDs</returns>
@@ -189,8 +191,8 @@ public class AlertService
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
 
-        return await context.PatientClinicianAssignments
-            .Where(a => a.ClinicianId == clinicianId)
+        return await context.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
             .Select(a => a.PatientId)
             .ToListAsync();
     }

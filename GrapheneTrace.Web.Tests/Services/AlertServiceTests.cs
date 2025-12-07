@@ -99,12 +99,14 @@ public class AlertServiceTests : IDisposable
         });
 
         // Create patient-clinician assignment
-        _context.PatientClinicianAssignments.Add(new PatientClinicianAssignment
+        // Author: SID:2412494 - Updated to use PatientClinician model
+        _context.PatientClinicians.Add(new PatientClinician
         {
             Id = Guid.NewGuid(),
             PatientId = _testPatientId,
             ClinicianId = _testClinicianId,
-            AssignedAt = DateTime.UtcNow
+            AssignedAt = DateTime.UtcNow,
+            UnassignedAt = null // Active assignment
         });
 
         _context.SaveChanges();

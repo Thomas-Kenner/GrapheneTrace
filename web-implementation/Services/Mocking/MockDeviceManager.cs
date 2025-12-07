@@ -252,8 +252,9 @@ public class MockDeviceManager : IAsyncDisposable
         }
 
         // Get all assigned patients with their names
-        var assignedPatients = await dbContext.PatientClinicianAssignments
-            .Where(a => a.ClinicianId == clinicianId)
+        // Author: SID:2412494 - Updated to use PatientClinicians with soft-delete filter
+        var assignedPatients = await dbContext.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
             .Join(dbContext.Users,
                 assignment => assignment.PatientId,
                 user => user.Id,
@@ -390,9 +391,9 @@ public class MockDeviceManager : IAsyncDisposable
     }
 
     // Author: SID:2412494
-    // Implemented actual PatientClinicianAssignments query to replace temporary all-patients implementation.
+    // Updated to use PatientClinicians model with soft-delete filter (UnassignedAt == null)
     /// <summary>
-    /// Gets authorized patient IDs for a clinician based on PatientClinicianAssignments.
+    /// Gets authorized patient IDs for a clinician based on PatientClinicians.
     /// </summary>
     /// <returns>List of patient IDs assigned to the clinician, empty if clinician is not approved.</returns>
     private async Task<IReadOnlyList<Guid>> GetAuthorizedPatientIdsForClinicianAsync(Guid clinicianId)
@@ -406,10 +407,10 @@ public class MockDeviceManager : IAsyncDisposable
             return Array.Empty<Guid>();
         }
 
-        // Query PatientClinicianAssignments to get assigned patient IDs
-        // Only include patients who are not deactivated
-        return await dbContext.PatientClinicianAssignments
-            .Where(a => a.ClinicianId == clinicianId)
+        // Query PatientClinicians to get assigned patient IDs
+        // Only include active assignments (UnassignedAt == null) and non-deactivated patients
+        return await dbContext.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
             .Join(dbContext.Users,
                 assignment => assignment.PatientId,
                 user => user.Id,
