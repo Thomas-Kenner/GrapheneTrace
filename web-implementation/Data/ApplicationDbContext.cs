@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using GrapheneTrace.Web.Models;
 using System.Security.Cryptography.X509Certificates;
-using GrapheneTrace.Web.Data.Entities;
 
 
 namespace GrapheneTrace.Web.Data;
