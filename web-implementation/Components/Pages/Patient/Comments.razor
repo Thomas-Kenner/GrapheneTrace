@@ -1,0 +1,154 @@
+@*
+    Patient Comments Page
+    Author: 2415776
+    Updated: SID:2412494 - Added authorization, removed debug code and emojis
+
+    Purpose: Allows patients to add comments to their pressure map data
+    and view clinician replies.
+
+    User Story #13: As a patient, I want to add comments to the pressure map
+    at times when I was aware of key information that isn't recorded by the
+    sensor to help explain readings or add extra info for my clinician.
+*@
+@page "/patient/comments"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
+@inject PressureCommentService CommentService
+@inject AuthenticationStateProvider AuthState
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
+<h3>Pressure Map Comments</h3>
+
+@if (!string.IsNullOrEmpty(StatusMessage))
+{
+    <div class="alert @(StatusIsError ? "alert-danger" : "alert-success")" role="alert">
+        @StatusMessage
+    </div>
+}
+
+<div class="mb-3">
+    <label for="newComment" class="form-label">Add a comment about your pressure readings:</label>
+    <textarea id="newComment" class="form-control" @bind="NewComment"
+              placeholder="Enter your comment (e.g., 'I was sitting in my wheelchair during this time')"></textarea>
+</div>
+<button class="btn btn-primary" @onclick="Submit" disabled="@IsSubmitting">
+    @(IsSubmitting ? "Submitting..." : "Submit Comment")
+</button>
+
+<hr />
+
+<h4>Your Previous Comments</h4>
+
+@if (PatientComments == null)
+{
+    <p>Loading...</p>
+}
+else if (!PatientComments.Any())
+{
+    <p>No comments yet.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var comment in PatientComments)
+        {
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <strong>@comment.CreatedAt.ToLocalTime().ToString("g")</strong>
+                </div>
+                <p class="mb-1">@comment.Comment</p>
+                @if (!string.IsNullOrEmpty(comment.Reply))
+                {
+                    <div class="mt-2 p-2 bg-light rounded">
+                        <strong>Clinician Reply:</strong> @comment.Reply
+                        <br />
+                        <small class="text-muted">Replied: @comment.RepliedAt?.ToLocalTime().ToString("g")</small>
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    // Author: 2415776
+    // Updated: SID:2412494 - Refactored to remove debug code and improve error handling
+
+    private List<PressureComment> PatientComments = new();
+    private string NewComment = "";
+    private string StatusMessage = "";
+    private bool StatusIsError = false;
+    private bool IsSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadComments();
+    }
+
+    private async Task LoadComments()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var user = auth.User;
+        var id = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(id, out var userId))
+        {
+            StatusIsError = true;
+            StatusMessage = "Unable to identify user. Please log in again.";
+            return;
+        }
+
+        PatientComments = await CommentService.GetCommentsForPatientAsync(userId);
+    }
+
+    private async Task Submit()
+    {
+        if (IsSubmitting) return;
+
+        StatusMessage = "";
+        StatusIsError = false;
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var user = auth.User;
+            var id = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!Guid.TryParse(id, out var userId))
+            {
+                StatusIsError = true;
+                StatusMessage = "Unable to identify user. Please log in again.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(NewComment))
+            {
+                StatusIsError = true;
+                StatusMessage = "Please enter a comment before submitting.";
+                return;
+            }
+
+            IsSubmitting = true;
+            StateHasChanged();
+
+            await CommentService.AddCommentAsync(userId, userId, NewComment);
+
+            NewComment = "";
+            await LoadComments();
+
+            StatusIsError = false;
+            StatusMessage = "Comment added successfully.";
+        }
+        catch (Exception)
+        {
+            StatusIsError = true;
+            StatusMessage = "An error occurred while adding your comment. Please try again.";
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+}

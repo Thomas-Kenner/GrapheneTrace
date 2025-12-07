@@ -169,6 +169,10 @@ builder.Services.AddTransient<HeatmapPlaybackService>();
 // Creates one mock device per patient, clinicians access same instances
 builder.Services.AddSingleton<MockDeviceManager>();
 
+// Add Pressure Comment Service
+// Author: 2415776
+builder.Services.AddScoped<PressureCommentService>();
+
 var app = builder.Build();
 
 // Seed database with essential system accounts (if enabled)

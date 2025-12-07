@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using GrapheneTrace.Web.Models;
 using System.Security.Cryptography.X509Certificates;
 
+
 namespace GrapheneTrace.Web.Data;
 
 /// <summary>
@@ -226,4 +227,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     // Connect the PatientSessionData and PatientSnapshotData models to the database
     public DbSet<PatientSessionData> PatientSessionDatas { get; set; }
     public DbSet<PatientSnapshotData> PatientSnapshotDatas { get; set; }
+    
+    //Author:2415776
+    
+    public DbSet<PressureComment> PressureComments { get; set; }
+
 }

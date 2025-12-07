@@ -1,0 +1,162 @@
+@*
+    Clinician Comments Page
+    Author: 2415776
+    Updated: SID:2412494 - Added authorization, removed debug code, filtered to assigned patients
+
+    Purpose: Allows clinicians to view and reply to comments from their assigned patients.
+
+    User Story #14: As a clinician, I want to view and reply to patients comments
+    on their pressure map to help in my analysis and give them extra information
+    they need quickly.
+*@
+@page "/clinician/comments"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@inject PressureCommentService CommentService
+@inject AuthenticationStateProvider AuthState
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
+<h3>Patient Comments</h3>
+<p class="text-muted">View and respond to comments from your assigned patients.</p>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @ErrorMessage
+    </div>
+}
+
+@if (PatientComments == null)
+{
+    <p>Loading comments...</p>
+}
+else if (!PatientComments.Any())
+{
+    <p>No comments from your assigned patients.</p>
+}
+else
+{
+    @foreach (var comment in PatientComments)
+    {
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between">
+                <span>
+                    <strong>Patient:</strong> @GetPatientName(comment.PatientId)
+                </span>
+                <span class="text-muted">
+                    @comment.CreatedAt.ToLocalTime().ToString("g")
+                </span>
+            </div>
+            <div class="card-body">
+                <p class="card-text">@comment.Comment</p>
+
+                <hr />
+
+                @if (string.IsNullOrWhiteSpace(comment.Reply))
+                {
+                    <div class="mb-2">
+                        <textarea class="form-control"
+                                  placeholder="Write your reply..."
+                                  @bind="comment.TempReply"
+                                  rows="2"></textarea>
+                    </div>
+                    <button class="btn btn-success btn-sm"
+                            @onclick="() => SubmitReply(comment)"
+                            disabled="@(ReplyingCommentId == comment.Id)">
+                        @(ReplyingCommentId == comment.Id ? "Sending..." : "Send Reply")
+                    </button>
+                }
+                else
+                {
+                    <div class="bg-light p-2 rounded">
+                        <strong>Your Reply:</strong>
+                        <p class="mb-1">@comment.Reply</p>
+                        <small class="text-muted">Replied: @comment.RepliedAt?.ToLocalTime().ToString("g")</small>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    // Author: 2415776
+    // Updated: SID:2412494 - Added filtering by assigned patients, removed debug code
+
+    private List<PressureComment>? PatientComments;
+    private Dictionary<Guid, string> PatientNames = new();
+    private string? ErrorMessage;
+    private int? ReplyingCommentId;
+    private Guid _clinicianId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var user = auth.User;
+        var id = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(id, out _clinicianId))
+        {
+            ErrorMessage = "Unable to identify clinician. Please log in again.";
+            return;
+        }
+
+        await LoadComments();
+    }
+
+    private async Task LoadComments()
+    {
+        try
+        {
+            // Get comments only from assigned patients
+            var (comments, patientNames) = await CommentService.GetCommentsForClinicianAsync(_clinicianId);
+            PatientComments = comments;
+            PatientNames = patientNames;
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "An error occurred while loading comments.";
+            PatientComments = new List<PressureComment>();
+        }
+    }
+
+    private string GetPatientName(Guid patientId)
+    {
+        return PatientNames.TryGetValue(patientId, out var name) ? name : $"Patient {patientId.ToString()[..8]}...";
+    }
+
+    private async Task SubmitReply(PressureComment comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment.TempReply))
+            return;
+
+        ReplyingCommentId = comment.Id;
+        StateHasChanged();
+
+        try
+        {
+            var success = await CommentService.AddReplyAsync(comment.Id, comment.TempReply);
+
+            if (success)
+            {
+                comment.Reply = comment.TempReply;
+                comment.RepliedAt = DateTime.UtcNow;
+                comment.TempReply = "";
+            }
+            else
+            {
+                ErrorMessage = "Failed to submit reply. Please try again.";
+            }
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "An error occurred while submitting your reply.";
+        }
+        finally
+        {
+            ReplyingCommentId = null;
+        }
+    }
+}
