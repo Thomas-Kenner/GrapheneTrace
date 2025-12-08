@@ -1,163 +1,399 @@
 @page "/account-creation"
-@inherits LayoutComponentBase
-@using GrapheneTrace.Web.Models
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject SignInManager<ApplicationUser> SignInManager
+@layout Layout.AuthLayout
+@using GrapheneTrace.Web.Components.UI
 @inject NavigationManager Navigation
 @inject HttpClient Http
 @rendermode InteractiveServer
 
 @*
-    Main Application Layout
+    Account Creation Page
     Author: SID:2412494
+    Route: /account-creation
 
-    Purpose: Primary layout for authenticated application pages with navigation and authentication gate.
+    Purpose: Multi-step account registration wizard for new users.
 
-    Design Pattern: Layout component with authentication guard.
-    Why: Centralizes authentication checking and prevents code duplication across all protected pages.
+    Design Pattern: Wizard pattern with progressive disclosure.
+    Why: Breaks complex form into manageable steps, reducing cognitive load and form abandonment.
 
-    Authentication Flow:
-    1. OnInitialized checks if user is authenticated
-    2. If not authenticated AND not on /login or /account-creation, redirect to /login
-    3. If authenticated, render full layout with sidebar, navigation, and content
-    4. Subscribe to auth state changes to re-render when user logs in/out
+    Step 1: Personal information (name, email, password)
+    Step 2: Privacy policy review and acceptance (required for GDPR/legal compliance)
+    Step 3: Success confirmation with account summary
 
-    IDisposable Implementation: Unsubscribes from auth state change event.
-    Why: Prevents memory leaks from event handler references when component is destroyed.
+    Implementation: RenderFragment pattern for step rendering.
+    Why: Keeps all step logic in one file while maintaining clean separation between steps.
+    Alternative considered: Separate components per step, rejected for simplicity and state sharing.
 
-    Layout Structure:
-    - Sidebar: Navigation menu (NavMenu component)
-    - Top bar: User greeting and logout button
-    - Main content area: Renders page content via @Body
+    State Management: Local component state (currentStep, formData, acceptedPolicy).
+    Why: No need for global state - data only relevant during registration flow.
 
-    Usage: Automatically applied to all pages except those with explicit @layout directive.
+    Visual Feedback: Step indicator with progress bar and completed step checkmarks.
+    Why: Users can see their progress and understand how many steps remain.
+
+    Current Implementation: Creates account without database persistence for UI development.
+    Production TODO: Integrate with user registration API, email verification, password strength validation.
 *@
 
-@if (isAuthenticated)
-{
-    <div class="page">
-        <div class="content-wrapper">
-            <main>
-                <article class="content">
-                    @Body
-                </article>
-            </main>
-        </div>
-    </div>
-}
+<link rel="stylesheet" href="css/auth.css" />
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+<div class="auth-container">
+    <div style="width: 100%; max-width: 42rem; padding: 1.5rem;">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step-indicator-inner">
+                @for (int i = 1; i <= 3; i++)
+                {
+                    var stepNum = i;
+                    <div class="step-wrapper">
+                        <div class="step-content">
+                            <div class="step-circle @(GetStepClass(stepNum))">
+                                @if (stepNum < currentStep)
+                                {
+                                    <span>✓</span>
+                                }
+                                else
+                                {
+                                    <span>@stepNum</span>
+                                }
+                            </div>
+                            <span class="step-label">
+                                @(stepNum == 1 ? "Personal Info" : stepNum == 2 ? "Privacy Policy" : "Complete")
+                            </span>
+                        </div>
+                        @if (i < 3)
+                        {
+                            <div class="step-connector @(i < currentStep ? "completed" : "")"></div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: @(progress)%"></div>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <Card>
+            @if (currentStep == 1)
+            {
+                @RenderStep1()
+            }
+            else if (currentStep == 2)
+            {
+                @RenderStep2()
+            }
+            else if (currentStep == 3)
+            {
+                @RenderStep3()
+            }
+        </Card>
+    </div>
 </div>
 
 @code {
-    private bool isAuthenticated = false;
-    private string userName = "";
+    // Component state for wizard flow
+    private int currentStep = 1;
+    private bool acceptedPolicy = false;
+    private string firstName = "";
+    private string lastName = "";
+    private string email = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string userType = "patient";  // Default to patient
+    private string? errorMessage = null;
+    private bool isLoading = false;
 
     /// <summary>
-    /// Component lifecycle hook: runs once when component is first rendered.
+    /// Calculates progress percentage for progress bar (0-100).
+    /// </summary>
+    /// <remarks>
+    /// Formula: (currentStep / totalSteps) * 100
+    /// Why computed property: Automatically updates when currentStep changes without manual calculation.
+    /// </remarks>
+    private double progress => (currentStep / 3.0) * 100;
+
+    /// <summary>
+    /// Determines CSS class for step indicator based on current progress.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="step">Step number to evaluate (1-3)</param>
+    /// <returns>"active" if current step, "completed" if past step, empty string if future step</returns>
+    /// <remarks>
+    /// Visual States:
+    /// - "active": Current step - primary color with border
+    /// - "completed": Past steps - filled primary color with checkmark
+    /// - default: Future steps - neutral color outline
+    /// </remarks>
+    private string GetStepClass(int step)
+    {
+        if (step == currentStep)
+            return "active";
+        if (step < currentStep)
+            return "completed";
+        return "";
+    }
+
+    /// <summary>
+    /// Renders Step 1: Personal information collection (name, email, password).
     /// Author: SID:2412494
     /// </summary>
     /// <remarks>
-    /// Updated to use ASP.NET Core Identity's AuthenticationStateProvider.
+    /// Design Pattern: RenderFragment for inline step definition.
+    /// Why: Keeps step logic close to state management while avoiding separate component files.
     ///
-    /// Authentication Gate Logic:
-    /// - Check authentication state via GetAuthenticationStateAsync()
-    /// - Extract user identity and name from ClaimsPrincipal
-    /// - Redirect unauthenticated users to /login (except those on auth pages)
-    /// - Subscribe to authentication state changes
+    /// Navigation: Back button returns to /login, Continue advances to step 2.
+    /// Why back to login: First step should allow users to return to login if they already have an account.
     ///
-    /// Why AuthenticationStateProvider: Identity's built-in mechanism for tracking
-    /// authentication state in Blazor. Automatically updated by Identity on login/logout.
-    ///
-    /// Edge Case Handling:
-    /// - Auth pages (/login, /account-creation) excluded from redirect
-    /// - Prevents infinite redirect loop
+    /// Validation: None at this step for flexibility during UI development.
+    /// Production TODO: Add real-time email format validation, password strength meter,
+    /// duplicate email checking.
     /// </remarks>
-    protected override async Task OnInitializedAsync()
-    {
-        await CheckAuthenticationState();
+    private RenderFragment RenderStep1() => @<text>
+        <CardHeader>
+            <h1 class="card-title">Create Your Account</h1>
+            <p class="card-description">Enter your personal information to get started</p>
+        </CardHeader>
 
-        // Subscribe to auth state changes for automatic UI updates
-        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
-    }
+        <CardContent>
+            <FormGroup Label="First Name"
+                       Id="firstName"
+                       Placeholder="John"
+                       @bind-Value="firstName" />
+
+            <FormGroup Label="Last Name"
+                       Id="lastName"
+                       Placeholder="Doe"
+                       @bind-Value="lastName" />
+
+            <FormGroup Label="Email Address"
+                       Id="email"
+                       InputType="email"
+                       Placeholder="john@example.com"
+                       @bind-Value="email" />
+
+            <FormGroup Label="Password"
+                       Id="password"
+                       InputType="password"
+                       Placeholder="••••••••••••"
+                       @bind-Value="password" />
+
+            <FormGroup Label="Confirm Password"
+                       Id="confirmPassword"
+                       InputType="password"
+                       Placeholder="••••••••••••"
+                       @bind-Value="confirmPassword" />
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">
+                    Account Type
+                </label>
+                <select @bind="userType" style="width: 100%; padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;">
+                    <option value="patient">Patient</option>
+                    <option value="clinician">Clinician</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div style="color: var(--destructive); font-size: 0.875rem; margin-top: 0.5rem;">
+                    @errorMessage
+                </div>
+            }
+        </CardContent>
+
+        <CardFooter>
+            <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/login"))">
+                Back
+            </Button>
+            <Button OnClick="@(() => currentStep = 2)" Disabled="@isLoading">
+                Continue
+            </Button>
+        </CardFooter>
+    </text>;
 
     /// <summary>
-    /// Checks current authentication state and updates component state.
-    /// Author: SID:2412494
-    /// </summary>
-    private async Task CheckAuthenticationState()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        isAuthenticated = user.Identity?.IsAuthenticated ?? false;
-        userName = user.Identity?.Name ?? "Unknown";
-
-        // Redirect unauthenticated users to login (except those already on auth pages)
-        if (!isAuthenticated && !IsAuthPage())
-        {
-            Navigation.NavigateTo("/login", forceLoad: true);
-        }
-    }
-
-    /// <summary>
-    /// Handles authentication state change events.
-    /// Author: SID:2412494
-    /// </summary>
-    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
-    {
-        await CheckAuthenticationState();
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Checks if current page is an authentication page.
-    /// Author: SID:2412494
-    /// </summary>
-    private bool IsAuthPage()
-    {
-        var path = new Uri(Navigation.Uri).AbsolutePath;
-        return path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
-               path.Equals("/account-creation", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Handles user logout action using ASP.NET Core Identity.
+    /// Renders Step 2: Privacy policy review and acceptance.
     /// Author: SID:2412494
     /// </summary>
     /// <remarks>
-    /// Uses SignInManager.SignOutAsync() to:
-    /// - Invalidate authentication cookie
-    /// - Clear session
-    /// - Update AuthenticationStateProvider automatically
+    /// Legal Requirement: Privacy policy acceptance is required for GDPR compliance and user consent tracking.
     ///
-    /// Identity's SignOutAsync triggers AuthenticationStateChanged event,
-    /// which updates all subscribed components.
+    /// UX Design: Scrollable area with Lorem Ipsum placeholder text.
+    /// Why scrollable: Ensures users can review full policy without page length issues.
+    /// Why Lorem Ipsum: Placeholder for actual legal text to be provided by legal team.
+    ///
+    /// Validation: Continue button disabled until checkbox is checked.
+    /// Why: Prevents accidental progression without explicit policy acceptance.
+    /// Legal implication: Explicit checkbox interaction provides audit trail of consent.
+    ///
+    /// Navigation: Back returns to step 1, Continue requires checkbox and advances to step 3.
     /// </remarks>
-    private async Task HandleLogout()
-    {
-        await SignInManager.SignOutAsync();
-        Navigation.NavigateTo("/login", forceLoad: true);
-    }
+    private RenderFragment RenderStep2() => @<text>
+        <CardHeader>
+            <h1 class="card-title">Privacy Policy</h1>
+            <p class="card-description">Please review and accept our privacy policy to continue</p>
+        </CardHeader>
+
+        <CardContent>
+            <div class="privacy-scroll-area">
+                <div class="privacy-content">
+                    <div style="margin-bottom: 1rem;">
+                        <h3>1. Introduction</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>2. Information We Collect</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>3. How We Use Your Information</h3>
+                        <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>4. Information Sharing</h3>
+                        <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>5. Data Security</h3>
+                        <p>Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>6. Your Rights</h3>
+                        <p>Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur.</p>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <h3>7. Cookies and Tracking</h3>
+                        <p>Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur.</p>
+                    </div>
+
+                    <div>
+                        <p style="font-size: 0.75rem;">Last Updated: October 13, 2025</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox"
+                       class="checkbox-input"
+                       id="accept-policy"
+                       checked="@acceptedPolicy"
+                       @onchange="@((e) => acceptedPolicy = (bool)e.Value!)" />
+                <label class="checkbox-label" for="accept-policy">
+                    <div>I have read and accept the Privacy Policy</div>
+                    <p class="checkbox-description">
+                        By checking this box, you acknowledge that you have read and understood our privacy practices.
+                    </p>
+                </label>
+            </div>
+        </CardContent>
+
+        <CardFooter>
+            <Button Variant="outline" OnClick="@(() => currentStep = 1)" Disabled="@isLoading">
+                Back
+            </Button>
+            <Button OnClick="HandleAccountCreation" Disabled="@(!acceptedPolicy || isLoading)">
+                @(isLoading ? "Creating Account..." : "Accept & Continue")
+            </Button>
+        </CardFooter>
+    </text>;
 
     /// <summary>
-    /// IDisposable implementation: cleanup when component is destroyed.
+    /// Renders Step 3: Success confirmation with account summary.
     /// Author: SID:2412494
     /// </summary>
     /// <remarks>
-    /// Memory Leak Prevention: Unsubscribe from event to prevent memory leaks.
-    /// Why necessary: Event handlers create strong references. If not unsubscribed,
-    /// the AuthenticationStateProvider would maintain a reference to this component
-    /// even after it's destroyed, preventing garbage collection.
+    /// Purpose: Provides positive reinforcement and confirms successful account creation.
     ///
-    /// Blazor Lifecycle: Dispose is called when component is removed from render tree.
+    /// UX Pattern: Success state with visual confirmation (checkmark icon) and data summary.
+    /// Why: Reduces user anxiety by explicitly showing what was submitted and confirming success.
+    ///
+    /// Data Display: Shows name, email, and privacy policy acceptance status.
+    /// Why: Allows users to verify their information before proceeding to the application.
+    ///
+    /// Navigation: Form POST to /account/login to sign in with the newly created credentials.
+    /// Why form POST: Sets authentication cookie properly (can't be done via SignalR/Blazor component).
     /// </remarks>
-    public void Dispose()
+    private RenderFragment RenderStep3() => @<text>
+        <CardHeader>
+            <div class="text-center">
+                <div class="success-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h1 class="card-title">Account Created Successfully!</h1>
+                <p class="card-description">
+                    Welcome aboard! Your account has been created and you're ready to get started.
+                </p>
+            </div>
+        </CardHeader>
+
+        <CardContent>
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span class="summary-label">Name</span>
+                    <span class="summary-value">@firstName @lastName</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Email</span>
+                    <span class="summary-value">@email</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Account Type</span>
+                    <span class="summary-value">@(userType switch { "admin" => "Administrator", "clinician" => "Clinician", "patient" => "Patient", _ => userType })</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Privacy Policy</span>
+                    <span class="summary-value" style="color: var(--primary);">Accepted</span>
+                </div>
+            </div>
+        </CardContent>
+
+        <CardFooter>
+            <form method="post" action="/account/login" style="width: 100%;">
+                <input type="hidden" name="Email" value="@email" />
+                <input type="hidden" name="Password" value="@password" />
+                <input type="hidden" name="RememberMe" value="false" />
+                <Button FullWidth="true" Type="submit">
+                    Continue to Dashboard
+                </Button>
+            </form>
+        </CardFooter>
+    </text>;
+
+    /// <summary>
+    /// Handles account creation via HTTP POST to controller endpoint.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Two-Phase Account Creation:
+    /// Phase 1 (This method): Create account in database without signing in
+    ///   - POST to /account/register with X-Requested-With header
+    ///   - Controller creates user, assigns role, returns JSON
+    ///   - On success, display step 3 (success overlay)
+    ///
+    /// Phase 2 (Step 3 form): Sign in with newly created credentials
+    ///   - Traditional HTML form POST to /account/login
+    ///   - Sets authentication cookie properly
+    ///   - Redirects to role-specific dashboard
+    ///
+    /// Why Two Phases:
+    /// Blazor Server components run over SignalR WebSocket. SignInManager can't set cookies
+    /// after the response starts. This approach lets us show a success overlay in the Blazor
+    /// component, then use a traditional form POST to complete authentication with cookies.
+    ///
+    /// Future Enhancements:
+    /// - Send verification email with confirmation token
+    /// - Log account creation event for audit trail (HIPAA requirement)
+    /// - Add CAPTCHA to prevent automated account creation
+    /// </remarks>
+    private async Task HandleAccountCreation()
     {
         errorMessage = null;
 
@@ -241,5 +477,10 @@
     {
         public bool Success { get; set; }
         public string? Message { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Error { get; set; }
     }
 }

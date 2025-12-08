@@ -238,6 +238,7 @@ async Task RunDatabaseSeederAsync(string[] args)
         options.Password.RequiredUniqueChars = 4;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddRoles<IdentityRole<Guid>>()  // Add role manager support for seeding
     .AddDefaultTokenProviders();
 
     builder.Services.AddScoped<DatabaseSeeder>();

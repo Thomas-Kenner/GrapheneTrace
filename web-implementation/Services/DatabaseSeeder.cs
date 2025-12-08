@@ -50,9 +50,14 @@ namespace GrapheneTrace.Web.Services;
 public class DatabaseSeeder
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
     private readonly ILogger<DatabaseSeeder> _logger;
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _context;
+
+    // Role names must match the Authorize attributes on pages (e.g., [Authorize(Roles = "Patient")])
+    // Author: SID:2412494
+    private static readonly string[] Roles = ["Admin", "Clinician", "Patient"];
 
     /// <summary>
     /// System admin account credentials and configuration.
@@ -98,13 +103,16 @@ public class DatabaseSeeder
 
     // Author: SID:2412494
     // Added ApplicationDbContext for session assignment operations
+    // Added RoleManager for Identity role management
     public DatabaseSeeder(
         UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole<Guid>> roleManager,
         ILogger<DatabaseSeeder> logger,
         IConfiguration configuration,
         ApplicationDbContext context)
     {
         _userManager = userManager;
+        _roleManager = roleManager;
         _logger = logger;
         _configuration = configuration;
         _context = context;
@@ -140,6 +148,10 @@ public class DatabaseSeeder
 
             _logger.LogInformation("Starting database seeding...");
 
+            // Ensure Identity roles exist before creating users
+            // Author: SID:2412494
+            await EnsureRolesExistAsync();
+
             var buildTime = DateTime.UtcNow;
             var systemUser = await EnsureSystemAccountExistsAsync();
             var patients = await EnsurePatientsExistAsync(buildTime);
@@ -153,6 +165,34 @@ public class DatabaseSeeder
         {
             _logger.LogError(ex, "Error during database seeding");
             throw; // Re-throw to prevent application startup if seeding fails
+        }
+    }
+
+    /// <summary>
+    /// Ensures Identity roles exist for authorization.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <remarks>
+    /// Roles must exist before users can be assigned to them.
+    /// Role names match [Authorize(Roles = "...")] attributes on pages.
+    /// </remarks>
+    private async Task EnsureRolesExistAsync()
+    {
+        foreach (var roleName in Roles)
+        {
+            if (!await _roleManager.RoleExistsAsync(roleName))
+            {
+                var result = await _roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("Created role: {Role}", roleName);
+                }
+                else
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    _logger.LogError("Failed to create role {Role}: {Errors}", roleName, errors);
+                }
+            }
         }
     }
 
@@ -206,6 +246,10 @@ public class DatabaseSeeder
                 _logger.LogInformation(
                     "System account created successfully: {Email} (ID: {UserId})",
                     SystemEmail, systemUser.Id);
+
+                // Add to Admin role
+                // Author: SID:2412494
+                await _userManager.AddToRoleAsync(systemUser, "Admin");
             }
             else
             {
@@ -216,6 +260,13 @@ public class DatabaseSeeder
         }
         else
         {
+            // System account exists - ensure they have the Admin role
+            // Author: SID:2412494
+            if (!await _userManager.IsInRoleAsync(systemUser, "Admin"))
+            {
+                await _userManager.AddToRoleAsync(systemUser, "Admin");
+            }
+
             // System account exists - reset password to ensure known credentials
             _logger.LogInformation(
                 "System account found (ID: {UserId}), resetting password to default...",
@@ -278,6 +329,10 @@ public class DatabaseSeeder
                     _logger.LogInformation(
                         "Patient account created: {Email} (ID: {UserId})",
                         config.Email, patient.Id);
+
+                    // Add to Patient role
+                    // Author: SID:2412494
+                    await _userManager.AddToRoleAsync(patient, "Patient");
                 }
                 else
                 {
@@ -288,6 +343,13 @@ public class DatabaseSeeder
             }
             else
             {
+                // Ensure patient has the Patient role
+                // Author: SID:2412494
+                if (!await _userManager.IsInRoleAsync(patient, "Patient"))
+                {
+                    await _userManager.AddToRoleAsync(patient, "Patient");
+                }
+
                 _logger.LogInformation(
                     "Patient account found (ID: {UserId}), resetting password...",
                     patient.Id);
@@ -345,6 +407,10 @@ public class DatabaseSeeder
                 _logger.LogInformation(
                     "Approved clinician account created successfully: {Email} (ID: {UserId})",
                     ApprovedClinicianEmail, approvedClinician.Id);
+
+                // Add to Clinician role
+                // Author: SID:2412494
+                await _userManager.AddToRoleAsync(approvedClinician, "Clinician");
             }
             else
             {
@@ -355,6 +421,13 @@ public class DatabaseSeeder
         }
         else
         {
+            // Ensure clinician has the Clinician role
+            // Author: SID:2412494
+            if (!await _userManager.IsInRoleAsync(approvedClinician, "Clinician"))
+            {
+                await _userManager.AddToRoleAsync(approvedClinician, "Clinician");
+            }
+
             _logger.LogInformation(
                 "Approved clinician account found (ID: {UserId}), resetting password and approval status...",
                 approvedClinician.Id);
@@ -410,6 +483,10 @@ public class DatabaseSeeder
                 _logger.LogInformation(
                     "Unapproved clinician account created successfully: {Email} (ID: {UserId})",
                     UnapprovedClinicianEmail, unapprovedClinician.Id);
+
+                // Add to Clinician role (role exists but account not approved yet)
+                // Author: SID:2412494
+                await _userManager.AddToRoleAsync(unapprovedClinician, "Clinician");
             }
             else
             {
@@ -420,6 +497,13 @@ public class DatabaseSeeder
         }
         else
         {
+            // Ensure clinician has the Clinician role
+            // Author: SID:2412494
+            if (!await _userManager.IsInRoleAsync(unapprovedClinician, "Clinician"))
+            {
+                await _userManager.AddToRoleAsync(unapprovedClinician, "Clinician");
+            }
+
             _logger.LogInformation(
                 "Unapproved clinician account found (ID: {UserId}), resetting password and approval status...",
                 unapprovedClinician.Id);
