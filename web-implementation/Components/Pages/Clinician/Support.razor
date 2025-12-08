@@ -1,0 +1,42 @@
+@page "/clinician/support"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Components.Layout
+
+@*
+    Clinician Support Page
+    Author: SID:2402513
+    Route: /clinician/support
+*@
+
+<div class="admin-container">
+    <ClinicianHeader />
+
+    <div class="admin-content">
+        <div class="page-header">
+            <h1 class="section-title page-title">Support & Chat</h1>
+            <p class="page-description">
+                Get help or chat with support staff.
+            </p>
+        </div>
+
+        <div class="activity-card">
+            <div class="support-content">
+                <div class="support-icon">
+                    <i class="bi bi-chat-dots"></i>
+                </div>
+                <h3 class="support-title">Support Chat Coming Soon</h3>
+                <p class="support-message">
+                    We are currently building a dedicated support chat for clinicians.
+                    In the meantime, please contact us via email for any urgent issues.
+                </p>
+                <a href="mailto:support@graphenetrace.com" class="support-email-btn">
+                    Contact Support via Email
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>

@@ -29,17 +29,30 @@
 @implements IAsyncDisposable
 
 <div class="patient-container">
-    <PatientHeader />
+    <header class="patient-header">
+        <div class="header-left">
+            <span class="header-brand">Sensore GrapheneTrace</span>
+            <span class="header-subtitle">Patient Dashboard</span>
+        </div>
+        <div class="header-right">
+            <button class="icon-btn" title="Notifications">🔔</button>
+            <button class="icon-btn" title="Settings">⚙️</button>
+            <form method="post" action="/account/logout" class="logout-form">
+                <button type="submit" class="btn-signout">Sign Out</button>
+            </form>
+        </div>
+    </header>
 
-    <!-- Main Content -->
+    <nav class="patient-nav">
+        <button class="nav-tab active">Dashboard</button>
+        <button class="nav-tab">Pressure Data</button>
+        <button class="nav-tab">Sessions</button>
+        <button class="nav-tab">Settings</button>
+        <button class="nav-tab">Support</button>
+    </nav>
+
     <div class="patient-content">
-        @*
-            TWO-COLUMN LAYOUT
-            Left: Live monitoring (large)
-            Right: Alerts, device status, summary, stats
-        *@
         <div class="dashboard-grid">
-            @* LEFT COLUMN *@
             <div class="left-column">
                 @*
                     LIVE MONITORING CARD
@@ -114,7 +127,6 @@
                 </div>
             </div>
 
-            @* RIGHT COLUMN *@
             <div class="right-column">
                 @*
                     HIGH PRESSURE ALERT CARD
@@ -153,10 +165,6 @@
                     }
                 </div>
 
-                @*
-                    WEEKLY SUMMARY CARD
-                    Uses random inspirational quote as placeholder
-                *@
                 <div class="card summary-card">
                     <h4 class="summary-title">Weekly Summary</h4>
                     <p class="summary-subtitle">AI-Generated Insights</p>
@@ -165,18 +173,15 @@
                     </div>
                 </div>
 
-                @*
-                    STATS GRID - 3 mini cards
-                *@
                 <div class="stats-mini-grid">
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Sessions This Week</h5>
-                        <p class="stat-mini-value">Upcoming</p>
+                        <p class="stat-mini-value">Placeholder</p>
                         <p class="stat-mini-detail">Total: --</p>
                     </div>
                     <div class="card stat-mini-card">
                         <h5 class="stat-mini-title">Alerts This Week</h5>
-                        <p class="stat-mini-value">Upcoming</p>
+                        <p class="stat-mini-value">Placeholder</p>
                         <p class="stat-mini-detail">Down from: --</p>
                     </div>
                     <div class="card stat-mini-card">

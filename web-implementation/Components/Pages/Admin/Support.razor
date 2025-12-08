@@ -1,123 +1,24 @@
-@*
-    ========================================
-    ADMIN SUPPORT PAGE
-    ========================================
-    Author: 2402513
-
-    Purpose:
-    Provides administrative support and help resources for system administrators.
-
-    How it works:
-    - Uses Blazor's @page directive to map to /admin/support route
-    - Implements InteractiveServer render mode
-    - Authorization attribute restricts access to Admin role only
-    - Displays coming soon placeholder for support features
-
-    Why it was done this way:
-    - Consistent structure with other admin pages
-    - Role-based authorization ensures only admins can access
-    - Placeholder shows users that support is planned
-*@
-
 @page "/admin/support"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-@using GrapheneTrace.Web.Models
-@using GrapheneTrace.Web.Services
 @using GrapheneTrace.Web.Components.Layout
-@using Microsoft.AspNetCore.Components.Authorization
-@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="admin-container">
-    @*
-        CONSOLIDATED ADMIN HEADER
-        Author: 2402513
-
-        Purpose:
-        Unified header component for all admin pages combining branding, navigation, and user controls.
-        Replaces separate headers for cleaner visual hierarchy.
-
-        Why it was done this way:
-        - Single consolidated header reduces redundancy
-        - AdminHeader component handles all navigation and user profile display
-        - Maintains consistent styling across all admin pages
-    *@
     <AdminHeader />
 
-    <!-- Main Content -->
     <div class="admin-content">
         <h2 class="section-title">Support</h2>
 
-        @*
-            SUPPORT PLACEHOLDER CARD
-            Author: 2402513
-
-            Purpose:
-            Placeholder card indicating planned support features for future development.
-
-            How it works:
-            - Static card with "coming-soon" CSS class for visual distinction
-            - Informational text only, no interactive elements
-
-            Why it was done this way:
-            - Shows users that support features are planned (sets expectations)
-            - "coming-soon" class applies consistent styling
-            - Maintains consistent page layout for future feature additions
-            - Better UX than empty space or no mention of future features
-        *@
         <div class="settings-card coming-soon">
             <div class="settings-section-header">
                 <h3>Support Center</h3>
                 <p class="settings-description">Coming soon...</p>
             </div>
-            <p style="color: var(--muted-foreground); margin: 0;">Support features will be available in a future update.</p>
+            <p class="support-message">Support features will be available in a future update.</p>
         </div>
     </div>
 
-    @*
-        FOOTER SECTION
-        Author: 2402513
-
-        Purpose:
-        Provides global navigation links (consistent across admin pages).
-
-        How it works:
-        - Simple text links with middot separators
-        - Currently static placeholder
-
-        Why it was done this way:
-        - Maintains consistent footer across all admin pages
-        - Standard web pattern for secondary navigation
-    *@
     <div class="admin-footer">
         <p>Contact us · About · FAQ</p>
     </div>
 </div>
-
-@code {
-    /*
-     * ========================================
-     * CODE-BEHIND SECTION
-     * ========================================
-     * Author: 2402513
-     *
-     * Purpose:
-     * Contains navigation logic for the admin support page.
-     */
-
-    /*
-     * NAVIGATION EVENT HANDLERS
-     * Author: 2402513
-     *
-     * Purpose:
-     * Handle navigation tab clicks to route to other admin pages.
-     *
-     * How it works:
-     * - Methods bound to @onclick events in navigation buttons
-     * - Use NavigationManager.NavigateTo() for client-side routing
-     *
-     * Why it was done this way:
-     * - NavigationManager provides SPA-style navigation without page reload
-     * - Separate methods improve readability and testability
-     */
-}

@@ -1,0 +1,57 @@
+@page "/clinician/settings"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Components.Layout
+
+<div class="admin-container">
+    <ClinicianHeader />
+
+    <div class="admin-content">
+        <div class="page-header">
+            <h1 class="section-title page-title">Settings</h1>
+            <p class="page-description">
+                Manage your account settings and preferences.
+            </p>
+        </div>
+
+        <div class="activity-card">
+            <h3>Profile Information</h3>
+
+            <form @onsubmit="SaveSettings">
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">First Name</label>
+                        <input type="text" @bind="firstName" class="form-input" />
+                    </div>
+                    <div>
+                        <label class="form-label">Last Name</label>
+                        <input type="text" @bind="lastName" class="form-input" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" @bind="email" readonly class="form-input" />
+                    <p class="form-hint">Email cannot be changed. Contact support for assistance.</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Specialization</label>
+                    <input type="text" @bind="specialization" class="form-input" />
+                </div>
+
+                <button type="submit" class="save-btn">
+                    Save Changes
+                </button>
+
+                @if (showSuccessMessage)
+                {
+                    <span class="success-message">Settings saved successfully!</span>
+                }
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
