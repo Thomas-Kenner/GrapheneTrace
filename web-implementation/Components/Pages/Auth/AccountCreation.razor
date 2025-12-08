@@ -140,7 +140,7 @@
     /// Design Pattern: RenderFragment for inline step definition.
     /// Why: Keeps step logic close to state management while avoiding separate component files.
     ///
-    /// Navigation: Back button returns to /login, Continue advances to step 2.
+    /// Navigation: Back button returns to /, Continue advances to step 2.
     /// Why back to login: First step should allow users to return to login if they already have an account.
     ///
     /// Validation: None at this step for flexibility during UI development.
@@ -202,7 +202,7 @@
         </CardContent>
 
         <CardFooter>
-            <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/login"))">
+            <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/"))">
                 Back
             </Button>
             <Button OnClick="@(() => currentStep = 2)" Disabled="@isLoading">

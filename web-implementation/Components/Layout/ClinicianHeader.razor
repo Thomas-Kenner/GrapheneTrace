@@ -1,98 +1,60 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
-@using GrapheneTrace.Web.Services
-@using GrapheneTrace.Web.Models
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IJSRuntime JS
 
 @*
     CLINICIAN HEADER COMPONENT
-    Author: 2402513
+    Author: 2402513, Updated by SID:2412494
 
     Purpose:
-    Header for clinician pages with specific navigation and user controls.
-    Includes patient search functionality.
+    Unified header for all clinician pages with navigation tabs and user controls.
+    Matches the PatientHeader design pattern for consistency.
 
     How it works:
-    - header-left: App branding
-    - header-center: Navigation tabs (Dashboard, Settings, Support)
-    - header-right: Search bar and User profile dropdown
+    - header-left: App branding with "Sensore GrapheneTrace" / "Clinician Dashboard"
+    - header-right: Notifications, settings quick-access, and sign out
+    - clinician-nav: Clean navigation tabs for clinician sections
 *@
 
-<header class="admin-header-consolidated" @ref="headerRef">
-    <div style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem;">
-        <div class="header-left">
-            <a class="header-brand-link" href="/clinician/dashboard">
-                <span class="header-brand">SensorGrapheneTrace</span>
-            </a>
-        </div>
-
-        <div class="nav-tabs">
-            <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
-            <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
-            <button class="nav-tab @GetNavClass("support")" @onclick="GoToSupport">Support/Chat</button>
-        </div>
-
-        <div class="header-right">
-            <div class="search-container" @onclick:stopPropagation="true">
-                <input
-                    type="text"
-                    class="search-input"
-                    placeholder="Search patients..."
-                    @bind="searchQuery"
-                    @oninput="OnSearchInput"
-                />
-                @if (searchResults.Count > 0 && !string.IsNullOrWhiteSpace(searchQuery))
-                {
-                    <div class="search-results">
-                        @foreach (var patient in searchResults.Take(5))
-                        {
-                            <div class="search-result-item" @onclick="() => SelectPatient(patient)">
-                                <div class="result-name">@patient.FullName</div>
-                                <div class="result-email">Condition: @patient.Condition</div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-
-            <div class="profile-section" @onclick:stopPropagation="true">
-                <span class="user-email">@userEmail</span>
-                <div class="profile-dropdown">
-                    <button class="user-avatar" type="button" title="User menu" @onclick="ToggleMenu">
-                    </button>
-                    @if (isMenuOpen)
-                    {
-                        <div class="profile-menu">
-                            <div class="profile-menu-header">
-                                <p class="profile-name">@userName</p>
-                                <p class="profile-email">@userEmail</p>
-                            </div>
-                            <form method="post" action="/account/logout" style="margin: 0;">
-                                <button type="submit" class="profile-menu-item">
-                                    <span class="bi bi-box-arrow-right"></span> Sign Out
-                                </button>
-                            </form>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
+<header class="patient-header">
+    <div class="header-left">
+        <span class="header-brand">Sensore GrapheneTrace</span>
+        <span class="header-subtitle">Clinician Dashboard</span>
+    </div>
+    <div class="header-right">
+        <button class="icon-btn" title="Notifications">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+        </button>
+        <button class="icon-btn" title="Settings" @onclick="GoToSettings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6"></path>
+                <path d="M21 12h-6m-6 0H3"></path>
+            </svg>
+        </button>
+        <form method="post" action="/account/logout" style="display: inline; margin: 0;">
+            <button type="submit" class="btn-signout">Sign Out</button>
+        </form>
     </div>
 </header>
 
+<nav class="patient-nav">
+    <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
+    <button class="nav-tab @GetNavClass("patient-list")" @onclick="GoToPatientList">Patient List</button>
+    <button class="nav-tab @GetNavClass("patient-details")" @onclick="GoToPatientDetails">Patient Details</button>
+    <button class="nav-tab @GetNavClass("contact")" @onclick="GoToContactPatients">Contact Patients</button>
+</nav>
+
 @implements IDisposable
-@inject GrapheneTrace.Web.Services.UserManagementService UserManagementService
 
 @code {
-    private bool isMenuOpen = false;
+    private string currentPath = "";
     private string userName = "";
     private string userEmail = "";
-    private string currentPath = "";
-    private string searchQuery = "";
-    private List<ApplicationUser> searchResults = new();
-    private ElementReference headerRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,85 +80,14 @@
         Navigation.LocationChanged -= OnLocationChanged;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await JS.InvokeVoidAsync("addClickOutsideListener", headerRef, DotNetObjectReference.Create(this));
-        }
-    }
-
-    [JSInvokable]
-    public void CloseMenu()
-    {
-        if (isMenuOpen)
-        {
-            isMenuOpen = false;
-            StateHasChanged();
-        }
-        
-        if (searchResults.Count > 0)
-        {
-            searchResults.Clear();
-            StateHasChanged();
-        }
-    }
-
-    private void ToggleMenu()
-    {
-        isMenuOpen = !isMenuOpen;
-    }
-
     private string GetNavClass(string page)
     {
         return currentPath.Contains(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
     }
 
-    private void GoToDashboard()
-    {
-        Navigation.NavigateTo("/clinician/dashboard");
-    }
-
-    private void GoToSettings()
-    {
-        Navigation.NavigateTo("/clinician/settings");
-    }
-
-    private void GoToSupport()
-    {
-        Navigation.NavigateTo("/clinician/support");
-    }
-
-    private async Task OnSearchInput(ChangeEventArgs e)
-    {
-        searchQuery = e.Value?.ToString() ?? "";
-        
-        if (string.IsNullOrWhiteSpace(searchQuery))
-        {
-            searchResults.Clear();
-            return;
-        }
-
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        
-        if (user.Identity?.IsAuthenticated == true)
-        {
-             var clinicianId = Guid.Parse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString());
-             var patients = await UserManagementService.GetPatientsByClinicianAsync(clinicianId);
-             
-             searchResults = patients
-                .Where(p => p.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) || 
-                            (p.Condition != null && p.Condition.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-        }
-    }
-
-    private void SelectPatient(ApplicationUser patient)
-    {
-        searchQuery = "";
-        searchResults.Clear();
-        // Navigate to patient details or dashboard with selected patient
-        // For now, just clear search
-    }
+    private void GoToDashboard() => Navigation.NavigateTo("/clinician/dashboard");
+    private void GoToPatientList() => Navigation.NavigateTo("/clinician/patient-list");
+    private void GoToPatientDetails() => Navigation.NavigateTo("/clinician/patient-details");
+    private void GoToContactPatients() => Navigation.NavigateTo("/clinician/contact");
+    private void GoToSettings() => Navigation.NavigateTo("/clinician/settings");
 }
