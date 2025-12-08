@@ -130,6 +130,8 @@
 }
 
 /* Heatmap Placeholder */
+/* Author: SID:2412494 */
+/* Updated: 2402513 - Increased min-height to accommodate larger heatmap canvas */
 ::deep .heatmap-placeholder {
   flex: 1;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
@@ -139,7 +141,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 420px;
+  min-height: 550px; /* Updated: 2402513 - Increased from 420px to 550px for larger canvas */
   text-align: center;
   padding: 2rem;
 }
@@ -220,9 +222,8 @@
 }
 
 /* Device Card */
-::deep .device-card {
-
-}
+/* Author: SID:2412494 */
+/* Device card styling - additional styles applied via connected class */
 
 ::deep .device-header {
   display: flex;
@@ -258,9 +259,8 @@
 }
 
 /* Summary Card */
-::deep .summary-card {
-
-}
+/* Author: SID:2412494 */
+/* Summary card styling - additional styles applied via child elements */
 
 ::deep .summary-title {
   font-size: 1.1rem;
@@ -463,16 +463,24 @@
 }
 
 /* Heatmap Container - for canvas */
+/* Author: SID:2412494 */
+/* Updated: 2402513 - Adjusted container styling to accommodate larger canvas size */
 ::deep .heatmap-container {
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 1rem;
+  width: 100%;
+  min-height: 520px; /* Updated: 2402513 - Increased min-height to accommodate larger 512x512 canvas */
 }
 
+/* Updated: 2402513 - Canvas styling for larger heatmap display */
+/* Canvas is now 512x512 pixels (32 cells * 16 pixels) instead of 320x320 (32 * 10) */
 ::deep .heatmap-container canvas {
   border-radius: calc(var(--radius) - 4px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  height: auto;
 }
 
 /* Alert Card Active States */

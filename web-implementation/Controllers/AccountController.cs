@@ -31,9 +31,8 @@ public class AccountController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly ILogger<AccountController> _logger;
-
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         UserManager<ApplicationUser> userManager,
@@ -115,17 +114,49 @@ public class AccountController : ControllerBase
             {
                 _logger.LogInformation("User {UserId} logged in successfully", user.Id);
 
-                // TODO: Add role assignment - ensure user has Identity role matching their UserType
-                // Updated: 2402513 - Added TODO for role assignment implementation
-                // This is needed because pages use [Authorize(Roles = "Clinician")] but roles aren't assigned
-                // Pages require Identity roles (Admin, Clinician, Patient) but users only have UserType property
-                // This TODO should assign the appropriate Identity role based on UserType to enable authorization
-                // Example:
-                // var roleName = user.UserType switch { "admin" => "Admin", "clinician" => "Clinician", "patient" => "Patient", _ => null };
-                // if (!string.IsNullOrEmpty(roleName) && !await _userManager.IsInRoleAsync(user, roleName))
-                // {
-                //     await _userManager.AddToRoleAsync(user, roleName);
-                // }
+                // Assign Identity role based on UserType if user doesn't have one
+                // Author: 2402513 - Added role assignment during login for existing users without roles
+                var roleName = user.UserType switch
+                {
+                    "admin" => "Admin",
+                    "clinician" => "Clinician",
+                    "patient" => "Patient",
+                    _ => "Patient"
+                };
+
+                // Check if user already has the role
+                var isInRole = await _userManager.IsInRoleAsync(user, roleName);
+                if (!isInRole)
+                {
+                    // Ensure the role exists
+                    if (!await _roleManager.RoleExistsAsync(roleName))
+                    {
+                        var roleResult = await _roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                        if (roleResult.Succeeded)
+                        {
+                            _logger.LogInformation("Created role {RoleName} during login", roleName);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to create role {RoleName} during login: {Errors}", 
+                                roleName, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+                        }
+                    }
+
+                    // Assign role to user
+                    var addRoleResult = await _userManager.AddToRoleAsync(user, roleName);
+                    if (addRoleResult.Succeeded)
+                    {
+                        _logger.LogInformation("Assigned role {Role} to existing user {UserId} during login", roleName, user.Id);
+                        // Refresh sign-in to update authentication cookie with new role claims
+                        await _signInManager.RefreshSignInAsync(user);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to assign role {Role} to user {UserId} during login: {Errors}", 
+                            roleName, user.Id, string.Join(", ", addRoleResult.Errors.Select(e => e.Description)));
+                    }
+                }
 
             // Determine redirect path based on user type
             var redirectPath = user.UserType switch
@@ -245,6 +276,10 @@ public class AccountController : ControllerBase
 
                 // Patient accounts are auto-approved - sign in immediately
                 await _signInManager.SignInAsync(user, isPersistent: false);
+                
+                // Refresh sign-in to ensure all claims (including role) are loaded into the cookie
+                // Author: 2402513 - Refresh sign-in to ensure role claims are immediately available
+                await _signInManager.RefreshSignInAsync(user);
 
                 // Determine redirect path
                 var redirectPath = user.UserType switch
@@ -255,8 +290,9 @@ public class AccountController : ControllerBase
                     _ => "/patient/dashboard"
                 };
 
-                // Redirect via HTTP 302 so browser picks up authentication cookie
-                return Redirect(redirectPath);
+                // Return JSON response for Blazor component to handle navigation
+                // Author: 2402513 - Changed from Redirect to JSON response for Blazor component handling
+                return Ok(new { success = true, redirectUrl = redirectPath });
             }
 
             // Return validation errors
@@ -275,6 +311,7 @@ public class AccountController : ControllerBase
     /// Handles logout via traditional HTTP POST.
     /// Author: SID:2412494
     /// Updated: 2402513 - Changed redirect URL from /login to / to match updated login page route
+    /// Updated: 2402513 - Changed from JSON response to HTTP redirect for form submissions
     /// </summary>
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
@@ -283,13 +320,13 @@ public class AccountController : ControllerBase
         {
             await _signInManager.SignOutAsync();
             _logger.LogInformation("User logged out successfully");
-            // Updated: 2402513 - Changed redirect URL from /login to / to match updated login page route
-            return Ok(new { redirectUrl = "/" });
+            // Updated: 2402513 - Return HTTP redirect instead of JSON for form submissions
+            return Redirect("/");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
-            return StatusCode(500, new { error = "An error occurred during logout" });
+            return Redirect("/?error=" + Uri.EscapeDataString("An error occurred during logout"));
         }
     }
 }

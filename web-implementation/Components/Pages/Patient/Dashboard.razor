@@ -314,12 +314,25 @@
         }
     }
 
+    /// <summary>
+    /// Initializes the JavaScript heatmap renderer on the canvas element.
+    /// Author: SID:2412494
+    /// Updated: 2402513 - Increased cell size from 10 to 16 pixels for better visibility
+    /// </summary>
+    /// <remarks>
+    /// The cell size determines the pixel dimensions of each sensor cell in the 32x32 grid.
+    /// With cellSize=16, the canvas will be 512x512 pixels (32 * 16), providing better
+    /// visibility while maintaining all functionality. The heatmap will be larger and easier
+    /// to see without losing any data or rendering capabilities.
+    /// </remarks>
     private async Task InitializeCanvasAsync()
     {
         if (_isCanvasInitialized)
             return;
 
-        await JS.InvokeVoidAsync("heatmapRenderer.initialize", _canvasId, _minValue, _maxValue, 10);
+        // Updated: 2402513 - Increased cell size from 10 to 16 pixels for better visibility
+        // Canvas size will be 512x512 pixels (32 * 16) instead of 320x320 (32 * 10)
+        await JS.InvokeVoidAsync("heatmapRenderer.initialize", _canvasId, _minValue, _maxValue, 16);
         _isCanvasInitialized = true;
     }
 

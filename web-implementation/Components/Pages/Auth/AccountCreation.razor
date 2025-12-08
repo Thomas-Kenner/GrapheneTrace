@@ -3,6 +3,7 @@
 @using GrapheneTrace.Web.Components.UI
 @inject NavigationManager Navigation
 @inject HttpClient Http
+@inject ILogger<AccountCreation> Logger
 @rendermode InteractiveServer
 
 @*
@@ -447,16 +448,44 @@
 
             if (response.IsSuccessStatusCode)
             {
-                // Account created successfully - move to step 3 (success overlay)
-                var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
-                Console.WriteLine("Account created successfully, showing success overlay");
-                currentStep = 3;
+                // Account created successfully - parse JSON response
+                // Author: 2402513 - Updated to handle JSON response with redirect URL
+                try
+                {
+                    var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
+                    if (result != null && result.Success && !string.IsNullOrEmpty(result.RedirectUrl))
+                    {
+                        // Navigate to the appropriate dashboard
+                        Navigation.NavigateTo(result.RedirectUrl, forceLoad: true);
+                        return;
+                    }
+                    else
+                    {
+                        // Fallback: show success overlay
+                        Console.WriteLine("Account created successfully, showing success overlay");
+                        currentStep = 3;
+                    }
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    // If JSON parsing fails, try to navigate to default dashboard
+                    Logger.LogWarning("Failed to parse registration response as JSON, redirecting to default dashboard");
+                    Navigation.NavigateTo("/patient/dashboard", forceLoad: true);
+                    return;
+                }
             }
             else
             {
                 // Parse error message
-                var errorResult = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                errorMessage = errorResult?.Error ?? "An error occurred while creating your account";
+                try
+                {
+                    var errorResult = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                    errorMessage = errorResult?.Error ?? "An error occurred while creating your account";
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    errorMessage = $"An error occurred while creating your account. Status: {response.StatusCode}";
+                }
                 currentStep = 1;  // Go back to step 1
             }
         }
@@ -477,6 +506,7 @@
     {
         public bool Success { get; set; }
         public string? Message { get; set; }
+        public string? RedirectUrl { get; set; }
     }
 
     private class ErrorResponse
