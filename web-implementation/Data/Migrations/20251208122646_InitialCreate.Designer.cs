@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace GrapheneTrace.Web.Data.Migrations
+namespace GrapheneTrace.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251207011340_AddPressureComments")]
-    partial class AddPressureComments
+    [Migration("20251208122646_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,38 +24,6 @@ namespace GrapheneTrace.Web.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("GrapheneTrace.Web.Data.Entities.PressureComment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Comment")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("RepliedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Reply")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PressureComments");
-                });
 
             modelBuilder.Entity("GrapheneTrace.Web.Models.ApplicationUser", b =>
                 {
@@ -166,6 +134,39 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.HasIndex("UserType");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("GrapheneTrace.Web.Models.ChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ReceiverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("SentAt");
+
+                    b.ToTable("ChatMessages");
                 });
 
             modelBuilder.Entity("GrapheneTrace.Web.Models.PatientClinician", b =>
@@ -316,6 +317,8 @@ namespace GrapheneTrace.Web.Data.Migrations
 
                     b.HasKey("PatientSettingsId");
 
+                    b.HasIndex("UpdatedAt");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("PatientSettings");
@@ -355,6 +358,40 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.HasIndex("SnapshotId");
 
                     b.ToTable("PatientSnapshotDatas");
+                });
+
+            modelBuilder.Entity("GrapheneTrace.Web.Models.PressureComment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RepliedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reply")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PressureComments");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -501,6 +538,25 @@ namespace GrapheneTrace.Web.Data.Migrations
                     b.Navigation("ApprovedByAdmin");
 
                     b.Navigation("AssignedClinician");
+                });
+
+            modelBuilder.Entity("GrapheneTrace.Web.Models.ChatMessage", b =>
+                {
+                    b.HasOne("GrapheneTrace.Web.Models.ApplicationUser", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GrapheneTrace.Web.Models.ApplicationUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("GrapheneTrace.Web.Models.PatientClinician", b =>
