@@ -1,0 +1,140 @@
+@page "/clinician/contact"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+
+@*
+    Clinician Contact Patients Page
+    Author: 2402513
+
+    Purpose:
+    Provides a messaging interface for clinicians to communicate with their
+    assigned patients. This is currently a UI mockup with placeholder data.
+
+    Features:
+    - Patient list table showing most recent message
+    - Messaging interface with message bubbles
+    - Patient selection to view conversation history
+    - Message input field (UI only, no backend functionality yet)
+*@
+
+<div class="patient-container">
+    <ClinicianHeader />
+
+    <div class="clinician-content">
+        <div class="page-header">
+            <h2 class="section-title">Contact Patients</h2>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading">Loading patients...</div>
+        }
+        else
+        {
+            <div class="contact-layout">
+                <!-- Patient List Section -->
+                <div class="patient-list-section">
+                    <div class="card">
+                        <h3 class="card-title">Patients</h3>
+                        <div class="patient-list-table-container">
+                            <table class="patient-list-table">
+                                <thead>
+                                    <tr>
+                                        <th>Patient</th>
+                                        <th>Most Recent Message</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (patients == null || patients.Count == 0)
+                                    {
+                                        <tr>
+                                            <td colspan="3" class="no-patients">No patients assigned yet.</td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var patientInfo in patients)
+                                        {
+                                            <tr class="@(selectedPatientId == patientInfo.PatientId ? "selected" : "")"
+                                                @onclick="() => SelectPatient(patientInfo.PatientId)">
+                                                <td>
+                                                    <strong>@patientInfo.Patient?.FirstName @patientInfo.Patient?.LastName</strong>
+                                                    <br />
+                                                    <span class="patient-email">@patientInfo.Patient?.Email</span>
+                                                </td>
+                                                <td>
+                                                    @if (patientInfo.MostRecentMessage != null)
+                                                    {
+                                                        <div class="message-preview">
+                                                            <span class="message-text">@patientInfo.MostRecentMessage</span>
+                                                            <span class="message-time">@patientInfo.MostRecentMessageTime</span>
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="no-message">No messages yet</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <button class="contact-btn" @onclick:stopPropagation="true" @onclick="() => SelectPatient(patientInfo.PatientId)">
+                                                        Contact
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messaging Section -->
+                <div class="messaging-section">
+                    <div class="card messaging-card">
+                        @if (selectedPatient == null)
+                        {
+                            <div class="no-selection">
+                                <p>Select a patient to start messaging</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="messaging-header">
+                                <h3 class="messaging-title">@selectedPatient.FirstName @selectedPatient.LastName</h3>
+                                <span class="messaging-email">@selectedPatient.Email</span>
+                            </div>
+
+                            <div class="messages-container">
+                                @foreach (var message in mockMessages)
+                                {
+                                    <div class="message-bubble @(message.IsFromPatient ? "patient-message" : "clinician-message")">
+                                        <div class="message-content">
+                                            <p class="message-text">@message.Text</p>
+                                            <span class="message-timestamp">@message.Timestamp</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="message-input-container">
+                                <input type="text" 
+                                       class="message-input" 
+                                       placeholder="Type your message..." 
+                                       @bind="newMessage" />
+                                <button class="send-btn" @onclick="SendMessage" disabled="@string.IsNullOrWhiteSpace(newMessage)">
+                                    Send
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+

@@ -20,7 +20,7 @@
 <header class="patient-header">
     <div class="header-left">
         <span class="header-brand">Sensore GrapheneTrace</span>
-        <span class="header-subtitle">Clinician Dashboard</span>
+        <span class="header-subtitle">@GetSubtitle()</span>
     </div>
     <div class="header-right">
         <button class="icon-btn" title="Notifications">
@@ -45,7 +45,6 @@
 <nav class="patient-nav">
     <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
     <button class="nav-tab @GetNavClass("patient-list")" @onclick="GoToPatientList">Patient List</button>
-    <button class="nav-tab @GetNavClass("patient-details")" @onclick="GoToPatientDetails">Patient Details</button>
     <button class="nav-tab @GetNavClass("contact")" @onclick="GoToContactPatients">Contact Patients</button>
 </nav>
 
@@ -87,7 +86,31 @@
 
     private void GoToDashboard() => Navigation.NavigateTo("/clinician/dashboard");
     private void GoToPatientList() => Navigation.NavigateTo("/clinician/patient-list");
-    private void GoToPatientDetails() => Navigation.NavigateTo("/clinician/patient-details");
     private void GoToContactPatients() => Navigation.NavigateTo("/clinician/contact");
     private void GoToSettings() => Navigation.NavigateTo("/clinician/settings");
+
+    /// <summary>
+    /// Gets the subtitle text based on the current page.
+    /// Author: 2402513
+    /// Updated: 2402513 - Added dynamic subtitle based on current page route
+    /// </summary>
+    private string GetSubtitle()
+    {
+        if (currentPath.Contains("/patient-list", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Clinician Patient List";
+        }
+        else if (currentPath.Contains("/patient-details", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Clinician Patient Details";
+        }
+        else if (currentPath.Contains("/contact", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Clinician Contact Patients";
+        }
+        else
+        {
+            return "Clinician Dashboard";
+        }
+    }
 }

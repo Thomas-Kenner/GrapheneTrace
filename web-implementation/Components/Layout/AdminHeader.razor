@@ -37,6 +37,8 @@
     <div class="nav-tabs">
         <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
         <button class="nav-tab @GetNavClass("users")" @onclick="GoToUsers">Users</button>
+        <!-- Author: 2402513 - Added navigation tab for Patient-Clinician Assignment page -->
+        <button class="nav-tab @GetNavClass("patient-clinician-assignment")" @onclick="GoToPatientClinicianAssignment">Assignments</button>
         <button class="nav-tab @GetNavClass("approvals")" @onclick="GoToApprovals">Approvals</button>
         <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
         <button class="nav-tab @GetNavClass("support")" @onclick="GoToSupport">Support</button>
@@ -177,6 +179,20 @@
     private void GoToSupport()
     {
         Navigation.NavigateTo("/admin/support");
+    }
+
+    /// <summary>
+    /// Navigates to the Patient-Clinician Assignment page.
+    /// Author: 2402513
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Navigation handler for the new admin assignment management page.
+    /// Allows administrators to directly assign patients to clinicians and manage
+    /// existing assignments without requiring approval workflow.
+    /// </remarks>
+    private void GoToPatientClinicianAssignment()
+    {
+        Navigation.NavigateTo("/admin/patient-clinician-assignment");
     }
 
     private void ToggleMenu()

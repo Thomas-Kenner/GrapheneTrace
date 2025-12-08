@@ -113,6 +113,7 @@
     /// <summary>
     /// Navigates user to their appropriate dashboard based on role.
     /// Author: SID:2412494
+    /// Updated: 2402513 - Changed default fallback from /login to / to match the updated login page route
     /// </summary>
     private void GoToDashboard()
     {
@@ -121,7 +122,7 @@
             "admin" => "/admin/dashboard",
             "clinician" => "/clinician/dashboard",
             "patient" => "/patient/dashboard",
-            _ => "/login"
+            _ => "/"  // Updated: 2402513 - Changed from /login to /
         };
 
         Navigation.NavigateTo(dashboardPath);
@@ -130,10 +131,11 @@
     /// <summary>
     /// Navigates to login page.
     /// Author: SID:2412494
+    /// Updated: 2402513 - Changed from /login to / to match the updated login page route
     /// </summary>
     private void GoToLogin()
     {
-        Navigation.NavigateTo("/login");
+        Navigation.NavigateTo("/");
     }
 
     /// <summary>

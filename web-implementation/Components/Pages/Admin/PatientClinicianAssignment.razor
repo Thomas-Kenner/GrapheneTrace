@@ -1,0 +1,158 @@
+@*
+    Patient-Clinician Assignment Page
+    Author: 2402513
+    Route: /admin/patient-clinician-assignment
+
+    Purpose: Allows administrators to directly assign patients to clinicians and manage
+    existing assignments. Admin assignments bypass the normal approval workflow.
+
+    Design Pattern: Matches existing admin page styling (Users.razor pattern) for consistency.
+    Uses modal for assignment form, table for displaying existing assignments.
+
+    Features:
+    - View all patient-clinician assignments in a table format
+    - Assign patients to clinicians via modal form
+    - Unassign patients from clinicians (soft delete)
+    - Display active/inactive assignment status
+    - Shows patient and clinician names/emails
+
+    Authorization: Admin role required
+*@
+@page "/admin/patient-clinician-assignment"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Components.Layout
+
+<div class="admin-container">
+    <AdminHeader />
+
+    <div class="admin-content">
+        <div class="page-header">
+            <h2 class="section-title">Patient-Clinician Assignment</h2>
+            <button class="btn btn-primary" @onclick="() => showAssignModal = true">
+                + Assign Patient to Clinician
+            </button>
+        </div>
+
+        @if (isLoading)
+        {
+            <p>Loading assignments...</p>
+        }
+        else if (filteredAssignments == null || filteredAssignments.Count == 0)
+        {
+            <p class="no-data-message">No patient-clinician assignments found</p>
+        }
+        else
+        {
+            <div class="users-table-container">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>Patient Email</th>
+                            <th>Clinician Name</th>
+                            <th>Clinician Email</th>
+                            <th>Assigned Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var assignment in filteredAssignments)
+                        {
+                            <tr>
+                                <td>@(assignment.Patient?.FullName ?? "Unknown")</td>
+                                <td>@(assignment.Patient?.Email ?? "N/A")</td>
+                                <td>@(assignment.Clinician?.FullName ?? "Unknown")</td>
+                                <td>@(assignment.Clinician?.Email ?? "N/A")</td>
+                                <td>@assignment.AssignedAt.ToString("yyyy-MM-dd")</td>
+                                <td>
+                                    @if (assignment.UnassignedAt == null)
+                                    {
+                                        <span class="status-badge status-active">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-inactive">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        @if (assignment.UnassignedAt == null)
+                                        {
+                                            <button class="btn-action btn-delete" 
+                                                    @onclick="() => UnassignPatient(assignment.PatientId, assignment.ClinicianId)">
+                                                Unassign
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: var(--muted-foreground); font-size: 0.85rem;">Unassigned</span>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+</div>
+
+@if (showAssignModal)
+{
+    <div class="modal-overlay" @onclick="() => showAssignModal = false">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Assign Patient to Clinician</h3>
+                <button class="modal-close" @onclick="() => showAssignModal = false">×</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Patient</label>
+                    <select class="form-input" @bind="selectedPatientId">
+                        <option value="">Select a patient</option>
+                        @foreach (var patient in patients)
+                        {
+                            <option value="@patient.Id">@patient.FullName (@patient.Email)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Clinician</label>
+                    <select class="form-input" @bind="selectedClinicianId">
+                        <option value="">Select a clinician</option>
+                        @foreach (var clinician in clinicians)
+                        {
+                            <option value="@clinician.Id">@clinician.FullName (@clinician.Email)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (!string.IsNullOrEmpty(assignMessage))
+                {
+                    <div class="alert @(assignSuccess ? "alert-success" : "alert-error")">
+                        @assignMessage
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-outline" @onclick="() => showAssignModal = false">Cancel</button>
+                <button class="btn btn-primary" @onclick="AssignPatient" 
+                        disabled="@(selectedPatientId == Guid.Empty || selectedClinicianId == Guid.Empty)">
+                    Assign
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
