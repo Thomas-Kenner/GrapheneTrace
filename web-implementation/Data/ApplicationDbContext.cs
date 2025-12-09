@@ -59,6 +59,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     /// </summary>
     public DbSet<PatientSettings> PatientSettings { get; set; }
 
+    /// <summary>
+    /// Comments made by patients on their pressure sessions, with optional clinician replies.
+    /// Author: 2415776 (original), SID:2412494 (integration)
+    /// </summary>
+    public DbSet<PressureComment> PressureComments { get; set; }
 
     /// <summary>
     /// Configures the database schema using Fluent API.

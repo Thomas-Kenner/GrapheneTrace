@@ -20,6 +20,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject PressureDataService PressureDataService
 @inject HeatmapPlaybackService PlaybackService
+@inject PressureCommentService CommentService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -99,7 +100,8 @@
                                 <p class="session-time">Choose a session from the list to view details</p>
                             }
                         </div>
-                        <button class="add-comment-btn">Add Comment</button>
+                        <button class="add-comment-btn" @onclick="OpenCommentOverlay"
+                                disabled="@(selectedSession == null)">Add Comment</button>
                     </div>
                 </div>
 
@@ -160,10 +162,32 @@
                     <div class="card comments-card">
                         <h4 class="section-title">Comments & Notes</h4>
                         <div class="comments-list">
-                            <div class="comment-item">
-                                <div class="comment-time">--</div>
-                                <div class="comment-text">No comments for this session</div>
-                            </div>
+                            @* Session comments display - Author: SID:2412494 *@
+                            @if (sessionComments == null || sessionComments.Count == 0)
+                            {
+                                <div class="comment-item">
+                                    <div class="comment-time">--</div>
+                                    <div class="comment-text">No comments for this session</div>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var comment in sessionComments)
+                                {
+                                    <div class="comment-item">
+                                        <div class="comment-time">
+                                            Frame @((comment.FrameIndex ?? 0) + 1)
+                                        </div>
+                                        <div class="comment-text">@comment.Comment</div>
+                                        @if (!string.IsNullOrEmpty(comment.Reply))
+                                        {
+                                            <div class="comment-reply">
+                                                <strong>Clinician:</strong> @comment.Reply
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
                         </div>
                     </div>
 
@@ -180,6 +204,38 @@
             </div>
         </div>
     </div>
+
+    @* Comment Overlay - Author: SID:2412494 *@
+    @if (showCommentOverlay)
+    {
+        <div class="comment-overlay-backdrop" @onclick="CloseCommentOverlay">
+            <div class="comment-overlay" @onclick:stopPropagation="true">
+                <div class="comment-overlay-header">
+                    <h4>Add Comment</h4>
+                    <button class="close-btn" @onclick="CloseCommentOverlay">&times;</button>
+                </div>
+                <div class="comment-overlay-body">
+                    <p class="frame-info">
+                        Frame @(capturedFrameIndex + 1) of @PlaybackService.TotalFrames
+                    </p>
+                    <textarea class="comment-textarea"
+                              placeholder="Enter your comment about this frame..."
+                              @bind="newCommentText"
+                              rows="4"></textarea>
+                    @if (!string.IsNullOrEmpty(commentError))
+                    {
+                        <p class="comment-error">@commentError</p>
+                    }
+                </div>
+                <div class="comment-overlay-footer">
+                    <button class="btn-cancel" @onclick="CloseCommentOverlay">Cancel</button>
+                    <button class="btn-submit" @onclick="SubmitComment" disabled="@isSubmittingComment">
+                        @(isSubmittingComment ? "Submitting..." : "Submit Comment")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -192,8 +248,25 @@
     private bool isInitialized;
     private bool isPlaybackInitialized;
 
+    // Comment overlay state - Author: SID:2412494
+    private bool showCommentOverlay;
+    private string newCommentText = "";
+    private string? commentError;
+    private bool isSubmittingComment;
+    private int capturedFrameIndex;
+    private Guid _userId;
+    private List<PressureComment>? sessionComments;
+
     protected override async Task OnInitializedAsync()
     {
+        // Author: SID:2412494 - Capture user ID for comments
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            _userId = userId;
+        }
+
         await LoadSessionsAsync();
     }
 
@@ -280,6 +353,9 @@
             PlaybackService.StartPlayback();
         }
 
+        // Load comments for this session - Author: SID:2412494
+        await LoadSessionCommentsAsync();
+
         StateHasChanged();
     }
 
@@ -351,6 +427,91 @@
         if (duration.TotalMinutes >= 1)
             return $"{duration.Minutes}m {duration.Seconds}s";
         return $"{duration.Seconds}s";
+    }
+
+    // Comment overlay methods - Author: SID:2412494
+    private async Task OpenCommentOverlay()
+    {
+        if (selectedSession == null || PlaybackService.CurrentSessionId == null)
+            return;
+
+        // Pause playback and capture current frame
+        await PlaybackService.PausePlaybackAsync();
+        capturedFrameIndex = PlaybackService.CurrentFrameIndex;
+
+        // Reset state and show overlay
+        newCommentText = "";
+        commentError = null;
+        showCommentOverlay = true;
+        StateHasChanged();
+    }
+
+    private void CloseCommentOverlay()
+    {
+        showCommentOverlay = false;
+        newCommentText = "";
+        commentError = null;
+    }
+
+    private async Task SubmitComment()
+    {
+        if (string.IsNullOrWhiteSpace(newCommentText))
+        {
+            commentError = "Please enter a comment.";
+            return;
+        }
+
+        if (_userId == Guid.Empty || PlaybackService.CurrentSessionId == null)
+        {
+            commentError = "Unable to submit comment. Please try again.";
+            return;
+        }
+
+        isSubmittingComment = true;
+        commentError = null;
+        StateHasChanged();
+
+        try
+        {
+            await CommentService.AddCommentAsync(
+                _userId,
+                _userId,
+                newCommentText,
+                PlaybackService.CurrentSessionId,
+                capturedFrameIndex
+            );
+
+            // Close overlay and reload comments
+            showCommentOverlay = false;
+            newCommentText = "";
+            await LoadSessionCommentsAsync();
+        }
+        catch (Exception)
+        {
+            commentError = "Failed to submit comment. Please try again.";
+        }
+        finally
+        {
+            isSubmittingComment = false;
+        }
+    }
+
+    private async Task LoadSessionCommentsAsync()
+    {
+        if (selectedSessionId == null)
+        {
+            sessionComments = null;
+            return;
+        }
+
+        try
+        {
+            sessionComments = await CommentService.GetCommentsForSessionAsync(selectedSessionId.Value);
+        }
+        catch
+        {
+            sessionComments = new List<PressureComment>();
+        }
     }
 
     public async ValueTask DisposeAsync()
