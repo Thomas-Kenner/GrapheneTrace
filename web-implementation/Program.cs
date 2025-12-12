@@ -155,6 +155,10 @@ builder.Services.AddScoped<UserManagementService>();
 // Author: SID:2412494
 builder.Services.AddScoped<PatientSettingsService>();
 
+// Add Notification Service
+// Author: SID:2412494
+builder.Services.AddScoped<NotificationService>();
+
 // Add Database Seeder
 // Author: SID:2412494
 builder.Services.AddScoped<DatabaseSeeder>();
@@ -232,8 +236,12 @@ async Task RunDatabaseSeederAsync(string[] args)
     var builder = WebApplication.CreateBuilder(args);
 
     // Add required services for seeding
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    // Author: SID:2412494 - Use AddPooledDbContextFactory which provides both DbContext and IDbContextFactory
+    builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    // Also register scoped DbContext for services that need it directly (like DatabaseSeeder)
+    builder.Services.AddScoped(sp =>
+        sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
     builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
     {

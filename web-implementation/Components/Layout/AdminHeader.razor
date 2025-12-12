@@ -153,6 +153,14 @@
         StateHasChanged();
     }
 
+    // Author: SID:2412494 - Backwards compatibility alias for old JS function name
+    [JSInvokable]
+    public void CloseDropdownsFromJS()
+    {
+        CloseDropdowns();
+        StateHasChanged();
+    }
+
     private async Task OnSearchInput(ChangeEventArgs e)
     {
         searchQuery = e.Value?.ToString() ?? "";

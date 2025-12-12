@@ -105,6 +105,14 @@ public partial class Users
             return;
         }
 
+        // Author: SID:2412494 - Validate user type is selected to prevent accounts without roles
+        if (string.IsNullOrEmpty(newUser.UserType))
+        {
+            createMessage = "Please select a user type";
+            createSuccess = false;
+            return;
+        }
+
         newUser.UserName = newUser.Email;
 
         var (success, message) = await UserManagementService.CreateUserAsync(

@@ -41,6 +41,11 @@ namespace GrapheneTrace.Web.Migrations
                     AssignedClinicianId = table.Column<Guid>(type: "uuid", nullable: true),
                     DateOfBirth = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Condition = table.Column<string>(type: "text", nullable: true),
+                    Phone = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
+                    Address = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    City = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    Postcode = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
+                    Country = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     UserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -70,6 +75,26 @@ namespace GrapheneTrace.Web.Migrations
                         column: x => x.AssignedClinicianId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PressureComments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    PatientId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SessionId = table.Column<int>(type: "integer", nullable: true),
+                    FrameIndex = table.Column<int>(type: "integer", nullable: true),
+                    Comment = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
+                    Reply = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    RepliedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PressureComments", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -469,6 +494,9 @@ namespace GrapheneTrace.Web.Migrations
 
             migrationBuilder.DropTable(
                 name: "PatientSnapshotDatas");
+
+            migrationBuilder.DropTable(
+                name: "PressureComments");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

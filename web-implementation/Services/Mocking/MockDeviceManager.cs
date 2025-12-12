@@ -28,7 +28,15 @@ public class MockDeviceManager : IAsyncDisposable
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly PressureThresholdsConfig _thresholdsConfig;
     private readonly ConcurrentDictionary<Guid, MockHeatmapDevice> _patientDevices = new();
+    // Author: SID:2412494 - Track session IDs for each device to update end time on dispose
+    private readonly ConcurrentDictionary<Guid, int> _deviceSessionIds = new();
     private readonly SemaphoreSlim _createLock = new(1, 1);
+    // Author: SID:2412494 - Track peak pressure per session for persistence
+    private readonly ConcurrentDictionary<Guid, int> _sessionPeakPressures = new();
+    // Author: SID:2412494 - Buffer for batch saving snapshots
+    private readonly ConcurrentDictionary<Guid, ConcurrentQueue<(HeatmapFrame Frame, int SessionId)>> _snapshotBuffers = new();
+    private readonly ConcurrentDictionary<Guid, DateTime> _lastSnapshotSaveTime = new();
+    private const int SnapshotSaveIntervalMs = 1000; // Save snapshots every second
     private bool _disposed;
 
     public MockDeviceManager(
@@ -48,6 +56,8 @@ public class MockDeviceManager : IAsyncDisposable
     /// <summary>
     /// Get or create a mock device for a patient.
     /// Creates device if not exists and auto-starts it.
+    /// Uses existing device ID from database if patient has prior sessions.
+    /// Author: SID:2412494 - Updated to persist device IDs and create sessions
     /// </summary>
     /// <param name="patientId">Patient user ID</param>
     /// <returns>The patient's mock device (started automatically)</returns>
@@ -80,8 +90,9 @@ public class MockDeviceManager : IAsyncDisposable
                 _patientDevices.TryRemove(patientId, out _);
             }
 
-            // Verify patient exists
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+
+            // Verify patient exists
             var patient = await dbContext.Users
                 .FirstOrDefaultAsync(u => u.Id == patientId && u.UserType == "patient");
 
@@ -90,12 +101,29 @@ public class MockDeviceManager : IAsyncDisposable
                 throw new InvalidOperationException($"Patient with ID {patientId} not found");
             }
 
-            // Create new device
+            // Author: SID:2412494
+            // Look up patient's device ID from the most recent session, or generate new one
+            var deviceId = await GetDeviceIdForPatientAsync(dbContext, patientId);
+
+            // Create new device with the determined device ID
             var deviceLogger = _loggerFactory.CreateLogger<MockHeatmapDevice>();
-            var device = new MockHeatmapDevice(patientId, _thresholdsConfig, deviceLogger);
+            var device = new MockHeatmapDevice(patientId, _thresholdsConfig, deviceLogger, deviceId);
 
             if (_patientDevices.TryAdd(patientId, device))
             {
+                // Author: SID:2412494
+                // Create a new session in the database for this monitoring session
+                var sessionId = await CreateSessionForDeviceAsync(dbContext, device);
+
+                // Author: SID:2412494
+                // Initialize snapshot buffer and subscribe to frame events for persistence
+                _snapshotBuffers[patientId] = new ConcurrentQueue<(HeatmapFrame, int)>();
+                _lastSnapshotSaveTime[patientId] = DateTime.UtcNow;
+                _sessionPeakPressures[patientId] = 0;
+
+                // Subscribe to frame events to save snapshots
+                device.OnFrameGenerated += frame => OnDeviceFrameGenerated(patientId, sessionId, frame);
+
                 device.Start();
                 _logger.LogInformation(
                     "Created and started mock device {DeviceId} for patient {PatientId} ({PatientName})",
@@ -116,15 +144,73 @@ public class MockDeviceManager : IAsyncDisposable
     }
 
     /// <summary>
-    /// Get all devices the clinician is authorized to view.
+    /// Gets the device ID for a patient from their most recent session, or generates a new one.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="dbContext">Database context</param>
+    /// <param name="patientId">Patient user ID</param>
+    /// <returns>Device ID to use for this patient</returns>
+    private async Task<string> GetDeviceIdForPatientAsync(ApplicationDbContext dbContext, Guid patientId)
+    {
+        // Find the most recent session for this patient to get their device ID
+        var mostRecentSession = await dbContext.PatientSessionDatas
+            .Where(s => s.PatientId == patientId)
+            .OrderByDescending(s => s.Start)
+            .FirstOrDefaultAsync();
+
+        if (mostRecentSession != null && !string.IsNullOrEmpty(mostRecentSession.DeviceId))
+        {
+            _logger.LogDebug(
+                "Using existing device ID {DeviceId} for patient {PatientId} from session {SessionId}",
+                mostRecentSession.DeviceId, patientId, mostRecentSession.SessionId);
+            return mostRecentSession.DeviceId;
+        }
+
+        // No prior sessions - generate a new unique device ID
+        var newDeviceId = MockHeatmapDevice.GenerateUniqueDeviceId();
+        _logger.LogDebug(
+            "Generated new device ID {DeviceId} for patient {PatientId} (no prior sessions)",
+            newDeviceId, patientId);
+        return newDeviceId;
+    }
+
+    /// <summary>
+    /// Creates a new session in the database when a mock device starts.
+    /// Author: SID:2412494
+    /// </summary>
+    /// <param name="dbContext">Database context</param>
+    /// <param name="device">The mock device that was created</param>
+    /// <returns>The created session ID</returns>
+    private async Task<int> CreateSessionForDeviceAsync(ApplicationDbContext dbContext, MockHeatmapDevice device)
+    {
+        var session = new PatientSessionData
+        {
+            PatientId = device.PatientId,
+            DeviceId = device.DeviceId,
+            Start = DateTime.UtcNow,
+            End = null, // Will be set when device is disposed
+            PeakSessionPressure = null,
+            ClinicianFlag = false
+        };
+
+        dbContext.PatientSessionDatas.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        // Store session ID for later update when device stops
+        _deviceSessionIds[device.PatientId] = session.SessionId;
+
+        _logger.LogInformation(
+            "Created session {SessionId} for device {DeviceId} patient {PatientId}",
+            session.SessionId, device.DeviceId, device.PatientId);
+
+        return session.SessionId;
+    }
+
+    /// <summary>
+    /// Get all active mock devices the clinician is authorized to view based on patient assignments.
     /// </summary>
     /// <param name="clinicianId">Clinician user ID</param>
-    /// <returns>Collection of authorized mock devices</returns>
-    /// <remarks>
-    /// TODO: When PatientClinicianAssignments table is implemented, update this method
-    /// to only return devices for assigned patients.
-    /// Currently returns all active devices for any approved clinician.
-    /// </remarks>
+    /// <returns>Collection of authorized mock devices (only running, non-disposed devices)</returns>
     public async Task<IReadOnlyList<MockHeatmapDevice>> GetDevicesForClinicianAsync(Guid clinicianId)
     {
         ThrowIfDisposed();
@@ -161,6 +247,71 @@ public class MockDeviceManager : IAsyncDisposable
         return TryGetDevice(patientId);
     }
 
+    // Author: SID:2412494
+    // Added method to retrieve all assigned patients with their active device status for clinician dashboard.
+    /// <summary>
+    /// Get all assigned patients with their device status for clinician dashboard display.
+    /// Returns all patients assigned to the clinician, whether or not they have an active device.
+    /// </summary>
+    /// <param name="clinicianId">Clinician user ID</param>
+    /// <returns>List of patient device info records, empty if clinician is not approved</returns>
+    public async Task<IReadOnlyList<ClinicianPatientDeviceInfo>> GetPatientDeviceInfoForClinicianAsync(Guid clinicianId)
+    {
+        ThrowIfDisposed();
+
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+
+        // Verify clinician is approved
+        var clinician = await dbContext.Users.FindAsync(clinicianId);
+        if (clinician?.UserType != "clinician" || clinician.ApprovedAt == null)
+        {
+            _logger.LogWarning("Clinician {ClinicianId} not found or not approved", clinicianId);
+            return Array.Empty<ClinicianPatientDeviceInfo>();
+        }
+
+        // Get all assigned patients with their names
+        var assignedPatients = await dbContext.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Join(dbContext.Users,
+                assignment => assignment.PatientId,
+                user => user.Id,
+                (assignment, user) => new
+                {
+                    user.Id,
+                    user.FirstName,
+                    user.LastName,
+                    user.DeactivatedAt
+                })
+            .Where(x => x.DeactivatedAt == null)
+            .ToListAsync();
+
+        // Build result list with device status
+        var result = new List<ClinicianPatientDeviceInfo>(assignedPatients.Count);
+
+        foreach (var patient in assignedPatients)
+        {
+            var device = TryGetDevice(patient.Id);
+            var hasActiveDevice = device != null && device.Status == DeviceStatus.Running;
+            var currentFrame = device?.GetCurrentFrame();
+            var alerts = currentFrame?.Alerts ?? MedicalAlert.None;
+
+            result.Add(new ClinicianPatientDeviceInfo(
+                PatientId: patient.Id,
+                PatientName: $"{patient.FirstName} {patient.LastName}".Trim(),
+                HasActiveDevice: hasActiveDevice,
+                Device: device,
+                DeviceStatus: device?.Status,
+                ActiveAlerts: alerts
+            ));
+        }
+
+        _logger.LogDebug(
+            "Retrieved {Count} patient device info records for clinician {ClinicianId}, {ActiveCount} with active devices",
+            result.Count, clinicianId, result.Count(r => r.HasActiveDevice));
+
+        return result;
+    }
+
     /// <summary>
     /// Check if a device exists for a patient.
     /// </summary>
@@ -185,13 +336,167 @@ public class MockDeviceManager : IAsyncDisposable
 
     /// <summary>
     /// Stop and remove a specific patient's device.
+    /// Also finalizes the session in the database with end time and peak pressure.
+    /// Author: SID:2412494 - Updated to finalize session on dispose
     /// </summary>
     public async Task DisposeDeviceAsync(Guid patientId)
     {
         if (_patientDevices.TryRemove(patientId, out var device))
         {
+            // Flush any remaining snapshots before finalizing
+            await FlushSnapshotBufferAsync(patientId);
+
+            // Finalize the session before disposing the device
+            await FinalizeSessionAsync(patientId, device);
+
+            // Clean up buffers
+            _snapshotBuffers.TryRemove(patientId, out _);
+            _lastSnapshotSaveTime.TryRemove(patientId, out _);
+            _sessionPeakPressures.TryRemove(patientId, out _);
+
             await device.DisposeAsync();
             _logger.LogInformation("Disposed mock device for patient {PatientId}", patientId);
+        }
+    }
+
+    /// <summary>
+    /// Called when a frame is generated by a device. Buffers frames for batch saving.
+    /// Author: SID:2412494
+    /// </summary>
+    private void OnDeviceFrameGenerated(Guid patientId, int sessionId, HeatmapFrame frame)
+    {
+        if (!_snapshotBuffers.TryGetValue(patientId, out var buffer))
+            return;
+
+        // Update peak pressure tracking
+        _sessionPeakPressures.AddOrUpdate(patientId, frame.PeakPressure,
+            (_, current) => Math.Max(current, frame.PeakPressure));
+
+        // Add frame to buffer
+        buffer.Enqueue((frame, sessionId));
+
+        // Check if we should save (time-based batching)
+        if (_lastSnapshotSaveTime.TryGetValue(patientId, out var lastSave))
+        {
+            if ((DateTime.UtcNow - lastSave).TotalMilliseconds >= SnapshotSaveIntervalMs)
+            {
+                // Fire and forget - save in background
+                _ = FlushSnapshotBufferAsync(patientId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Flushes buffered snapshots to the database.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task FlushSnapshotBufferAsync(Guid patientId)
+    {
+        if (!_snapshotBuffers.TryGetValue(patientId, out var buffer))
+            return;
+
+        var snapshots = new List<PatientSnapshotData>();
+
+        // Drain the buffer
+        while (buffer.TryDequeue(out var item))
+        {
+            var (frame, sessionId) = item;
+            snapshots.Add(new PatientSnapshotData
+            {
+                SessionId = sessionId,
+                SnapshotData = frame.ToCsvString(),
+                SnapshotTime = frame.Timestamp,
+                PeakSnapshotPressure = frame.PeakPressure,
+                ContactAreaPercent = frame.ContactAreaPercent,
+                CoefficientOfVariation = CalculateCoefficientOfVariation(frame.PressureData)
+            });
+        }
+
+        if (snapshots.Count == 0)
+            return;
+
+        _lastSnapshotSaveTime[patientId] = DateTime.UtcNow;
+
+        try
+        {
+            await using var db = await _dbContextFactory.CreateDbContextAsync();
+            db.PatientSnapshotDatas.AddRange(snapshots);
+            await db.SaveChangesAsync();
+
+            _logger.LogDebug("Saved {Count} snapshots for patient {PatientId}", snapshots.Count, patientId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save snapshots for patient {PatientId}", patientId);
+        }
+    }
+
+    /// <summary>
+    /// Calculates Coefficient of Variation for pressure distribution.
+    /// Author: SID:2412494
+    /// </summary>
+    private static float CalculateCoefficientOfVariation(int[] pressureData)
+    {
+        if (pressureData.Length == 0) return 0;
+
+        var nonZeroValues = pressureData.Where(v => v > 0).ToArray();
+        if (nonZeroValues.Length == 0) return 0;
+
+        var mean = nonZeroValues.Average();
+        if (mean < 0.001) return 0;
+
+        var sumSquaredDiff = nonZeroValues.Sum(v => Math.Pow(v - mean, 2));
+        var stdDev = Math.Sqrt(sumSquaredDiff / nonZeroValues.Length);
+
+        return (float)(stdDev / mean * 100); // CV as percentage
+    }
+
+    /// <summary>
+    /// Finalizes a session in the database when a device is disposed.
+    /// Sets end time and peak session pressure.
+    /// Author: SID:2412494
+    /// </summary>
+    private async Task FinalizeSessionAsync(Guid patientId, MockHeatmapDevice device)
+    {
+        if (!_deviceSessionIds.TryRemove(patientId, out var sessionId))
+        {
+            _logger.LogWarning("No session ID found for patient {PatientId} device disposal", patientId);
+            return;
+        }
+
+        try
+        {
+            await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+            var session = await dbContext.PatientSessionDatas.FindAsync(sessionId);
+
+            if (session != null)
+            {
+                session.End = DateTime.UtcNow;
+                // Author: SID:2412494
+                // Use tracked peak pressure from all frames, not just the last one
+                if (_sessionPeakPressures.TryGetValue(patientId, out var peakPressure))
+                {
+                    session.PeakSessionPressure = peakPressure;
+                }
+                else
+                {
+                    // Fallback to current frame if tracking failed
+                    var currentFrame = device.GetCurrentFrame();
+                    if (currentFrame != null)
+                    {
+                        session.PeakSessionPressure = currentFrame.PeakPressure;
+                    }
+                }
+                await dbContext.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Finalized session {SessionId} for device {DeviceId}: End={End}, PeakPressure={Peak}",
+                    sessionId, device.DeviceId, session.End, session.PeakSessionPressure);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to finalize session {SessionId} for patient {PatientId}", sessionId, patientId);
         }
     }
 
@@ -211,13 +516,12 @@ public class MockDeviceManager : IAsyncDisposable
             .ToList();
     }
 
+    // Author: SID:2412494
+    // Implemented actual PatientClinicianAssignments query to replace temporary all-patients implementation.
     /// <summary>
-    /// Gets authorized patient IDs for a clinician.
+    /// Gets authorized patient IDs for a clinician based on PatientClinicianAssignments.
     /// </summary>
-    /// <remarks>
-    /// TODO: Update this when PatientClinicianAssignments table is implemented.
-    /// Current implementation: All approved clinicians can access all patients.
-    /// </remarks>
+    /// <returns>List of patient IDs assigned to the clinician, empty if clinician is not approved.</returns>
     private async Task<IReadOnlyList<Guid>> GetAuthorizedPatientIdsForClinicianAsync(Guid clinicianId)
     {
         await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
@@ -229,16 +533,16 @@ public class MockDeviceManager : IAsyncDisposable
             return Array.Empty<Guid>();
         }
 
-        // TODO: Replace with PatientClinicianAssignments query when table exists
-        // return await dbContext.PatientClinicianAssignments
-        //     .Where(a => a.ClinicianId == clinicianId)
-        //     .Select(a => a.PatientId)
-        //     .ToListAsync();
-
-        // Temporary: Return all active patient IDs
-        return await dbContext.Users
-            .Where(u => u.UserType == "patient" && u.DeactivatedAt == null)
-            .Select(u => u.Id)
+        // Query PatientClinicians to get assigned patient IDs
+        // Only include active assignments (UnassignedAt == null) and non-deactivated patients
+        return await dbContext.PatientClinicians
+            .Where(a => a.ClinicianId == clinicianId && a.UnassignedAt == null)
+            .Join(dbContext.Users,
+                assignment => assignment.PatientId,
+                user => user.Id,
+                (assignment, user) => new { assignment.PatientId, user.DeactivatedAt })
+            .Where(x => x.DeactivatedAt == null)
+            .Select(x => x.PatientId)
             .ToListAsync();
     }
 
@@ -252,6 +556,8 @@ public class MockDeviceManager : IAsyncDisposable
 
     /// <summary>
     /// Dispose all managed devices.
+    /// Also finalizes all active sessions in the database.
+    /// Author: SID:2412494 - Updated to finalize sessions on dispose
     /// </summary>
     public async ValueTask DisposeAsync()
     {
@@ -261,10 +567,27 @@ public class MockDeviceManager : IAsyncDisposable
         _disposed = true;
         _logger.LogInformation("Disposing MockDeviceManager with {Count} active devices", _patientDevices.Count);
 
+        // Author: SID:2412494
+        // Flush all snapshot buffers first to ensure data is saved
+        foreach (var patientId in _snapshotBuffers.Keys.ToList())
+        {
+            await FlushSnapshotBufferAsync(patientId);
+        }
+
+        // Finalize all sessions before disposing devices
+        foreach (var kvp in _patientDevices)
+        {
+            await FinalizeSessionAsync(kvp.Key, kvp.Value);
+        }
+
         var disposeTasks = _patientDevices.Values.Select(d => d.DisposeAsync().AsTask());
         await Task.WhenAll(disposeTasks);
 
         _patientDevices.Clear();
+        _deviceSessionIds.Clear();
+        _snapshotBuffers.Clear();
+        _lastSnapshotSaveTime.Clear();
+        _sessionPeakPressures.Clear();
         _createLock.Dispose();
 
         GC.SuppressFinalize(this);

@@ -154,33 +154,40 @@
             <p class="card-description">Enter your personal information to get started</p>
         </CardHeader>
 
+        @* Author: SID:2412494 - Added Required indicators and password hint text *@
         <CardContent>
             <FormGroup Label="First Name"
                        Id="firstName"
                        Placeholder="John"
+                       Required="true"
                        @bind-Value="firstName" />
 
             <FormGroup Label="Last Name"
                        Id="lastName"
                        Placeholder="Doe"
+                       Required="true"
                        @bind-Value="lastName" />
 
             <FormGroup Label="Email Address"
                        Id="email"
                        InputType="email"
                        Placeholder="john@example.com"
+                       Required="true"
                        @bind-Value="email" />
 
             <FormGroup Label="Password"
                        Id="password"
                        InputType="password"
                        Placeholder="••••••••••••"
+                       Required="true"
+                       HintText="Min 12 characters, uppercase, lowercase, number, and special character"
                        @bind-Value="password" />
 
             <FormGroup Label="Confirm Password"
                        Id="confirmPassword"
                        InputType="password"
                        Placeholder="••••••••••••"
+                       Required="true"
                        @bind-Value="confirmPassword" />
 
             <div style="margin-bottom: 1rem;">
@@ -203,9 +210,8 @@
         </CardContent>
 
         <CardFooter>
-            <Button Variant="outline" OnClick="@(() => Navigation.NavigateTo("/"))">
-                Back
-            </Button>
+            @* Author: SID:2412494 - Changed from Button with OnClick to anchor tag for reliable navigation *@
+            <a href="/" class="btn btn-outline">Back</a>
             <Button OnClick="@(() => currentStep = 2)" Disabled="@isLoading">
                 Continue
             </Button>

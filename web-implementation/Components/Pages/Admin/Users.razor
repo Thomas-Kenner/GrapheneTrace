@@ -15,6 +15,16 @@
             </button>
         </div>
 
+        @* Author: SID:2412494 - Added search input to filter users by name or email *@
+        <div style="margin-bottom: 1rem;">
+            <input type="text"
+                   class="form-input"
+                   placeholder="Search users by name or email..."
+                   value="@searchQuery"
+                   @oninput="OnSearchChange"
+                   style="max-width: 400px;" />
+        </div>
+
         @if (isLoading)
         {
             <p>Loading users...</p>
@@ -136,9 +146,10 @@
                 }
             </div>
 
+            @* Author: SID:2412494 - Added UserType to disabled check to prevent accounts without roles *@
             <div class="modal-footer">
                 <button class="btn btn-outline" @onclick="() => showCreateModal = false">Cancel</button>
-                <button class="btn btn-primary" @onclick="CreateUser" disabled="@(string.IsNullOrEmpty(newUser.Email) || string.IsNullOrEmpty(newUserPassword))">
+                <button class="btn btn-primary" @onclick="CreateUser" disabled="@(string.IsNullOrEmpty(newUser.Email) || string.IsNullOrEmpty(newUserPassword) || string.IsNullOrEmpty(newUser.UserType))">
                     Create User
                 </button>
             </div>

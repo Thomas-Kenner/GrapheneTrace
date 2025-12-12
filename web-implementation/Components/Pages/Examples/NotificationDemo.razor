@@ -1,0 +1,226 @@
+@page "/examples/notifications"
+@using GrapheneTrace.Web.Services
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+
+@*
+    Notification Demo Page
+
+    Purpose: Demonstrates how to use the NotificationService for browser notifications.
+    Shows permission request flow and notification display with different options.
+
+    Author: SID:2412494
+
+    Related User Stories:
+    - Story #7: Clinician notifications for peak pressure index alerts
+    - Story #10: Patient alerts for threshold exceedance
+    - Story #18: Equipment fault/sensor issue notifications
+    - Story #28: Direct clinician-to-patient notifications
+*@
+
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <h1 class="mb-4">Browser Notifications Demo</h1>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Notification Support</h5>
+                    <p class="mb-2">
+                        <strong>Browser Support:</strong>
+                        @if (isSupported)
+                        {
+                            <span class="badge bg-success">✓ Supported</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">✗ Not Supported</span>
+                        }
+                    </p>
+                    <p class="mb-0">
+                        <strong>Permission Status:</strong>
+                        @if (permissionStatus == "granted")
+                        {
+                            <span class="badge bg-success">Granted</span>
+                        }
+                        else if (permissionStatus == "denied")
+                        {
+                            <span class="badge bg-danger">Denied</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning">Not Requested</span>
+                        }
+                    </p>
+                </div>
+            </div>
+
+            @if (!isSupported)
+            {
+                <div class="alert alert-warning">
+                    <strong>Browser Not Supported</strong><br/>
+                    Your browser does not support the Notification API. Please use a modern browser like Chrome, Firefox, Edge, or Safari.
+                </div>
+            }
+            else if (permissionStatus != "granted")
+            {
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Step 1: Request Permission</h5>
+                        <p>
+                            GrapheneTrace needs permission to send you notifications for critical alerts like:
+                        </p>
+                        <ul>
+                            <li>Pressure threshold exceedances</li>
+                            <li>Equipment faults or sensor issues</li>
+                            <li>Peak pressure index alerts</li>
+                            <li>Direct messages from clinicians</li>
+                        </ul>
+                        <p class="mb-3">
+                            <small class="text-muted">
+                                These notifications will appear even when the browser is minimized,
+                                ensuring you never miss critical patient alerts.
+                            </small>
+                        </p>
+                        <button class="btn btn-primary" @onclick="RequestPermission" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Request Permission
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Test Notifications</h5>
+                        <p class="text-muted">
+                            Try different notification types below. Notifications will appear even if
+                            the browser is minimized or in the background.
+                        </p>
+
+                        <div class="d-grid gap-3">
+                            <button class="btn btn-outline-primary" @onclick="() => ShowBasicNotification()">
+                                Show Basic Notification
+                            </button>
+
+                            <button class="btn btn-outline-warning" @onclick="() => ShowPressureAlert()">
+                                Simulate Pressure Alert
+                            </button>
+
+                            <button class="btn btn-outline-danger" @onclick="() => ShowEquipmentFault()">
+                                Simulate Equipment Fault
+                            </button>
+
+                            <button class="btn btn-outline-info" @onclick="() => ShowClinicianMessage()">
+                                Simulate Clinician Message
+                            </button>
+
+                            <button class="btn btn-outline-success" @onclick="() => ShowPersistentNotification()">
+                                Show Persistent Notification (Requires Click)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                @if (lastNotificationResult != null)
+                {
+                    <div class="alert @(lastNotificationResult.Value ? "alert-success" : "alert-danger")">
+                        @if (lastNotificationResult.Value)
+                        {
+                            <span><strong>✓ Success:</strong> Notification sent successfully</span>
+                        }
+                        else
+                        {
+                            <span><strong>✗ Failed:</strong> Could not send notification</span>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isSupported = false;
+    private string permissionStatus = "default";
+    private bool isLoading = false;
+    private bool? lastNotificationResult = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isSupported = await NotificationService.IsNotificationSupportedAsync();
+            permissionStatus = await NotificationService.GetPermissionAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task RequestPermission()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        permissionStatus = await NotificationService.RequestPermissionAsync();
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task ShowBasicNotification()
+    {
+        lastNotificationResult = await NotificationService.ShowNotificationAsync(
+            title: "Test Notification",
+            body: "This is a basic test notification from GrapheneTrace."
+        );
+        StateHasChanged();
+    }
+
+    private async Task ShowPressureAlert()
+    {
+        lastNotificationResult = await NotificationService.ShowNotificationAsync(
+            title: "⚠️ Pressure Alert",
+            body: "Patient bed A3: Pressure exceeds threshold (85 mmHg)\nSacral region showing elevated pressure.",
+            tag: "pressure-alert-demo",
+            requireInteraction: false
+        );
+        StateHasChanged();
+    }
+
+    private async Task ShowEquipmentFault()
+    {
+        lastNotificationResult = await NotificationService.ShowNotificationAsync(
+            title: "🔧 Equipment Fault",
+            body: "Sensor malfunction detected in bed B2\nPlease check sensor connectivity.",
+            tag: "equipment-fault-demo",
+            requireInteraction: false
+        );
+        StateHasChanged();
+    }
+
+    private async Task ShowClinicianMessage()
+    {
+        lastNotificationResult = await NotificationService.ShowNotificationAsync(
+            title: "💬 Message from Dr. Smith",
+            body: "Please ensure patient uses pressure mapping pad during afternoon rest period.",
+            tag: "clinician-message-demo",
+            requireInteraction: false
+        );
+        StateHasChanged();
+    }
+
+    private async Task ShowPersistentNotification()
+    {
+        lastNotificationResult = await NotificationService.ShowNotificationAsync(
+            title: "🚨 Critical Alert",
+            body: "This notification requires acknowledgment. Click to dismiss.",
+            tag: "persistent-demo",
+            requireInteraction: true
+        );
+        StateHasChanged();
+    }
+}
