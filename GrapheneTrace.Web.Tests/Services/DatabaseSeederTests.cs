@@ -38,6 +38,8 @@ public class DatabaseSeederTests : IDisposable
 {
     private ApplicationDbContext _context;
     private UserManager<ApplicationUser> _userManager;
+    // Author: SID:2412494 - Added RoleManager field for updated constructor
+    private RoleManager<IdentityRole<Guid>> _roleManager;
     private Mock<ILogger<DatabaseSeeder>> _mockLogger;
     private Mock<IConfiguration> _mockConfiguration;
     private DatabaseSeeder _seeder;
@@ -80,6 +82,15 @@ public class DatabaseSeederTests : IDisposable
         // Register simple token provider for password reset functionality
         _userManager.RegisterTokenProvider("Default", new TestTwoFactorTokenProvider());
 
+        // Author: SID:2412494 - Setup RoleManager for updated DatabaseSeeder constructor
+        var roleStore = new Microsoft.AspNetCore.Identity.EntityFrameworkCore.RoleStore<IdentityRole<Guid>, ApplicationDbContext, Guid>(_context);
+        _roleManager = new RoleManager<IdentityRole<Guid>>(
+            roleStore,
+            null!, // Role validators
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            new Mock<ILogger<RoleManager<IdentityRole<Guid>>>>().Object);
+
         // Setup mocks
         _mockLogger = new Mock<ILogger<DatabaseSeeder>>();
         _mockConfiguration = new Mock<IConfiguration>();
@@ -89,12 +100,14 @@ public class DatabaseSeederTests : IDisposable
         mockSection.Setup(s => s.Value).Returns("true");
         _mockConfiguration.Setup(c => c.GetSection("DatabaseSeeding:Enabled")).Returns(mockSection.Object);
 
-        _seeder = new DatabaseSeeder(_userManager, _mockLogger.Object, _mockConfiguration.Object);
+        // Author: SID:2412494 - Updated constructor call to include RoleManager and ApplicationDbContext
+        _seeder = new DatabaseSeeder(_userManager, _roleManager, _mockLogger.Object, _mockConfiguration.Object, _context);
     }
 
     public void Dispose()
     {
         _userManager?.Dispose();
+        _roleManager?.Dispose();  // Author: SID:2412494 - Added RoleManager disposal
         _context?.Dispose();
     }
 

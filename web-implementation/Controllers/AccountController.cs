@@ -265,10 +265,11 @@ public class AccountController : ControllerBase
                 }
 
                 // Updated: 2402513 - All accounts require admin approval before login
+                // Author: SID:2412494 - Fixed redirect from /login to / (login page moved to root)
                 // Redirect to login with success message
                 _logger.LogInformation("Account created but requires approval: {UserId} (Type: {UserType})", user.Id, user.UserType);
                 var message = "Account created successfully! Your account is pending administrator approval. You will be notified when you can log in.";
-                return Redirect("/login?success=" + Uri.EscapeDataString(message));
+                return Redirect("/?success=" + Uri.EscapeDataString(message));
             }
 
             // Return validation errors

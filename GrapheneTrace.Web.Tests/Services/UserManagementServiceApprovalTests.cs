@@ -62,7 +62,9 @@ public class UserManagementServiceApprovalTests : IDisposable
         // Setup mocks
         _mockLogger = new Mock<ILogger<UserManagementService>>();
 
-        _service = new UserManagementService(_userManager, _mockLogger.Object);
+        // Author: SID:2412494
+        // Updated constructor call to include ApplicationDbContext parameter
+        _service = new UserManagementService(_userManager, _context, _mockLogger.Object);
     }
 
     public void Dispose()
