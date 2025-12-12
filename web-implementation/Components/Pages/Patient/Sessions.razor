@@ -270,13 +270,21 @@
         await LoadSessionsAsync();
     }
 
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    // Author: SID:2412494
+    // Auto-select moved here from OnInitializedAsync to avoid DbContext concurrency issues
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             isInitialized = true;
+
+            // Auto-select first session after initial render completes
+            // This is safe here because LoadSessionsAsync has fully completed
+            if (sessions != null && sessions.Count > 0 && selectedSessionId == null)
+            {
+                await SelectSessionAsync(sessions[0]);
+            }
         }
-        return Task.CompletedTask;
     }
 
     private async Task LoadSessionsAsync()
@@ -297,12 +305,10 @@
 
             sessions = await PressureDataService.GetSessionsForPatientAsync(userId);
 
-            // Auto-select first session if available
-            if (sessions.Count > 0)
-            {
-                // Don't await here - let it happen after render
-                _ = SelectSessionAsync(sessions[0]);
-            }
+            // Author: SID:2412494
+            // Note: Auto-select moved to OnAfterRenderAsync to avoid DbContext concurrency
+            // issues. The fire-and-forget call was causing "A second operation was started"
+            // errors because it ran concurrently with LoadSessionsAsync.
         }
         catch (Exception ex)
         {

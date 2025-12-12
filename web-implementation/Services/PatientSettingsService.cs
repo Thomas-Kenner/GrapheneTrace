@@ -20,6 +20,7 @@ namespace GrapheneTrace.Web.Services;
 /// - Using HttpClient in Blazor Server requires complex cookie forwarding
 /// - Direct database access via service is simpler, faster, and more secure
 /// - Follows the same pattern as UserManagementService and DashboardService
+/// - Updated: SID:2412494 - Converted to IDbContextFactory for thread safety
 ///
 /// Operations:
 /// - GetSettingsAsync(userId): Retrieve settings, auto-create defaults if missing
@@ -27,16 +28,16 @@ namespace GrapheneTrace.Web.Services;
 /// </remarks>
 public class PatientSettingsService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
     private readonly PressureThresholdsConfig _thresholdsConfig;
     private readonly ILogger<PatientSettingsService> _logger;
 
     public PatientSettingsService(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> dbFactory,
         PressureThresholdsConfig thresholdsConfig,
         ILogger<PatientSettingsService> logger)
     {
-        _context = context;
+        _dbFactory = dbFactory;
         _thresholdsConfig = thresholdsConfig;
         _logger = logger;
     }
@@ -49,7 +50,8 @@ public class PatientSettingsService
     /// <returns>Patient settings with thresholds and last update time</returns>
     public async Task<PatientSettings> GetSettingsAsync(Guid userId)
     {
-        var settings = await _context.PatientSettings
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var settings = await db.PatientSettings
             .FirstOrDefaultAsync(ps => ps.UserId == userId);
 
         // Auto-create default settings if not found (uses config values)
@@ -65,8 +67,8 @@ public class PatientSettingsService
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _context.PatientSettings.Add(settings);
-            await _context.SaveChangesAsync();
+            db.PatientSettings.Add(settings);
+            await db.SaveChangesAsync();
 
             _logger.LogInformation(
                 "Created default settings for patient {UserId}: Low={Low}, High={High}",
@@ -111,7 +113,8 @@ public class PatientSettingsService
             return (false, "Low threshold must be less than high threshold", null);
         }
 
-        var settings = await _context.PatientSettings
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var settings = await db.PatientSettings
             .FirstOrDefaultAsync(ps => ps.UserId == userId);
 
         if (settings == null)
@@ -123,7 +126,7 @@ public class PatientSettingsService
                 UserId = userId,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.PatientSettings.Add(settings);
+            db.PatientSettings.Add(settings);
         }
 
         // Update thresholds
@@ -131,7 +134,7 @@ public class PatientSettingsService
         settings.HighPressureThreshold = highThreshold;
         settings.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         _logger.LogInformation(
             "Patient {UserId} updated thresholds: low={Low}, high={High}",

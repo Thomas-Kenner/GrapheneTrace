@@ -12,10 +12,14 @@ public class PressureDataService
 {
     // Author: 2414111
     // Add ApplicationDbContext to the service
-    private readonly ApplicationDbContext applicationDbContext;
-    public PressureDataService(ApplicationDbContext context)
+    // Author: SID:2412494
+    // Changed from injecting ApplicationDbContext directly to IDbContextFactory
+    // to avoid "A second operation was started on this context" errors in Blazor Server.
+    // Each method now creates its own short-lived DbContext instance.
+    private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
+    public PressureDataService(IDbContextFactory<ApplicationDbContext> dbContextFactory)
     {
-        applicationDbContext = context;
+        _dbContextFactory = dbContextFactory;
     }
 
     // Author 2414111
@@ -52,26 +56,28 @@ public class PressureDataService
             var parsedDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
 
             // Don't duplicate entries in database by checking for existing deviceId and date
-            if (await SessionAlreadyExists(fileNameSegments[3], parsedDate)) continue;
+            if (await SessionAlreadyExistsAsync(fileNameSegments[3], parsedDate)) continue;
 
             string fileContents = ReadFile(fileName);
 
             // Save to the database and save the sessionId as a variable for adding to snapshot database entries later
-            int sessionId = await SaveSessionToDB(fileNameSegments);
+            int sessionId = await SaveSessionToDBAsync(fileNameSegments);
 
             // Split the file contents into strings of X rows for each snapshot
             List<string> sessionSnapshots = SplitIntoSnapshots(fileContents, snapshotRows);
 
-            await SaveSnapshotToDB(sessionSnapshots, sessionId, parsedDate);
+            await SaveSnapshotToDBAsync(sessionSnapshots, sessionId, parsedDate);
         }
         return;
     }
 
     // Author: 2414111
     // Check if there's a matching session in the database
-    public async Task<bool> SessionAlreadyExists(string deviceId, DateTime parsedDate)
+    // Author: SID:2412494 - Renamed with Async suffix and use factory pattern
+    public async Task<bool> SessionAlreadyExistsAsync(string deviceId, DateTime parsedDate)
     {
-        var session = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var session = await db.PatientSessionDatas
             .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.Start == parsedDate);
         return session != null;
     }
@@ -80,8 +86,10 @@ public class PressureDataService
     // Save session to the database PatientSessionDatas table
     // Author: SID:2412494
     // Updated indices for new path format: deviceId at [3], date at [4]
-    public async Task<int> SaveSessionToDB(string[] fileNameSegments)
+    // Renamed with Async suffix and use factory pattern
+    public async Task<int> SaveSessionToDBAsync(string[] fileNameSegments)
     {
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
         var date = DateTime.ParseExact(fileNameSegments[4], "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture);
         var dateUTC = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
 
@@ -91,8 +99,8 @@ public class PressureDataService
             Start = dateUTC,
         };
 
-        applicationDbContext.Add(sessionData);
-        await applicationDbContext.SaveChangesAsync();
+        db.Add(sessionData);
+        await db.SaveChangesAsync();
 
         //returning SessionID to add it when saving snapshots later
         return sessionData.SessionId;
@@ -102,8 +110,10 @@ public class PressureDataService
     // Save snapshot to the database PatientSnapshotDatas table
     // Author: SID:2412494
     // Updated to calculate and store PeakSnapshotPressure and CoefficientOfVariation
-    public async Task SaveSnapshotToDB(List<string> sessionSnapshots, int sessionId, DateTime parsedDate)
+    // Renamed with Async suffix and use factory pattern
+    public async Task SaveSnapshotToDBAsync(List<string> sessionSnapshots, int sessionId, DateTime parsedDate)
     {
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
         // 15 snapshots per second
         double millisec = 1000.0 / 15.0;
         TimeSpan interval = TimeSpan.FromMilliseconds(millisec);
@@ -143,8 +153,8 @@ public class PressureDataService
         }
 
         // Add all snapshots to database at once then save
-        applicationDbContext.AddRange(snapshotsToAdd);
-        await applicationDbContext.SaveChangesAsync();
+        db.AddRange(snapshotsToAdd);
+        await db.SaveChangesAsync();
         return;
     }
 
@@ -315,16 +325,20 @@ public class PressureDataService
     // Author: 2414111
     // Retrieve a list of all sessions from the database
     // TODO remove if left unused
+    // Author: SID:2412494 - Use factory pattern
     public async Task<List<PatientSessionData>> LoadSessionData()
     {
-        return await applicationDbContext.PatientSessionDatas.ToListAsync();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        return await db.PatientSessionDatas.ToListAsync();
     }
 
     // Author: SID:2412494
     // Retrieve sessions for a specific patient, ordered by start date descending
+    // Use factory pattern for thread safety
     public async Task<List<PatientSessionData>> GetSessionsForPatientAsync(Guid patientId)
     {
-        return await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        return await db.PatientSessionDatas
             .Where(s => s.PatientId == patientId)
             .OrderByDescending(s => s.Start)
             .ToListAsync();
@@ -332,9 +346,11 @@ public class PressureDataService
 
     // Author: 2414111
     // Find sessionId in the database for deviceId and date
+    // Author: SID:2412494 - Use factory pattern
     public async Task<int?> FindSessionId(string deviceId, DateTime start)
     {
-        var session = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var session = await db.PatientSessionDatas
             .FirstOrDefaultAsync(a => a.DeviceId == deviceId && a.Start == start);
         return session?.SessionId;
     }
@@ -342,25 +358,31 @@ public class PressureDataService
     // Author: 2414111
     // Retrieve a list of all snapshots from the database
     // TODO remove if left unused
+    // Author: SID:2412494 - Use factory pattern
     public async Task<List<PatientSnapshotData>> LoadSnapshotData()
     {
-        return await applicationDbContext.PatientSnapshotDatas.ToListAsync();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        return await db.PatientSnapshotDatas.ToListAsync();
     }
 
     // Author: 2414111
     // Find all snapshots from a session in the database
+    // Author: SID:2412494 - Use factory pattern
     public async Task<List<PatientSnapshotData>> FindSnapshotsInSession(int sessionId)
     {
-        return await applicationDbContext.PatientSnapshotDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        return await db.PatientSnapshotDatas
             .Where(a => a.SessionId == sessionId)
             .ToListAsync();
     }
 
     // Author: 2414111
     // Function to list all the timestamps from a session
+    // Author: SID:2412494 - Use factory pattern
     public async Task<List<DateTime>> ListTimestamps(int sessionId)
     {
-        return await applicationDbContext.PatientSnapshotDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        return await db.PatientSnapshotDatas
             .Where(s => s.SessionId == sessionId && s.SnapshotTime != null)
             .OrderBy(s => s.SnapshotId)
             .Select(s => s.SnapshotTime!.Value)
@@ -369,9 +391,11 @@ public class PressureDataService
 
     // Author: 2414111
     // Function to return ints for all sensors from a snapshot, based on the snapshot timestamp
+    // Author: SID:2412494 - Use factory pattern
     public async Task<List<int[]>> ReturnSnapshotDataFromTimestamp(int sessionId, DateTime timestamp)
     {
-        var snapshot = await applicationDbContext.PatientSnapshotDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var snapshot = await db.PatientSnapshotDatas
             .Where(s => s.SessionId == sessionId && s.SnapshotTime == timestamp)
             .SingleOrDefaultAsync();
         if (snapshot == null) return new List<int[]>();
@@ -380,9 +404,11 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get count of sessions for a patient within a date range
+    // Use factory pattern for thread safety
     public async Task<int> GetSessionCountAsync(Guid patientId, DateTime? since = null)
     {
-        var query = applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var query = db.PatientSessionDatas
             .Where(s => s.PatientId == patientId);
 
         if (since.HasValue)
@@ -395,9 +421,11 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get count of sessions flagged for clinician review
+    // Use factory pattern for thread safety
     public async Task<int> GetFlaggedSessionCountAsync(Guid patientId, DateTime? since = null)
     {
-        var query = applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var query = db.PatientSessionDatas
             .Where(s => s.PatientId == patientId && s.ClinicianFlag);
 
         if (since.HasValue)
@@ -410,44 +438,50 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Flag a session for clinician review (used when alerts are triggered)
+    // Use factory pattern for thread safety
     public async Task FlagSessionForReviewAsync(int sessionId)
     {
-        var session = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var session = await db.PatientSessionDatas
             .FirstOrDefaultAsync(s => s.SessionId == sessionId);
 
         if (session != null && !session.ClinicianFlag)
         {
             session.ClinicianFlag = true;
-            await applicationDbContext.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
     }
 
     // Author: SID:2412494
     // Flag session by device ID and date (for live monitoring where session ID may not be known)
+    // Use factory pattern for thread safety
     public async Task FlagSessionForReviewAsync(string deviceId, DateTime sessionStart)
     {
-        var session = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var session = await db.PatientSessionDatas
             .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.Start.Date == sessionStart.Date);
 
         if (session != null && !session.ClinicianFlag)
         {
             session.ClinicianFlag = true;
-            await applicationDbContext.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
     }
 
     // Author: SID:2412494
     // Get count of snapshots with peak pressure above threshold for a patient
+    // Use factory pattern for thread safety
     public async Task<int> GetHighPressureAlertCountAsync(Guid patientId, int threshold, DateTime? since = null)
     {
-        var sessionIds = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var sessionIds = await db.PatientSessionDatas
             .Where(s => s.PatientId == patientId)
             .Select(s => s.SessionId)
             .ToListAsync();
 
         if (!sessionIds.Any()) return 0;
 
-        var query = applicationDbContext.PatientSnapshotDatas
+        var query = db.PatientSnapshotDatas
             .Where(s => sessionIds.Contains(s.SessionId) && s.PeakSnapshotPressure >= threshold);
 
         if (since.HasValue)
@@ -576,17 +610,19 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get Peak Pressure Index data points for charting over a time period
+    // Use factory pattern for thread safety
     public async Task<List<PressureDataPoint>> GetPeakPressureOverTimeAsync(
         Guid patientId, DateTime startTime, DateTime endTime, int maxPoints = 100)
     {
-        var sessionIds = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var sessionIds = await db.PatientSessionDatas
             .Where(s => s.PatientId == patientId && s.Start >= startTime && s.Start <= endTime)
             .Select(s => s.SessionId)
             .ToListAsync();
 
         if (!sessionIds.Any()) return new List<PressureDataPoint>();
 
-        var snapshots = await applicationDbContext.PatientSnapshotDatas
+        var snapshots = await db.PatientSnapshotDatas
             .Where(s => sessionIds.Contains(s.SessionId) &&
                         s.SnapshotTime >= startTime &&
                         s.SnapshotTime <= endTime)
@@ -632,10 +668,12 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get session-level metrics for time above threshold chart
+    // Use factory pattern for thread safety
     public async Task<List<SessionMetricSummary>> GetSessionMetricsAsync(
         Guid patientId, DateTime startTime, DateTime endTime, int threshold)
     {
-        var sessions = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var sessions = await db.PatientSessionDatas
             .Where(s => s.PatientId == patientId && s.Start >= startTime && s.Start <= endTime)
             .OrderBy(s => s.Start)
             .ToListAsync();
@@ -645,7 +683,7 @@ public class PressureDataService
 
         foreach (var session in sessions)
         {
-            var snapshots = await applicationDbContext.PatientSnapshotDatas
+            var snapshots = await db.PatientSnapshotDatas
                 .Where(s => s.SessionId == session.SessionId)
                 .ToListAsync();
 
@@ -691,10 +729,12 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get average pressure by quadrant for area heat map
+    // Use factory pattern for thread safety
     public async Task<AreaPressureData> GetAreaPressureAveragesAsync(
         Guid patientId, DateTime startTime, DateTime endTime)
     {
-        var sessionIds = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var sessionIds = await db.PatientSessionDatas
             .Where(s => s.PatientId == patientId && s.Start >= startTime && s.Start <= endTime)
             .Select(s => s.SessionId)
             .ToListAsync();
@@ -702,7 +742,7 @@ public class PressureDataService
         if (!sessionIds.Any())
             return new AreaPressureData();
 
-        var snapshots = await applicationDbContext.PatientSnapshotDatas
+        var snapshots = await db.PatientSnapshotDatas
             .Where(s => sessionIds.Contains(s.SessionId) &&
                         s.SnapshotTime >= startTime &&
                         s.SnapshotTime <= endTime)
@@ -763,9 +803,11 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get weekly comparison data for trend analysis
+    // Use factory pattern for thread safety
     public async Task<List<WeeklyComparison>> GetWeeklyComparisonAsync(
         Guid patientId, int weeksBack, int threshold)
     {
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
         var comparisons = new List<WeeklyComparison>();
         var now = DateTime.UtcNow;
         const double frameIntervalMs = 1000.0 / 15.0;
@@ -775,7 +817,7 @@ public class PressureDataService
             var weekEnd = now.AddDays(-7 * w);
             var weekStart = weekEnd.AddDays(-7);
 
-            var sessions = await applicationDbContext.PatientSessionDatas
+            var sessions = await db.PatientSessionDatas
                 .Where(s => s.PatientId == patientId && s.Start >= weekStart && s.Start < weekEnd)
                 .ToListAsync();
 
@@ -790,7 +832,7 @@ public class PressureDataService
             }
 
             var sessionIds = sessions.Select(s => s.SessionId).ToList();
-            var snapshots = await applicationDbContext.PatientSnapshotDatas
+            var snapshots = await db.PatientSnapshotDatas
                 .Where(s => sessionIds.Contains(s.SessionId))
                 .ToListAsync();
 
@@ -825,17 +867,19 @@ public class PressureDataService
 
     // Author: SID:2412494
     // Get aggregated metrics for a specific time period (1h, 6h, 24h, custom)
+    // Use factory pattern for thread safety
     public async Task<SessionMetricSummary?> GetAggregatedMetricsAsync(
         Guid patientId, DateTime startTime, DateTime endTime, int threshold)
     {
-        var sessionIds = await applicationDbContext.PatientSessionDatas
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var sessionIds = await db.PatientSessionDatas
             .Where(s => s.PatientId == patientId && s.Start >= startTime && s.Start <= endTime)
             .Select(s => s.SessionId)
             .ToListAsync();
 
         if (!sessionIds.Any()) return null;
 
-        var snapshots = await applicationDbContext.PatientSnapshotDatas
+        var snapshots = await db.PatientSnapshotDatas
             .Where(s => sessionIds.Contains(s.SessionId) &&
                         s.SnapshotTime >= startTime &&
                         s.SnapshotTime <= endTime)
