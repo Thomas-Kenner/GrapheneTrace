@@ -36,29 +36,31 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" class="form-input" placeholder="Placeholder - not saved" />
+                    <label class="form-label">Phone <span style="color: red;">*</span></label>
+                    <input type="tel" class="form-input" @bind="phone" placeholder="07123 456789" />
+                    <p class="form-help">UK phone number format</p>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Address</label>
-                    <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                    <label class="form-label">Address <span style="color: red;">*</span></label>
+                    <input type="text" class="form-input" @bind="address" placeholder="123 Main Street" />
                 </div>
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">City</label>
-                        <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                        <label class="form-label">City <span style="color: red;">*</span></label>
+                        <input type="text" class="form-input" @bind="city" placeholder="London" />
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Postcode</label>
-                        <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                        <label class="form-label">Postcode <span style="color: red;">*</span></label>
+                        <input type="text" class="form-input" @bind="postcode" placeholder="SW1A 1AA" />
+                        <p class="form-help">UK postcode format</p>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Country</label>
-                    <input type="text" class="form-input" placeholder="Placeholder - not saved" />
+                    <label class="form-label">Country <span style="color: red;">*</span></label>
+                    <input type="text" class="form-input" @bind="country" placeholder="United Kingdom" />
                 </div>
 
                 <button class="btn-primary" @onclick="SavePersonalDetails" disabled="@isSavingPersonal">
@@ -122,6 +124,37 @@
             </div>
 
             <div class="card settings-card">
+                <h3 class="settings-title">Clinician Assignment</h3>
+                <p class="settings-subtitle">Your assigned clinician</p>
+
+                @if (assignedClinician != null)
+                {
+                    <div class="clinician-info">
+                        <div class="clinician-name">
+                            <strong>@assignedClinician.Clinician?.FirstName @assignedClinician.Clinician?.LastName</strong>
+                        </div>
+                        <div class="clinician-email">@assignedClinician.Clinician?.Email</div>
+                        <div class="clinician-assigned">
+                            Assigned since: @assignedClinician.AssignedAt.ToString("MMM dd, yyyy")
+                        </div>
+                    </div>
+                    <button class="btn-outline" @onclick="ShowRequestClinicianModal">Request New Clinician</button>
+                }
+                else
+                {
+                    <div class="empty-state">No clinician assigned yet.</div>
+                    <button class="btn-primary" @onclick="ShowRequestClinicianModal">Request Clinician</button>
+                }
+
+                @if (!string.IsNullOrEmpty(clinicianRequestMessage))
+                {
+                    <div class="alert @(clinicianRequestSuccess ? "alert-success" : "alert-error")">
+                        @clinicianRequestMessage
+                    </div>
+                }
+            </div>
+
+            <div class="card settings-card">
                 <h3 class="settings-title">Device Connection</h3>
                 <p class="settings-subtitle">Manage your sensor</p>
 
@@ -167,4 +200,43 @@
             </div>
         </div>
     </div>
+
+    <!-- Request Clinician Modal -->
+    @if (showRequestClinicianModal)
+    {
+        <div class="modal-overlay" @onclick="CloseRequestClinicianModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>Request New Clinician</h3>
+                    <button class="modal-close" @onclick="CloseRequestClinicianModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Search for Clinician</label>
+                        <input type="text" class="form-input" @bind="clinicianSearchQuery" @bind:event="oninput" @bind:after="SearchClinicians" placeholder="Enter clinician name or email..." />
+                    </div>
+                    @if (isSearchingClinician)
+                    {
+                        <div class="loading">Searching...</div>
+                    }
+                    else if (clinicianSearchResults.Any())
+                    {
+                        <div class="search-results">
+                            @foreach (var clinician in clinicianSearchResults)
+                            {
+                                <div class="search-result-item" @onclick="() => SelectClinician(clinician.Id)">
+                                    <div><strong>@clinician.FirstName @clinician.LastName</strong></div>
+                                    <div>@clinician.Email</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(clinicianSearchQuery) && !isSearchingClinician)
+                    {
+                        <div class="empty-state">No clinicians found matching your search.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 </div>

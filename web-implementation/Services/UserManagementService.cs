@@ -124,6 +124,12 @@ public class UserManagementService
             existingUser.LastName = user.LastName;
             existingUser.Email = user.Email;
             existingUser.UserName = user.Email; // Keep username in sync with email
+            // Updated: 2402513 - Include address fields in user updates
+            existingUser.Phone = user.Phone;
+            existingUser.Address = user.Address;
+            existingUser.City = user.City;
+            existingUser.Postcode = user.Postcode;
+            existingUser.Country = user.Country;
 
             var result = await _userManager.UpdateAsync(existingUser);
 
@@ -443,6 +449,91 @@ public class UserManagementService
         {
             _logger.LogError(ex, "Error unassigning patient {PatientId} from clinician {ClinicianId}", patientId, clinicianId);
             return (false, $"Error unassigning patient: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Creates a new patient-clinician request.
+    /// Author: 2402513
+    /// </summary>
+    /// <param name="patientId">ID of the patient</param>
+    /// <param name="clinicianId">ID of the clinician</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Purpose: Allows patients or clinicians to request assignment relationships.
+    /// 
+    /// Workflow:
+    /// 1. Validates that both patient and clinician exist and have correct UserType
+    /// 2. Checks for existing pending request (prevents duplicates)
+    /// 3. Checks for existing active assignment (prevents unnecessary requests)
+    /// 4. Creates new PatientClinicianRequest with pending status
+    /// 5. Saves to database and logs the action
+    ///
+    /// Design Pattern: Request-based workflow for patient-clinician relationships.
+    /// Requests require admin or clinician approval before assignment is created.
+    /// </remarks>
+    public async Task<(bool Success, string Message)> CreatePatientClinicianRequestAsync(Guid patientId, Guid clinicianId)
+    {
+        try
+        {
+            // Check if patient exists
+            var patient = await _userManager.FindByIdAsync(patientId.ToString());
+            if (patient == null || patient.UserType != "patient")
+            {
+                return (false, "Patient not found");
+            }
+
+            // Check if clinician exists
+            var clinician = await _userManager.FindByIdAsync(clinicianId.ToString());
+            if (clinician == null || clinician.UserType != "clinician")
+            {
+                return (false, "Clinician not found");
+            }
+
+            // Check if there's already a pending request
+            var existingPendingRequest = await _context.PatientClinicianRequests
+                .FirstOrDefaultAsync(pcr => pcr.PatientId == patientId 
+                    && pcr.ClinicianId == clinicianId 
+                    && pcr.Status == "pending");
+
+            if (existingPendingRequest != null)
+            {
+                return (false, "A pending request already exists for this patient-clinician pair");
+            }
+
+            // Check if there's already an active assignment
+            var existingAssignment = await _context.PatientClinicians
+                .FirstOrDefaultAsync(pc => pc.PatientId == patientId 
+                    && pc.ClinicianId == clinicianId 
+                    && pc.UnassignedAt == null);
+
+            if (existingAssignment != null)
+            {
+                return (false, "Patient is already assigned to this clinician");
+            }
+
+            // Create new request
+            var request = new PatientClinicianRequest
+            {
+                Id = Guid.NewGuid(),
+                PatientId = patientId,
+                ClinicianId = clinicianId,
+                Status = "pending",
+                RequestedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.PatientClinicianRequests.Add(request);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Patient-clinician request created: Patient {PatientId} -> Clinician {ClinicianId}", patientId, clinicianId);
+            return (true, "Request created successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating patient-clinician request for Patient {PatientId} and Clinician {ClinicianId}", patientId, clinicianId);
+            return (false, $"Error creating request: {ex.Message}");
         }
     }
 

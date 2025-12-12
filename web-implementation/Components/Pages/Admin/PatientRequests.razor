@@ -1,0 +1,140 @@
+@*
+    Patient-Clinician Request Approval Page
+    Author: 2402513
+    Route: /admin/patient-requests
+
+    Purpose: Allows administrators to view and approve/deny patient-clinician requests.
+    Admins can see all pending requests and approve or reject them.
+
+    Design Pattern: Matches existing admin page styling for consistency.
+    Uses table format to display pending requests with approve/deny actions.
+
+    Features:
+    - View all pending patient-clinician requests
+    - Approve requests (creates PatientClinician assignment)
+    - Reject requests (closes request with reason)
+    - Display request details (patient, clinician, requested date)
+    - Filter by status (pending, approved, rejected)
+
+    Authorization: Admin role required
+*@
+@page "/admin/patient-requests"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Components.Layout
+
+<div class="admin-container">
+    <AdminHeader />
+
+    <div class="admin-content">
+        <div class="page-header">
+            <h2 class="section-title">Patient-Clinician Requests</h2>
+        </div>
+
+        @if (isLoading)
+        {
+            <p>Loading requests...</p>
+        }
+        else
+        {
+            <div class="filter-section">
+                <label>Filter by Status:</label>
+                <select @bind="statusFilter" @bind:event="onchange" @bind:after="LoadRequests">
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <div class="alert @(isSuccess ? "alert-success" : "alert-error")">
+                    @message
+                </div>
+            }
+
+            @if (requests == null || !requests.Any())
+            {
+                <p class="no-data-message">No requests found</p>
+            }
+            else
+            {
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Clinician</th>
+                                <th>Requested Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var request in requests)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@request.Patient?.FirstName @request.Patient?.LastName</strong><br />
+                                        <small>@request.Patient?.Email</small>
+                                    </td>
+                                    <td>
+                                        <strong>@request.Clinician?.FirstName @request.Clinician?.LastName</strong><br />
+                                        <small>@request.Clinician?.Email</small>
+                                    </td>
+                                    <td>@request.RequestedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="status-badge @(request.Status == "pending" ? "pending" : request.Status == "approved" ? "approved" : "rejected")">
+                                            @request.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (request.Status == "pending")
+                                        {
+                                            <button class="btn btn-success" @onclick="() => ApproveRequest(request.Id)">Approve</button>
+                                            <button class="btn btn-danger" @onclick="() => ShowRejectModal(request.Id)">Reject</button>
+                                        }
+                                        else if (request.Status == "rejected" && !string.IsNullOrEmpty(request.ResponseReason))
+                                        {
+                                            <small>Reason: @request.ResponseReason</small>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="admin-footer">
+        <p>Contact us · About · FAQ</p>
+    </div>
+
+    <!-- Reject Request Modal -->
+    @if (showRejectModal)
+    {
+        <div class="modal-overlay" @onclick="CloseRejectModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>Reject Request</h3>
+                    <button class="modal-close" @onclick="CloseRejectModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Reason for Rejection</label>
+                        <textarea class="form-input" @bind="rejectReason" rows="3" placeholder="Enter reason for rejection..."></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="CloseRejectModal">Cancel</button>
+                        <button class="btn btn-danger" @onclick="RejectRequest">Reject Request</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+

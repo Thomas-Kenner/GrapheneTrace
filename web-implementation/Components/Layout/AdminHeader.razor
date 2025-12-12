@@ -1,6 +1,7 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
 @using GrapheneTrace.Web.Services
+@implements IDisposable
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManagementService UserManagementService
@@ -35,13 +36,15 @@
     </div>
 
     <div class="nav-tabs">
-        <button class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
-        <button class="nav-tab @GetNavClass("users")" @onclick="GoToUsers">Users</button>
+        <button type="button" class="nav-tab @GetNavClass("dashboard")" @onclick="GoToDashboard">Dashboard</button>
+        <button type="button" class="nav-tab @GetNavClass("users")" @onclick="GoToUsers">Users</button>
         <!-- Author: 2402513 - Added navigation tab for Patient-Clinician Assignment page -->
-        <button class="nav-tab @GetNavClass("patient-clinician-assignment")" @onclick="GoToPatientClinicianAssignment">Assignments</button>
-        <button class="nav-tab @GetNavClass("approvals")" @onclick="GoToApprovals">Approvals</button>
-        <button class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
-        <button class="nav-tab @GetNavClass("support")" @onclick="GoToSupport">Support</button>
+        <button type="button" class="nav-tab @GetNavClass("patient-clinician-assignment")" @onclick="GoToPatientClinicianAssignment">Assignments</button>
+        <!-- Updated: 2402513 - Added navigation tab for Patient-Clinician Requests page -->
+        <button type="button" class="nav-tab @GetNavClass("patient-requests")" @onclick="GoToPatientRequests">Requests</button>
+        <button type="button" class="nav-tab @GetNavClass("approvals")" @onclick="GoToApprovals">Approvals</button>
+        <button type="button" class="nav-tab @GetNavClass("settings")" @onclick="GoToSettings">Settings</button>
+        <button type="button" class="nav-tab @GetNavClass("support")" @onclick="GoToSupport">Support</button>
     </div>
 
     <div class="header-right">
@@ -109,6 +112,20 @@
         userEmail = emailClaim?.Value ?? authState.User.Identity?.Name ?? "admin@graphene.com";
 
         currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        
+        // Subscribe to location changes to update active state
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+    
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        currentPath = new Uri(e.Location).AbsolutePath;
+        StateHasChanged();
+    }
+    
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -116,14 +133,21 @@
         if (firstRender)
         {
             // Add document click listener to close dropdowns when clicking anywhere on the page
-            await JS.InvokeVoidAsync("setupDropdownClickHandler",
-                DotNetObjectReference.Create(this),
-                headerRef);
+            await JS.InvokeVoidAsync("addClickOutsideListener",
+                headerRef,
+                DotNetObjectReference.Create(this));
+        }
+        
+        // Update current path after navigation
+        var newPath = new Uri(Navigation.Uri).AbsolutePath;
+        if (newPath != currentPath)
+        {
+            currentPath = newPath;
         }
     }
 
     [JSInvokable]
-    public void CloseDropdownsFromJS()
+    public void CloseMenu()
     {
         CloseDropdowns();
         StateHasChanged();
@@ -159,26 +183,36 @@
     private void GoToDashboard()
     {
         Navigation.NavigateTo("/admin/dashboard");
+        currentPath = "/admin/dashboard";
+        StateHasChanged();
     }
 
     private void GoToUsers()
     {
         Navigation.NavigateTo("/admin/users");
+        currentPath = "/admin/users";
+        StateHasChanged();
     }
 
     private void GoToApprovals()
     {
         Navigation.NavigateTo("/admin/approvals");
+        currentPath = "/admin/approvals";
+        StateHasChanged();
     }
 
     private void GoToSettings()
     {
         Navigation.NavigateTo("/admin/settings");
+        currentPath = "/admin/settings";
+        StateHasChanged();
     }
 
     private void GoToSupport()
     {
         Navigation.NavigateTo("/admin/support");
+        currentPath = "/admin/support";
+        StateHasChanged();
     }
 
     /// <summary>
@@ -193,6 +227,23 @@
     private void GoToPatientClinicianAssignment()
     {
         Navigation.NavigateTo("/admin/patient-clinician-assignment");
+        currentPath = "/admin/patient-clinician-assignment";
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Navigates to the Patient-Clinician Requests page.
+    /// Updated: 2402513
+    /// </summary>
+    /// <remarks>
+    /// Purpose: Navigation handler for the admin request approval page.
+    /// Allows administrators to view and approve/deny patient-clinician requests.
+    /// </remarks>
+    private void GoToPatientRequests()
+    {
+        Navigation.NavigateTo("/admin/patient-requests");
+        currentPath = "/admin/patient-requests";
+        StateHasChanged();
     }
 
     private void ToggleMenu()
@@ -210,6 +261,19 @@
 
     private string GetNavClass(string section)
     {
-        return currentPath.Contains(section) ? "active" : "";
+        // Check if current path matches the section
+        if (string.IsNullOrEmpty(currentPath))
+        {
+            currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        }
+        
+        // Handle dashboard specially since it's the root
+        if (section == "dashboard" && (currentPath == "/admin/dashboard" || currentPath == "/admin"))
+        {
+            return "active";
+        }
+        
+        // For other sections, check if path contains the section name
+        return currentPath.Contains(section, StringComparison.OrdinalIgnoreCase) ? "active" : "";
     }
 }

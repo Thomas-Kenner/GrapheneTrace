@@ -131,4 +131,34 @@ public class ApplicationUser : IdentityUser<Guid>
     /// Patient's medical condition summary.
     /// </summary>
     public string? Condition { get; set; }
+
+    /// <summary>
+    /// User's phone number.
+    /// Author: 2402513
+    /// </summary>
+    public string? Phone { get; set; }
+
+    /// <summary>
+    /// User's street address.
+    /// Author: 2402513
+    /// </summary>
+    public string? Address { get; set; }
+
+    /// <summary>
+    /// User's city.
+    /// Author: 2402513
+    /// </summary>
+    public string? City { get; set; }
+
+    /// <summary>
+    /// User's postcode (UK format).
+    /// Author: 2402513
+    /// </summary>
+    public string? Postcode { get; set; }
+
+    /// <summary>
+    /// User's country.
+    /// Author: 2402513
+    /// </summary>
+    public string? Country { get; set; }
 }

@@ -93,14 +93,13 @@ public class AccountController : ControllerBase
                 return Redirect("/?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
             }
 
-            // TODO: Add approval check (ApprovedAt) - block unapproved admin/clinician accounts
-            // Updated: 2402513 - Added TODO for approval check implementation
-            // Only enforce approval for non-patient accounts (patients are auto-approved on registration)
-            // if (user.ApprovedAt == null && (user.UserType == "admin" || user.UserType == "clinician"))
-            // {
-            //     _logger.LogWarning("Login attempt for unapproved user: {UserId} (Type: {UserType})", user.Id, user.UserType);
-            //     return Redirect("/?error=" + Uri.EscapeDataString("Your account is pending administrator approval. You will receive notification when approved."));
-            // }
+            // Updated: 2402513 - Block all unapproved accounts from logging in
+            // All accounts (including patients) require admin approval before access
+            if (user.ApprovedAt == null)
+            {
+                _logger.LogWarning("Login attempt for unapproved user: {UserId} (Type: {UserType})", user.Id, user.UserType);
+                return Redirect("/?error=" + Uri.EscapeDataString("Your account is pending administrator approval. You will receive notification when approved."));
+            }
 
             // Attempt sign in
             var result = await _signInManager.PasswordSignInAsync(
@@ -225,8 +224,8 @@ public class AccountController : ControllerBase
                 LastName = request.LastName,
                 UserType = request.UserType,
                 EmailConfirmed = true,  // Skip email confirmation for now
-                // Auto-approve patient accounts - only admin/clinician accounts require manual approval
-                ApprovedAt = request.UserType == "patient" ? DateTime.UtcNow : null
+                // Updated: 2402513 - All accounts (including patients) require admin approval
+                ApprovedAt = null
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -265,34 +264,11 @@ public class AccountController : ControllerBase
                     return Ok(new { success = true, message = "Account created successfully" });
                 }
 
-                // Traditional form POST - handle sign-in based on approval status
-                if (user.ApprovedAt == null)
-                {
-                    // Admin/Clinician accounts require approval - redirect to login with success message
-                    _logger.LogInformation("Account created but requires approval: {UserId}", user.Id);
-                    var message = "Account created successfully! Your account is pending administrator approval. You will be notified when you can log in.";
-                    return Redirect("/login?success=" + Uri.EscapeDataString(message));
-                }
-
-                // Patient accounts are auto-approved - sign in immediately
-                await _signInManager.SignInAsync(user, isPersistent: false);
-                
-                // Refresh sign-in to ensure all claims (including role) are loaded into the cookie
-                // Author: 2402513 - Refresh sign-in to ensure role claims are immediately available
-                await _signInManager.RefreshSignInAsync(user);
-
-                // Determine redirect path
-                var redirectPath = user.UserType switch
-                {
-                    "admin" => "/admin/dashboard",
-                    "clinician" => "/clinician/dashboard",
-                    "patient" => "/patient/dashboard",
-                    _ => "/patient/dashboard"
-                };
-
-                // Return JSON response for Blazor component to handle navigation
-                // Author: 2402513 - Changed from Redirect to JSON response for Blazor component handling
-                return Ok(new { success = true, redirectUrl = redirectPath });
+                // Updated: 2402513 - All accounts require admin approval before login
+                // Redirect to login with success message
+                _logger.LogInformation("Account created but requires approval: {UserId} (Type: {UserType})", user.Id, user.UserType);
+                var message = "Account created successfully! Your account is pending administrator approval. You will be notified when you can log in.";
+                return Redirect("/login?success=" + Uri.EscapeDataString(message));
             }
 
             // Return validation errors

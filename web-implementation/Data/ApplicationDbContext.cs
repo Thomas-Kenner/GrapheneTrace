@@ -93,6 +93,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
                 .IsRequired()
                 .HasMaxLength(20);
 
+            // Updated: 2402513 - Configure address fields with UK-style validation
+            entity.Property(e => e.Phone)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Address)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.City)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Postcode)
+                .HasMaxLength(10);  // UK postcodes are max 8 characters, but allow some buffer
+
+            entity.Property(e => e.Country)
+                .HasMaxLength(100);
+
             // ApprovedAt and DeactivatedAt are nullable, no configuration needed
 
             // Configure ApprovedBy self-referencing foreign key

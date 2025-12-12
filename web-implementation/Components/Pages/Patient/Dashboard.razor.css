@@ -192,7 +192,13 @@
 /* Alert Card */
 ::deep .alert-card {
   text-align: center;
-  /* TODO: Add .alert-card.active class with red background when alerts are detected */
+}
+
+/* Updated: 2402513 - Active alert card with red background */
+::deep .alert-card.active {
+  background-color: #fee2e2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
 }
 
 ::deep .alert-icon-container {

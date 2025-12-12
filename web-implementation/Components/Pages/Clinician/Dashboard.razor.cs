@@ -1,5 +1,6 @@
 using GrapheneTrace.Web.Data;
 using GrapheneTrace.Web.Models;
+using GrapheneTrace.Web.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public partial class Dashboard
 {
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
     [Inject] private ApplicationDbContext DbContext { get; set; } = default!;
+    [Inject] private UserManagementService UserManagementService { get; set; } = default!;
 
     private bool isPopupVisible = false;
     private bool isLoading = true;
@@ -25,6 +27,14 @@ public partial class Dashboard
     private List<PatientClinician> approvedPatients = new();
     private List<PatientClinicianRequest> pendingRequests = new();
     private Guid? selectedPatientId = null;
+    
+    // Updated: 2402513 - Request patient modal state
+    private bool showRequestModal = false;
+    private string patientSearchQuery = "";
+    private List<ApplicationUser> searchResults = new();
+    private bool isSearching = false;
+    private string requestMessage = "";
+    private bool requestSuccess = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,5 +163,92 @@ public partial class Dashboard
     {
         isPopupVisible = false;
         selectedPatientId = null;
+    }
+
+    /// <summary>
+    /// Shows the request patient modal.
+    /// Author: 2402513
+    /// </summary>
+    private void ShowRequestPatientModal()
+    {
+        showRequestModal = true;
+        patientSearchQuery = "";
+        searchResults.Clear();
+        requestMessage = "";
+    }
+
+    /// <summary>
+    /// Closes the request patient modal.
+    /// Author: 2402513
+    /// </summary>
+    private void CloseRequestModal()
+    {
+        showRequestModal = false;
+        patientSearchQuery = "";
+        searchResults.Clear();
+        requestMessage = "";
+    }
+
+    /// <summary>
+    /// Searches for patients by name or email.
+    /// Author: 2402513
+    /// </summary>
+    private async Task SearchPatients()
+    {
+        if (string.IsNullOrWhiteSpace(patientSearchQuery) || patientSearchQuery.Length < 2)
+        {
+            searchResults.Clear();
+            return;
+        }
+
+        isSearching = true;
+        StateHasChanged();
+
+        try
+        {
+            var query = patientSearchQuery.ToLower();
+            searchResults = await DbContext.Users
+                .Where(u => u.UserType == "patient"
+                    && (u.FirstName.ToLower().Contains(query)
+                        || u.LastName.ToLower().Contains(query)
+                        || (u.Email != null && u.Email.ToLower().Contains(query))))
+                .Take(10)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            requestMessage = $"Error searching: {ex.Message}";
+            requestSuccess = false;
+        }
+        finally
+        {
+            isSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Selects a patient and creates a request.
+    /// Author: 2402513
+    /// </summary>
+    private async Task SelectPatient(Guid patientId)
+    {
+        requestMessage = "";
+        requestSuccess = false;
+
+        var result = await UserManagementService.CreatePatientClinicianRequestAsync(patientId, clinicianId);
+        
+        requestMessage = result.Message;
+        requestSuccess = result.Success;
+
+        if (result.Success)
+        {
+            // Reload data and close modal after a short delay
+            await LoadPatientData();
+            await Task.Delay(1500);
+            CloseRequestModal();
+        }
+
+        StateHasChanged();
     }
 }
