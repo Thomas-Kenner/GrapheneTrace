@@ -37,4 +37,14 @@ public class DashboardStats
     /// Number of pending requests awaiting admin approval.
     /// </summary>
     public int PendingRequests { get; set; }
+
+    /// <summary>
+    /// Number of approved requests.
+    /// </summary>
+    public int ApprovedRequests { get; set; }
+
+    /// <summary>
+    /// Number of rejected requests.
+    /// </summary>
+    public int RejectedRequests { get; set; }
 }

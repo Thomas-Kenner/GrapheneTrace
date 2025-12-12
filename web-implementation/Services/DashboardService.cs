@@ -1,5 +1,7 @@
 using GrapheneTrace.Web.Models;
+using GrapheneTrace.Web.Data;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrapheneTrace.Web.Services;
 
@@ -12,6 +14,7 @@ namespace GrapheneTrace.Web.Services;
 ///
 /// Dependencies:
 /// - UserManager<ApplicationUser>: ASP.NET Core Identity for querying users
+/// - ApplicationDbContext: Database context for querying pending requests
 ///
 /// Design Pattern: Service layer encapsulates business logic for dashboard data retrieval.
 /// This allows for reuse across multiple components and testability.
@@ -21,19 +24,21 @@ namespace GrapheneTrace.Web.Services;
 ///   - Counts total active users (where DeactivatedAt is null)
 ///   - Counts clinicians (where UserType == "clinician")
 ///   - Counts patients (where UserType == "patient")
-///   - Returns pending requests (currently hardcoded as 0, can be expanded)
+///   - Returns pending requests from PatientClinicianRequests table
 /// </remarks>
 public class DashboardService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ApplicationDbContext _context;
 
     /// <summary>
-    /// Initializes the DashboardService with UserManager dependency.
+    /// Initializes the DashboardService with UserManager and ApplicationDbContext dependencies.
     /// Author: SID:2402513
     /// </summary>
-    public DashboardService(UserManager<ApplicationUser> userManager)
+    public DashboardService(UserManager<ApplicationUser> userManager, ApplicationDbContext context)
     {
         _userManager = userManager;
+        _context = context;
     }
 
     /// <summary>
@@ -47,9 +52,9 @@ public class DashboardService
     /// 2. Filter active users (where DeactivatedAt == null)
     /// 3. Count total users
     /// 4. Count by UserType: "clinician" and "patient"
-    /// 5. PendingRequests is currently static (0) - can be enhanced with request tracking table
+    /// 5. Query PatientClinicianRequests table for pending requests (Status == "pending")
     ///
-    /// Performance: Executes single query to UserManager with in-memory filtering
+    /// Performance: Executes queries to UserManager and ApplicationDbContext
     /// </remarks>
     public async Task<DashboardStats> GetDashboardStatsAsync()
     {
@@ -63,12 +68,16 @@ public class DashboardService
         var clinicians = activeUsers.Count(u => u.UserType == "clinician");
         var patients = activeUsers.Count(u => u.UserType == "patient");
 
+        // Count pending requests from PatientClinicianRequests table
+        var pendingRequests = await _context.PatientClinicianRequests
+            .CountAsync(pcr => pcr.Status == "pending");
+
         return new DashboardStats
         {
             TotalUsers = activeUsers.Count,
             Clinicians = clinicians,
             Patients = patients,
-            PendingRequests = 0 // Can be expanded with future request tracking
+            PendingRequests = pendingRequests
         };
     }
 

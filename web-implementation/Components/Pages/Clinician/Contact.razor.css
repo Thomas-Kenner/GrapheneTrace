@@ -1,320 +1,480 @@
-/* Clinician Contact Patients Page Scoped Styles */
-/* Author: 2402513 */
-/* Purpose: Provides specific styling for the Contact Patients page,
-   ensuring consistency with other clinician pages. */
+/* Clinician Contact Patients Page Styles - Matching Site Design System */
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --border: rgba(0, 0, 0, 0.1);
+  --input-background: #f3f3f5;
+  --radius: 0.625rem;
+  --success-green: #10b981;
+  --warning-orange: #f59e0b;
+  --danger-red: #ef4444;
+}
 
 /* Content Container */
 .clinician-content {
-    max-width: 1800px;
-    margin: 0 auto;
-    padding: 2rem 5rem;
+  flex: 1;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* Page Header */
 .page-header {
-    margin-bottom: 2rem;
+  margin-bottom: 2rem;
 }
 
 .section-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--foreground, #030213);
-    margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
 }
 
 /* Contact Layout */
 .contact-layout {
-    display: grid;
-    grid-template-columns: 400px 1fr;
-    gap: 1.5rem;
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .contact-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Patient List Section */
 .patient-list-section {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .card {
-    background: var(--card, #ffffff);
-    border: 2px solid #e5e7eb;
-    border-radius: var(--radius, 0.625rem);
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    height: fit-content;
-    max-height: calc(100vh - 250px);
-    display: flex;
-    flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  height: fit-content;
+  max-height: calc(100vh - 250px);
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
 }
 
 .card-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--foreground, #030213);
-    margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 1.5rem 0;
 }
 
 .patient-list-table-container {
-    overflow-y: auto;
-    flex: 1;
+  overflow-y: auto;
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .patient-list-table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
 }
 
 .patient-list-table thead {
-    background: var(--muted, #ececf0);
-    position: sticky;
-    top: 0;
-    z-index: 1;
+  background: var(--muted);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .patient-list-table th {
-    padding: 0.75rem;
-    text-align: left;
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--foreground, #030213);
-    border-bottom: 2px solid #e5e7eb;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
 }
 
 .patient-list-table tbody tr {
-    border-bottom: 1px solid #e5e7eb;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.patient-list-table tbody tr:last-child {
+  border-bottom: none;
 }
 
 .patient-list-table tbody tr:hover {
-    background: var(--accent, #e9ebef);
+  background: var(--accent);
 }
 
 .patient-list-table tbody tr.selected {
-    background: var(--secondary, oklch(0.95 0.0058 264.53));
-    border-left: 3px solid var(--primary, #030213);
+  background: var(--secondary);
+  border-left: 3px solid var(--primary);
 }
 
 .patient-list-table td {
-    padding: 0.75rem;
-    vertical-align: middle;
+  padding: 0.75rem;
+  vertical-align: middle;
+  color: var(--foreground);
 }
 
 .patient-email {
-    font-size: 0.8rem;
-    color: var(--muted-foreground, #717182);
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  font-family: monospace;
+}
+
+.patient-list-table td strong {
+  font-weight: 600;
+  color: var(--foreground);
 }
 
 .message-preview {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .message-text {
-    font-size: 0.85rem;
-    color: var(--foreground, #030213);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 200px;
+  font-size: 0.85rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
 }
 
 .message-time {
-    font-size: 0.75rem;
-    color: var(--muted-foreground, #717182);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
 }
 
 .no-message {
-    font-size: 0.85rem;
-    color: var(--muted-foreground, #717182);
-    font-style: italic;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+  font-style: italic;
 }
 
 .contact-btn {
-    background: var(--primary, #030213);
-    color: var(--primary-foreground, #ffffff);
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius, 0.625rem);
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--primary);
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.contact-btn:hover {
-    background: var(--foreground, #030213);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.contact-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 4px 8px rgba(3, 2, 19, 0.15);
+  transform: translateY(-1px);
+}
+
+.contact-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.contact-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .no-patients {
-    text-align: center;
-    padding: 2rem;
-    color: var(--muted-foreground, #717182);
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground);
 }
 
 /* Messaging Section */
 .messaging-section {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .messaging-card {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 250px);
-    min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 250px);
+  min-height: 500px;
 }
 
 .messaging-header {
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
 }
 
 .messaging-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--foreground, #030213);
-    margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.25rem 0;
 }
 
 .messaging-email {
-    font-size: 0.85rem;
-    color: var(--muted-foreground, #717182);
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
 }
 
 .no-selection {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    text-align: center;
-    color: var(--muted-foreground, #717182);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  color: var(--muted-foreground);
 }
 
 .no-selection p {
-    font-size: 1rem;
+  font-size: 1rem;
+  margin: 0;
 }
 
 /* Messages Container */
 .messages-container {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem 0;
-    margin-bottom: 1rem;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 0;
+  margin-bottom: 1rem;
 }
 
 .message-bubble {
-    max-width: 70%;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius, 0.625rem);
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+  max-width: 70%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.message-bubble:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .patient-message {
-    background: var(--muted, #ececf0);
-    align-self: flex-start;
-    border-bottom-left-radius: 0.25rem;
+  background: var(--muted);
+  align-self: flex-start;
+  border-bottom-left-radius: 0.25rem;
 }
 
 .clinician-message {
-    background: var(--primary, #030213);
-    color: var(--primary-foreground, #ffffff);
-    align-self: flex-end;
-    border-bottom-right-radius: 0.25rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  align-self: flex-end;
+  border-bottom-right-radius: 0.25rem;
 }
 
 .clinician-message .message-text {
-    color: var(--primary-foreground, #ffffff);
+  color: var(--primary-foreground);
 }
 
 .message-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.message-text {
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    word-wrap: break-word;
-    white-space: normal;
-    max-width: 100%;
-    color: var(--muted-foreground, #717182);
+.message-bubble .message-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: normal;
+  max-width: 100%;
+}
+
+.patient-message .message-text {
+  color: var(--foreground);
 }
 
 .message-timestamp {
-    font-size: 0.75rem;
-    opacity: 0.7;
-    align-self: flex-end;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  align-self: flex-end;
+}
+
+.clinician-message .message-timestamp {
+  color: var(--primary-foreground);
+}
+
+.patient-message .message-timestamp {
+  color: var(--muted-foreground);
 }
 
 /* Message Input */
 .message-input-container {
-    display: flex;
-    gap: 0.75rem;
-    padding-top: 1rem;
-    border-top: 2px solid #e5e7eb;
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 
 .message-input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--border, rgba(0, 0, 0, 0.1));
-    border-radius: var(--radius, 0.625rem);
-    background: var(--input-background, #f3f3f5);
-    color: var(--foreground, #030213);
-    font-size: 0.9rem;
-    transition: all 0.2s ease;
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--input-background);
+  color: var(--foreground);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
 }
 
 .message-input:focus {
-    outline: none;
-    border-color: var(--primary, #030213);
-    background: var(--background, #ffffff);
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(3, 2, 19, 0.1);
+  background: var(--background);
+}
+
+.message-input:hover {
+  border-color: #d1d5db;
 }
 
 .message-input::placeholder {
-    color: var(--muted-foreground, #717182);
+  color: var(--muted-foreground);
 }
 
 .send-btn {
-    background: var(--primary, #030213);
-    color: var(--primary-foreground, #ffffff);
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius, 0.625rem);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .send-btn:hover:not(:disabled) {
-    background: var(--foreground, #030213);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  opacity: 0.9;
+  box-shadow: 0 4px 8px rgba(3, 2, 19, 0.15);
+  transform: translateY(-1px);
+}
+
+.send-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .send-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Loading State */
 .loading {
-    text-align: center;
-    padding: 3rem;
-    color: var(--muted-foreground, #717182);
-    font-size: 1rem;
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground);
+  font-size: 1.1rem;
 }
 
+/* Responsive Design */
+@media (max-width: 768px) {
+  .clinician-content {
+    padding: 1rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+  }
+
+  .contact-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .card {
+    max-height: 400px;
+  }
+
+  .messaging-card {
+    height: auto;
+    min-height: 400px;
+  }
+
+  .message-bubble {
+    max-width: 85%;
+  }
+
+  .message-input-container {
+    flex-direction: column;
+  }
+
+  .send-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .clinician-content {
+    padding: 0.75rem;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+  }
+
+  .patient-list-table th,
+  .patient-list-table td {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .contact-btn,
+  .send-btn {
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .message-input {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
