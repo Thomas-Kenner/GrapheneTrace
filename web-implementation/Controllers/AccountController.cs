@@ -273,7 +273,15 @@ public class AccountController : ControllerBase
             }
 
             // Return validation errors
-            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            // Author: SID:2412494 - Clean up error messages: remove "Username" references (users only see email),
+            // deduplicate messages, and fix comma-period formatting
+            var cleanedErrors = result.Errors
+                .Select(e => e.Description)
+                .Select(desc => desc.Replace("Username", "Email")) // Users only enter email, not username
+                .Distinct() // Remove duplicate messages
+                .Select(desc => desc.TrimEnd('.', ',')) // Remove trailing punctuation for clean joining
+                .ToList();
+            var errors = string.Join(". ", cleanedErrors) + ".";
             _logger.LogWarning("User registration failed: {Errors}", errors);
             return BadRequest(new { error = errors });
         }

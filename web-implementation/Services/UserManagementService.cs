@@ -68,7 +68,14 @@ public class UserManagementService
     /// <summary>
     /// Creates a new user with the provided details.
     /// Author: SID:2402513
+    /// Updated: SID:2412494 - Auto-approve admin-created users (they don't need to go through approval workflow)
     /// </summary>
+    /// <remarks>
+    /// Admin-Created User Auto-Approval (Updated: SID:2412494):
+    /// Users created by an admin through the admin dashboard are automatically approved.
+    /// This differs from self-registration where clinician/admin accounts require manual approval.
+    /// Since this method is only called from the admin Users page, we can safely auto-approve.
+    /// </remarks>
     public async Task<(bool Success, string Message)> CreateUserAsync(
         ApplicationUser user,
         string password,
@@ -78,6 +85,8 @@ public class UserManagementService
         {
             user.UserType = userType;
             user.EmailConfirmed = true;
+            // Author: SID:2412494 - Auto-approve admin-created users
+            user.ApprovedAt = DateTime.UtcNow;
 
             var result = await _userManager.CreateAsync(user, password);
 
@@ -86,6 +95,9 @@ public class UserManagementService
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                 return (false, $"Failed to create user: {errors}");
             }
+
+            _logger.LogInformation("Admin created and auto-approved user {UserId} ({Email}) with type {UserType}",
+                user.Id, user.Email, userType);
 
             return (true, "User created successfully");
         }

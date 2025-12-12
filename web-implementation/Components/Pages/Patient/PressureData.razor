@@ -1,7 +1,32 @@
+@*
+    ========================================
+    PRESSURE DATA PAGE
+    ========================================
+    Author: SID:2412494
+
+    Purpose:
+    Displays pressure data analytics with interactive charts including:
+    - Peak Pressure Index over time (line chart)
+    - Time Above Threshold per session (bar chart)
+    - Pressure by Area (quadrant heat map)
+    - Weekly Pressure Trends (multi-line comparison)
+
+    Features:
+    - Time period selection (1h, 6h, 24h, 7d, 30d, custom)
+    - Real-time metrics display
+    - SVG-based charts for responsive visualization
+*@
+
 @page "/patient/pressure-data"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Patient")]
 @using GrapheneTrace.Web.Components.Layout
+@using GrapheneTrace.Web.Services
+@using GrapheneTrace.Web.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PressureDataService PressureDataService
+@inject PatientSettingsService PatientSettingsService
 
 <div class="patient-container">
     <PatientHeader />
@@ -18,91 +43,613 @@
                     </div>
 
                     <div class="timeline-controls">
-                        <select class="time-select">
-                            <option selected>Today</option>
-                            <option>Yesterday</option>
-                            <option>Last 7 Days</option>
-                            <option>Last 30 Days</option>
+                        <select class="time-select" @bind="_selectedTimePeriod" @bind:after="OnTimePeriodChanged">
+                            <option value="1h">Last Hour</option>
+                            <option value="6h">Last 6 Hours</option>
+                            <option value="24h">Last 24 Hours</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
                         </select>
-                        <button class="custom-range-btn">
-                            📅 Custom Range
-                        </button>
+                        @if (_isLoading)
+                        {
+                            <span class="loading-indicator">Loading...</span>
+                        }
                     </div>
 
-                    <div class="timeline-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
-                        <p class="placeholder-description">Pressure map timeline</p>
-                        <p class="placeholder-description">Playback controls</p>
-                    </div>
+                    @* Peak Pressure Index Line Chart *@
+                    <div class="chart-container">
+                        @if (_peakPressureData.Any())
+                        {
+                            <svg viewBox="0 0 700 300" class="line-chart">
+                                @* Grid lines *@
+                                @for (int i = 0; i <= 4; i++)
+                                {
+                                    var y = 30 + (i * 60);
+                                    var labelValue = 255 - i * 64;
+                                    <line x1="50" y1="@y" x2="680" y2="@y" stroke="#e5e7eb" stroke-width="1" />
+                                    @((MarkupString)$"<text x=\"45\" y=\"{y + 4}\" text-anchor=\"end\" class=\"axis-label\">{labelValue}</text>")
+                                }
 
-                    <div class="playback-controls">
-                        <button class="playback-btn">◄</button>
-                        <button class="playback-btn play-btn">► Play</button>
-                        <button class="playback-btn">►</button>
+                                @* Threshold line *@
+                                @if (_threshold > 0)
+                                {
+                                    var thresholdY = 30 + ((255 - _threshold) / 255.0 * 240);
+                                    <line x1="50" y1="@thresholdY" x2="680" y2="@thresholdY"
+                                          stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5" />
+                                    @((MarkupString)$"<text x=\"685\" y=\"{thresholdY + 4}\" class=\"threshold-label\">Threshold</text>")
+                                }
+
+                                @* Data line *@
+                                <polyline fill="none" stroke="#667eea" stroke-width="2" points="@GetPeakPressurePoints()" />
+
+                                @* Area fill under line *@
+                                <polygon fill="url(#gradient)" opacity="0.3" points="@GetPeakPressurePolygon()" />
+
+                                @* Gradient definition *@
+                                <defs>
+                                    <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.8" />
+                                        <stop offset="100%" style="stop-color:#667eea;stop-opacity:0.1" />
+                                    </linearGradient>
+                                </defs>
+
+                                @* X-axis labels *@
+                                @((MarkupString)"<text x=\"365\" y=\"295\" text-anchor=\"middle\" class=\"axis-label\">Time</text>")
+                            </svg>
+                        }
+                        else if (!_isLoading)
+                        {
+                            <div class="no-data-message">
+                                <p>No pressure data available for this time period.</p>
+                                <p class="hint">Try selecting a different time range or connect your device to start recording.</p>
+                            </div>
+                        }
                     </div>
                 </div>
 
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <span class="metric-label">Avg Peak</span>
-                        <span class="metric-value-large">Placeholder</span>
+                        <span class="metric-value-large">@(_aggregatedMetrics?.AvgPeakPressure.ToString("F0") ?? "--")</span>
                     </div>
                     <div class="metric-card">
                         <span class="metric-label">Max Recorded</span>
-                        <span class="metric-value-large">Placeholder</span>
+                        <span class="metric-value-large">@(_aggregatedMetrics?.MaxPeakPressure.ToString("F0") ?? "--")</span>
                     </div>
                     <div class="metric-card">
                         <span class="metric-label">Above Threshold</span>
-                        <span class="metric-value-large">Placeholder</span>
+                        <span class="metric-value-large">@FormatTimeAboveThreshold()</span>
                     </div>
                     <div class="metric-card">
-                        <span class="metric-label">Highest Area</span>
-                        <span class="metric-value-large">Placeholder</span>
+                        <span class="metric-label">Avg Contact</span>
+                        <span class="metric-value-large">@(_aggregatedMetrics?.AvgContactArea.ToString("F1") ?? "--")%</span>
                     </div>
                 </div>
             </div>
 
             <div class="right-column">
-                <div class="card chart-card">
-                    <h4 class="chart-title">Peak Pressure Index</h4>
-                    <p class="chart-subtitle">Maximum over time</p>
-                    <div class="chart-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
-                        <p class="placeholder-description">Line graph</p>
-                        <p class="placeholder-description">Peak pressure + threshold</p>
-                    </div>
-                </div>
-
+                @* Peak Pressure Index Chart Card *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Time Above Threshold</h4>
-                    <p class="chart-subtitle">High pressure duration</p>
-                    <div class="chart-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
-                        <p class="placeholder-description">Bar chart</p>
-                        <p class="placeholder-description">Per session breakdown</p>
+                    <p class="chart-subtitle">Per session breakdown</p>
+                    <div class="chart-content">
+                        @if (_sessionMetrics.Any())
+                        {
+                            <svg viewBox="0 0 280 160" class="bar-chart">
+                                @{
+                                    var maxTime = _sessionMetrics.Max(s => s.TimeAboveThreshold.TotalMinutes);
+                                    if (maxTime == 0) maxTime = 1;
+                                    var barWidth = Math.Min(40, 240.0 / _sessionMetrics.Count - 5);
+                                    var xOffset = 30;
+                                }
+                                @for (int i = 0; i < _sessionMetrics.Count && i < 6; i++)
+                                {
+                                    var session = _sessionMetrics[i];
+                                    var barHeight = (session.TimeAboveThreshold.TotalMinutes / maxTime) * 120;
+                                    var x = xOffset + (i * (barWidth + 5));
+                                    var y = 140 - barHeight;
+                                    var color = session.TimeAboveThreshold.TotalMinutes > 5 ? "#ef4444" : "#667eea";
+                                    var labelText = session.SessionStart.ToString("M/d");
+
+                                    <rect x="@x" y="@y" width="@barWidth" height="@barHeight" fill="@color" rx="2" />
+                                    @((MarkupString)$"<text x=\"{x + barWidth/2}\" y=\"155\" text-anchor=\"middle\" class=\"bar-label\">{labelText}</text>")
+                                }
+                                @* Y-axis *@
+                                @((MarkupString)"<text x=\"10\" y=\"80\" text-anchor=\"middle\" transform=\"rotate(-90,10,80)\" class=\"axis-label\">Minutes</text>")
+                            </svg>
+                        }
+                        else if (!_isLoading)
+                        {
+                            <div class="no-data-small">No session data</div>
+                        }
                     </div>
                 </div>
 
+                @* Pressure by Area Chart Card *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Pressure by Area</h4>
                     <p class="chart-subtitle">Regional averages</p>
-                    <div class="chart-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
-                        <p class="placeholder-description">Heat map</p>
-                        <p class="placeholder-description">Quadrant pressures</p>
+                    <div class="chart-content">
+                        @if (_areaPressure != null && (_areaPressure.TopLeft > 0 || _areaPressure.TopRight > 0 || _areaPressure.BottomLeft > 0 || _areaPressure.BottomRight > 0))
+                        {
+                            <svg viewBox="0 0 160 160" class="area-heatmap">
+                                @* Quadrant cells *@
+                                <rect x="10" y="10" width="65" height="65" fill="@GetHeatColor(_areaPressure.TopLeft)" rx="4" />
+                                <rect x="85" y="10" width="65" height="65" fill="@GetHeatColor(_areaPressure.TopRight)" rx="4" />
+                                <rect x="10" y="85" width="65" height="65" fill="@GetHeatColor(_areaPressure.BottomLeft)" rx="4" />
+                                <rect x="85" y="85" width="65" height="65" fill="@GetHeatColor(_areaPressure.BottomRight)" rx="4" />
+
+                                @* Labels *@
+                                @((MarkupString)$"<text x=\"42\" y=\"47\" text-anchor=\"middle\" class=\"area-value\">{_areaPressure.TopLeft:F0}</text>")
+                                @((MarkupString)$"<text x=\"117\" y=\"47\" text-anchor=\"middle\" class=\"area-value\">{_areaPressure.TopRight:F0}</text>")
+                                @((MarkupString)$"<text x=\"42\" y=\"122\" text-anchor=\"middle\" class=\"area-value\">{_areaPressure.BottomLeft:F0}</text>")
+                                @((MarkupString)$"<text x=\"117\" y=\"122\" text-anchor=\"middle\" class=\"area-value\">{_areaPressure.BottomRight:F0}</text>")
+                            </svg>
+                        }
+                        else if (!_isLoading)
+                        {
+                            <div class="no-data-small">No area data</div>
+                        }
                     </div>
                 </div>
 
+                @* Contact Area Chart *@
+                <div class="card chart-card">
+                    <h4 class="chart-title">Contact Area %</h4>
+                    <p class="chart-subtitle">Sensor coverage over time</p>
+                    <div class="chart-content">
+                        @if (_sessionMetrics.Any())
+                        {
+                            <svg viewBox="0 0 280 160" class="bar-chart">
+                                @{
+                                    var barWidth2 = Math.Min(40, 240.0 / _sessionMetrics.Count - 5);
+                                    var xOffset2 = 30;
+                                }
+                                @for (int i = 0; i < _sessionMetrics.Count && i < 6; i++)
+                                {
+                                    var session = _sessionMetrics[i];
+                                    var barHeight = (session.AvgContactArea / 100.0) * 120;
+                                    var x = xOffset2 + (i * (barWidth2 + 5));
+                                    var y = 140 - barHeight;
+                                    var contactLabel = session.SessionStart.ToString("M/d");
+
+                                    <rect x="@x" y="@y" width="@barWidth2" height="@barHeight" fill="#10b981" rx="2" />
+                                    @((MarkupString)$"<text x=\"{x + barWidth2/2}\" y=\"155\" text-anchor=\"middle\" class=\"bar-label\">{contactLabel}</text>")
+                                }
+                            </svg>
+                        }
+                        else if (!_isLoading)
+                        {
+                            <div class="no-data-small">No session data</div>
+                        }
+                    </div>
+                </div>
+
+                @* Weekly Trends Chart Card *@
                 <div class="card chart-card">
                     <h4 class="chart-title">Pressure Trends</h4>
                     <p class="chart-subtitle">Weekly comparison</p>
-                    <div class="chart-placeholder">
-                        <p class="placeholder-text">[PLACEHOLDER]</p>
-                        <p class="placeholder-description">Multi-line graph</p>
-                        <p class="placeholder-description">Week-over-week trends</p>
+                    <div class="chart-content">
+                        @if (_weeklyComparison.Any(w => w.SessionCount > 0))
+                        {
+                            <svg viewBox="0 0 280 160" class="trend-chart">
+                                @{
+                                    var maxPressure = _weeklyComparison.Where(w => w.SessionCount > 0).Max(w => w.AvgPeakPressure);
+                                    if (maxPressure == 0) maxPressure = 255;
+                                    var points = new List<string>();
+                                    var xStep = 240.0 / Math.Max(1, _weeklyComparison.Count - 1);
+                                }
+                                @for (int i = 0; i < _weeklyComparison.Count; i++)
+                                {
+                                    var week = _weeklyComparison[i];
+                                    var xPos = 30 + (i * xStep);
+                                    var weekLabel = GetShortWeekLabel(week.Period);
+
+                                    if (week.SessionCount > 0)
+                                    {
+                                        var y = 140 - (week.AvgPeakPressure / maxPressure * 120);
+                                        points.Add($"{xPos:F0},{y:F0}");
+
+                                        @* Data point circle *@
+                                        <circle cx="@xPos" cy="@y" r="4" fill="#667eea" />
+                                    }
+
+                                    @* X-axis label *@
+                                    @((MarkupString)$"<text x=\"{xPos}\" y=\"155\" text-anchor=\"middle\" class=\"bar-label\">{weekLabel}</text>")
+                                }
+
+                                @if (points.Count > 1)
+                                {
+                                    <polyline fill="none" stroke="#667eea" stroke-width="2" points="@string.Join(" ", points)" />
+                                }
+                            </svg>
+                        }
+                        else if (!_isLoading)
+                        {
+                            <div class="no-data-small">No weekly data</div>
+                        }
                     </div>
+                </div>
+            </div>
+        </div>
+
+        @* Author: SID:2412494 - Day-to-Day and Hour-to-Hour Comparison Section *@
+        <div class="comparison-section">
+            <h3 class="section-title">Comparison Reports</h3>
+
+            <div class="comparison-grid">
+                @* Day-to-Day Comparison *@
+                <div class="card comparison-card">
+                    <div class="comparison-header">
+                        <h4>Today vs. Yesterday</h4>
+                    </div>
+                    <div class="comparison-content">
+                        <div class="comparison-column">
+                            <span class="comparison-label">Today</span>
+                            @if (_todayMetrics != null)
+                            {
+                                <div class="comparison-metrics">
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Avg Peak</span>
+                                        <span class="metric-value">@_todayMetrics.AvgPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Max Peak</span>
+                                        <span class="metric-value">@_todayMetrics.MaxPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Above Threshold</span>
+                                        <span class="metric-value">@FormatDuration(_todayMetrics.TimeAboveThreshold)</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="no-data-text">No data</span>
+                            }
+                        </div>
+                        <div class="comparison-divider">
+                            <span class="vs-badge">VS</span>
+                        </div>
+                        <div class="comparison-column">
+                            <span class="comparison-label">Yesterday</span>
+                            @if (_yesterdayMetrics != null)
+                            {
+                                <div class="comparison-metrics">
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Avg Peak</span>
+                                        <span class="metric-value">@_yesterdayMetrics.AvgPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Max Peak</span>
+                                        <span class="metric-value">@_yesterdayMetrics.MaxPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Above Threshold</span>
+                                        <span class="metric-value">@FormatDuration(_yesterdayMetrics.TimeAboveThreshold)</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="no-data-text">No data</span>
+                            }
+                        </div>
+                    </div>
+                    @if (_todayMetrics != null && _yesterdayMetrics != null)
+                    {
+                        <div class="comparison-change">
+                            @{
+                                var peakChange = _todayMetrics.AvgPeakPressure - _yesterdayMetrics.AvgPeakPressure;
+                                var changeClass = peakChange <= 0 ? "positive" : "negative";
+                            }
+                            <span class="change-indicator @changeClass">
+                                @(peakChange > 0 ? "↑" : peakChange < 0 ? "↓" : "→")
+                                @Math.Abs(peakChange).ToString("F0") avg peak
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                @* Hour-to-Hour Comparison *@
+                <div class="card comparison-card">
+                    <div class="comparison-header">
+                        <h4>This Hour vs. Same Hour Yesterday</h4>
+                    </div>
+                    <div class="comparison-content">
+                        <div class="comparison-column">
+                            <span class="comparison-label">@DateTime.Now.ToString("h:00 tt")</span>
+                            @if (_thisHourMetrics != null)
+                            {
+                                <div class="comparison-metrics">
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Avg Peak</span>
+                                        <span class="metric-value">@_thisHourMetrics.AvgPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Max Peak</span>
+                                        <span class="metric-value">@_thisHourMetrics.MaxPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Frames</span>
+                                        <span class="metric-value">@_thisHourMetrics.TotalFrames.ToString("N0")</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="no-data-text">No data</span>
+                            }
+                        </div>
+                        <div class="comparison-divider">
+                            <span class="vs-badge">VS</span>
+                        </div>
+                        <div class="comparison-column">
+                            <span class="comparison-label">Yesterday @DateTime.Now.ToString("h:00 tt")</span>
+                            @if (_sameHourYesterdayMetrics != null)
+                            {
+                                <div class="comparison-metrics">
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Avg Peak</span>
+                                        <span class="metric-value">@_sameHourYesterdayMetrics.AvgPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Max Peak</span>
+                                        <span class="metric-value">@_sameHourYesterdayMetrics.MaxPeakPressure.ToString("F0")</span>
+                                    </div>
+                                    <div class="comparison-metric">
+                                        <span class="metric-name">Frames</span>
+                                        <span class="metric-value">@_sameHourYesterdayMetrics.TotalFrames.ToString("N0")</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="no-data-text">No data</span>
+                            }
+                        </div>
+                    </div>
+                    @if (_thisHourMetrics != null && _sameHourYesterdayMetrics != null)
+                    {
+                        <div class="comparison-change">
+                            @{
+                                var hourPeakChange = _thisHourMetrics.AvgPeakPressure - _sameHourYesterdayMetrics.AvgPeakPressure;
+                                var hourChangeClass = hourPeakChange <= 0 ? "positive" : "negative";
+                            }
+                            <span class="change-indicator @hourChangeClass">
+                                @(hourPeakChange > 0 ? "↑" : hourPeakChange < 0 ? "↓" : "→")
+                                @Math.Abs(hourPeakChange).ToString("F0") avg peak
+                            </span>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@code {
+    // Author: SID:2412494
+    private Guid _userId;
+    private int _threshold = 200;
+    private string _selectedTimePeriod = "24h";
+    private bool _isLoading = true;
+
+    // Chart data
+    private List<PressureDataService.PressureDataPoint> _peakPressureData = new();
+    private List<PressureDataService.SessionMetricSummary> _sessionMetrics = new();
+    private PressureDataService.AreaPressureData? _areaPressure;
+    private List<PressureDataService.WeeklyComparison> _weeklyComparison = new();
+    private PressureDataService.SessionMetricSummary? _aggregatedMetrics;
+
+    // Author: SID:2412494 - Comparison metrics for day-to-day and hour-to-hour reports
+    private PressureDataService.SessionMetricSummary? _todayMetrics;
+    private PressureDataService.SessionMetricSummary? _yesterdayMetrics;
+    private PressureDataService.SessionMetricSummary? _thisHourMetrics;
+    private PressureDataService.SessionMetricSummary? _sameHourYesterdayMetrics;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            _userId = userId;
+
+            // Load patient-specific threshold
+            var settings = await PatientSettingsService.GetSettingsAsync(_userId);
+            if (settings != null)
+            {
+                _threshold = settings.HighPressureThreshold;
+            }
+
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task OnTimePeriodChanged()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_userId == Guid.Empty) return;
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var (startTime, endTime) = GetTimeRange();
+            var now = DateTime.UtcNow;
+
+            // Author: SID:2412494 - Calculate comparison time ranges
+            var todayStart = now.Date;
+            var yesterdayStart = todayStart.AddDays(-1);
+            var yesterdayEnd = todayStart;
+            var thisHourStart = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
+            var thisHourEnd = thisHourStart.AddHours(1);
+            var sameHourYesterdayStart = thisHourStart.AddDays(-1);
+            var sameHourYesterdayEnd = sameHourYesterdayStart.AddHours(1);
+
+            // Load all chart data in parallel
+            var peakPressureTask = PressureDataService.GetPeakPressureOverTimeAsync(_userId, startTime, endTime);
+            var sessionMetricsTask = PressureDataService.GetSessionMetricsAsync(_userId, startTime, endTime, _threshold);
+            var areaPressureTask = PressureDataService.GetAreaPressureAveragesAsync(_userId, startTime, endTime);
+            var weeklyTask = PressureDataService.GetWeeklyComparisonAsync(_userId, 4, _threshold);
+            var aggregatedTask = PressureDataService.GetAggregatedMetricsAsync(_userId, startTime, endTime, _threshold);
+
+            // Author: SID:2412494 - Load comparison metrics
+            var todayTask = PressureDataService.GetAggregatedMetricsAsync(_userId, todayStart, now, _threshold);
+            var yesterdayTask = PressureDataService.GetAggregatedMetricsAsync(_userId, yesterdayStart, yesterdayEnd, _threshold);
+            var thisHourTask = PressureDataService.GetAggregatedMetricsAsync(_userId, thisHourStart, thisHourEnd, _threshold);
+            var sameHourYesterdayTask = PressureDataService.GetAggregatedMetricsAsync(_userId, sameHourYesterdayStart, sameHourYesterdayEnd, _threshold);
+
+            await Task.WhenAll(peakPressureTask, sessionMetricsTask, areaPressureTask, weeklyTask, aggregatedTask,
+                              todayTask, yesterdayTask, thisHourTask, sameHourYesterdayTask);
+
+            _peakPressureData = await peakPressureTask;
+            _sessionMetrics = await sessionMetricsTask;
+            _areaPressure = await areaPressureTask;
+            _weeklyComparison = await weeklyTask;
+            _aggregatedMetrics = await aggregatedTask;
+
+            // Author: SID:2412494 - Store comparison metrics
+            _todayMetrics = await todayTask;
+            _yesterdayMetrics = await yesterdayTask;
+            _thisHourMetrics = await thisHourTask;
+            _sameHourYesterdayMetrics = await sameHourYesterdayTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading pressure data: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private (DateTime start, DateTime end) GetTimeRange()
+    {
+        var now = DateTime.UtcNow;
+        var start = _selectedTimePeriod switch
+        {
+            "1h" => now.AddHours(-1),
+            "6h" => now.AddHours(-6),
+            "24h" => now.AddHours(-24),
+            "7d" => now.AddDays(-7),
+            "30d" => now.AddDays(-30),
+            _ => now.AddHours(-24)
+        };
+        return (start, now);
+    }
+
+    private string GetPeakPressurePoints()
+    {
+        if (!_peakPressureData.Any()) return "";
+
+        var points = new List<string>();
+        var minTime = _peakPressureData.Min(p => p.Timestamp);
+        var maxTime = _peakPressureData.Max(p => p.Timestamp);
+        var timeRange = (maxTime - minTime).TotalSeconds;
+        if (timeRange == 0) timeRange = 1;
+
+        foreach (var point in _peakPressureData)
+        {
+            var x = 50 + ((point.Timestamp - minTime).TotalSeconds / timeRange * 630);
+            var y = 30 + ((255 - point.Value) / 255.0 * 240);
+            points.Add($"{x:F0},{y:F0}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private string GetPeakPressurePolygon()
+    {
+        if (!_peakPressureData.Any()) return "";
+
+        var points = new List<string>();
+        var minTime = _peakPressureData.Min(p => p.Timestamp);
+        var maxTime = _peakPressureData.Max(p => p.Timestamp);
+        var timeRange = (maxTime - minTime).TotalSeconds;
+        if (timeRange == 0) timeRange = 1;
+
+        // Start from bottom-left
+        var firstX = 50 + ((_peakPressureData.First().Timestamp - minTime).TotalSeconds / timeRange * 630);
+        points.Add($"{firstX:F0},270");
+
+        // Add all data points
+        foreach (var point in _peakPressureData)
+        {
+            var x = 50 + ((point.Timestamp - minTime).TotalSeconds / timeRange * 630);
+            var y = 30 + ((255 - point.Value) / 255.0 * 240);
+            points.Add($"{x:F0},{y:F0}");
+        }
+
+        // Close polygon at bottom-right
+        var lastX = 50 + ((_peakPressureData.Last().Timestamp - minTime).TotalSeconds / timeRange * 630);
+        points.Add($"{lastX:F0},270");
+
+        return string.Join(" ", points);
+    }
+
+    private string GetHeatColor(double value)
+    {
+        // Scale from blue (low) to red (high)
+        var normalized = Math.Min(1.0, value / 200.0);
+
+        if (normalized < 0.5)
+        {
+            // Blue to yellow
+            var r = (int)(normalized * 2 * 255);
+            var g = (int)(normalized * 2 * 255);
+            var b = (int)((1 - normalized * 2) * 255);
+            return $"rgb({r},{g},{b})";
+        }
+        else
+        {
+            // Yellow to red
+            var r = 255;
+            var g = (int)((1 - (normalized - 0.5) * 2) * 255);
+            var b = 0;
+            return $"rgb({r},{g},{b})";
+        }
+    }
+
+    private string FormatTimeAboveThreshold()
+    {
+        if (_aggregatedMetrics == null) return "--";
+
+        var time = _aggregatedMetrics.TimeAboveThreshold;
+        if (time.TotalMinutes < 1)
+            return $"{time.TotalSeconds:F0}s";
+        if (time.TotalHours < 1)
+            return $"{time.TotalMinutes:F0}m";
+        return $"{time.TotalHours:F1}h";
+    }
+
+    private string GetShortWeekLabel(string period)
+    {
+        return period switch
+        {
+            "This week" => "This",
+            "Last week" => "Last",
+            _ when period.Contains("weeks ago") => period.Replace(" weeks ago", "w"),
+            _ => period
+        };
+    }
+
+    // Author: SID:2412494 - Format duration for comparison reports
+    private string FormatDuration(TimeSpan time)
+    {
+        if (time.TotalSeconds < 60)
+            return $"{time.TotalSeconds:F0}s";
+        if (time.TotalMinutes < 60)
+            return $"{time.TotalMinutes:F0}m";
+        return $"{time.TotalHours:F1}h";
+    }
+}
