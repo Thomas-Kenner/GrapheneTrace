@@ -111,16 +111,20 @@
 
 /* Navigation Tabs */
 .patient-nav {
-  background: var(--background);
+  background: transparent;
   border-bottom: 1px solid #e5e7eb;
-  padding: 0 2rem;
+  padding: 0;
   display: flex;
-  gap: 0.5rem;
+  gap: 0;
   overflow-x: auto;
+  justify-content: center;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 0 3rem;
 }
 
 .nav-tab {
-  padding: 0.75rem 1.25rem;
+  padding: 0.875rem 1.5rem;
   background: transparent;
   border: none;
   border-bottom: 3px solid transparent;
@@ -130,17 +134,21 @@
   transition: all 0.2s ease;
   font-weight: 500;
   white-space: nowrap;
+  position: relative;
+  margin: 0 0.25rem;
 }
 
 .nav-tab.active {
   color: var(--foreground);
   border-bottom-color: var(--primary);
   font-weight: 600;
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .nav-tab:hover:not(.active) {
   color: var(--foreground);
   background: rgba(0, 0, 0, 0.02);
+  border-bottom-color: rgba(0, 0, 0, 0.1);
 }
 
 /* Main Content */
@@ -194,5 +202,146 @@
 
   .patient-content {
     padding: 0.75rem;
+  }
+}
+
+/* Section Title - Shared across dashboards */
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+}
+
+/* Table Styles */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.patient-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.patient-table th {
+  padding: 1rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.patient-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.patient-table tr:last-child td {
+  border-bottom: none;
+}
+
+.patient-table tr:hover td {
+  background-color: var(--accent);
+}
+
+.patient-name {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.patient-id {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  font-family: monospace;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-normal {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-critical {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: var(--radius);
+  position: relative;
+  width: 90%;
+  max-width: 500px;
+  min-height: 300px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.3s ease-out;
+  z-index: 10000;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: var(--foreground);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

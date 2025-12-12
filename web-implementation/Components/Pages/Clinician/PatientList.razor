@@ -1,0 +1,100 @@
+@page "/clinician/patient-list"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+
+@*
+    Clinician Patient List Page
+    Author: 2402513
+
+    Purpose:
+    Displays a list of all patients assigned to the logged-in clinician.
+    Shows patient information and the last date when peak pressure exceeded
+    the patient's high threshold, allowing clinicians to quickly identify
+    patients who may need attention.
+
+    Features:
+    - Table view of assigned patients
+    - Real-time search filtering by patient name
+    - "Last Day Peak Pressure Breached" column showing most recent threshold breach
+    - "View" button to navigate to Patient Details page
+*@
+
+<div class="patient-container">
+    <ClinicianHeader />
+
+    <div class="clinician-content">
+        <div class="page-header">
+            <h2 class="section-title">Patient List</h2>
+            <div class="search-container">
+                <input type="text" 
+                       class="search-input" 
+                       placeholder="Search patients..." 
+                       value="@searchQuery"
+                       @oninput="OnSearchInput" />
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="loading">Loading patients...</div>
+        }
+        else if (filteredPatients == null || filteredPatients.Count == 0)
+        {
+            <div class="empty-state">
+                @if (string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    <p>No patients assigned yet.</p>
+                }
+                else
+                {
+                    <p>No patients found matching "@searchQuery".</p>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="patient-list-table-container">
+                <table class="patient-list-table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Last Day Peak Pressure Breached</th>
+                            <th>View Patient Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var patientInfo in filteredPatients)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@patientInfo.Patient?.FirstName @patientInfo.Patient?.LastName</strong>
+                                    <br />
+                                    <span class="patient-email">@patientInfo.Patient?.Email</span>
+                                </td>
+                                <td>
+                                    @if (patientInfo.LastBreachDate.HasValue)
+                                    {
+                                        <span class="breach-date">@patientInfo.LastBreachDate.Value.ToString("MMM dd, yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="no-breach">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="view-btn" @onclick="() => ViewPatientDetails(patientInfo.Patient?.Id ?? Guid.Empty)">
+                                        View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+

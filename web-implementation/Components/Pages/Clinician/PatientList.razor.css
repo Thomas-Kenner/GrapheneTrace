@@ -1,0 +1,154 @@
+/* Clinician Patient List Page Scoped Styles */
+/* Author: 2402513 */
+/* Purpose: Provides specific styling for the Patient List page,
+   ensuring consistency with other clinician pages. */
+
+/* Content Container */
+.clinician-content {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 2rem 5rem;
+}
+
+/* Page Header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--foreground, #030213);
+    margin: 0;
+}
+
+/* Search Container */
+.search-container {
+    display: flex;
+    align-items: center;
+}
+
+.search-input {
+    padding: 0.625rem 1rem;
+    border: 2px solid var(--border, rgba(0, 0, 0, 0.1));
+    border-radius: var(--radius, 0.625rem);
+    font-size: 0.9rem;
+    background: var(--input-background, #f3f3f5);
+    color: var(--foreground, #030213);
+    width: 300px;
+    transition: all 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary, #030213);
+    background: var(--background, #ffffff);
+}
+
+.search-input::placeholder {
+    color: var(--muted-foreground, #717182);
+}
+
+/* Table Container */
+.patient-list-table-container {
+    background: var(--card, #ffffff);
+    border: 2px solid #e5e7eb;
+    border-radius: var(--radius, 0.625rem);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.patient-list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.patient-list-table thead {
+    background: var(--muted, #ececf0);
+}
+
+.patient-list-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--foreground, #030213);
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.patient-list-table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.2s ease;
+}
+
+.patient-list-table tbody tr:hover {
+    background: var(--accent, #e9ebef);
+}
+
+.patient-list-table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.patient-email {
+    font-size: 0.85rem;
+    color: var(--muted-foreground, #717182);
+}
+
+.breach-date {
+    color: var(--danger-red, #ef4444);
+    font-weight: 500;
+}
+
+.no-breach {
+    color: var(--muted-foreground, #717182);
+}
+
+/* View Button */
+.view-btn {
+    background: var(--primary, #030213);
+    color: var(--primary-foreground, #ffffff);
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius, 0.625rem);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+    background: var(--foreground, #030213);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.view-btn:active {
+    transform: translateY(0);
+}
+
+/* Loading and Empty States */
+.loading {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted-foreground, #717182);
+    font-size: 1rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: var(--card, #ffffff);
+    border: 2px solid #e5e7eb;
+    border-radius: var(--radius, 0.625rem);
+    color: var(--muted-foreground, #717182);
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 1rem;
+}
+

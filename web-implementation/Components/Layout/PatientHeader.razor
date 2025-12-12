@@ -6,13 +6,14 @@
 @*
     PATIENT HEADER COMPONENT
     Authors: SID:2402513 (original design), SID:2412494 (auth integration)
+    Updated: 2402513 - Added IDisposable implementation and dynamic subtitle
 
     Purpose:
     Unified header for all patient pages with navigation tabs and user controls.
     Combines the visual design from dashboard-impl with authentication features from main.
 
     How it works:
-    - header-left: App branding with simplified "Sensore GrapheneTrace"
+    - header-left: App branding with simplified "Sensore GrapheneTrace" and dynamic subtitle
     - patient-nav: Clean navigation tabs for patient sections
     - header-right: Notifications, settings quick-access, and sign out
     - Uses authentication state for user info
@@ -22,11 +23,12 @@
     - Maintains consistent navigation pattern
     - Provides easy access to key functions
 *@
+@implements IDisposable
 
 <header class="patient-header">
     <div class="header-left">
         <span class="header-brand">Sensore GrapheneTrace</span>
-        <span class="header-subtitle">Patient Dashboard</span>
+        <span class="header-subtitle">@GetSubtitle()</span>
     </div>
     <div class="header-right">
         <button class="icon-btn" title="Notifications">
@@ -92,6 +94,40 @@
     private void GoToSettings() => Navigation.NavigateTo("/patient/settings");
     private void GoToSupport() => Navigation.NavigateTo("/patient/support");
 
+    /// <summary>
+    /// Gets the subtitle text based on the current page.
+    /// Author: 2402513
+    /// Updated: 2402513 - Added dynamic subtitle based on current page route
+    /// </summary>
+    private string GetSubtitle()
+    {
+        if (currentPath.Contains("/pressure-data", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Patient Pressure Data";
+        }
+        else if (currentPath.Contains("/sessions", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Patient Sessions";
+        }
+        else if (currentPath.Contains("/settings", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Patient Settings";
+        }
+        else if (currentPath.Contains("/support", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Patient Support";
+        }
+        else
+        {
+            return "Patient Dashboard";
+        }
+    }
+
+    /// <summary>
+    /// Disposes the component and unsubscribes from navigation events.
+    /// Author: 2402513
+    /// Updated: 2402513 - Added proper IDisposable implementation
+    /// </summary>
     public void Dispose()
     {
         Navigation.LocationChanged -= OnLocationChanged;

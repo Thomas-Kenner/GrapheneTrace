@@ -97,9 +97,10 @@
         userName = user.Identity?.Name ?? "Unknown";
 
         // Redirect unauthenticated users to login (except those already on auth pages)
+        // Updated: 2402513 - Changed redirect from /login to / to match the updated login page route
         if (!isAuthenticated && !IsAuthPage())
         {
-            Navigation.NavigateTo("/login", forceLoad: true);
+            Navigation.NavigateTo("/", forceLoad: true);
         }
     }
 
@@ -116,17 +117,19 @@
     /// <summary>
     /// Checks if current page is an authentication page.
     /// Author: SID:2412494
+    /// Updated: 2402513 - Changed check from /login to / to match the updated login page route
     /// </summary>
     private bool IsAuthPage()
     {
         var path = new Uri(Navigation.Uri).AbsolutePath;
-        return path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
+        return path.Equals("/", StringComparison.OrdinalIgnoreCase) ||
                path.Equals("/account-creation", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// Handles user logout action using ASP.NET Core Identity.
     /// Author: SID:2412494
+    /// Updated: 2402513 - Changed redirect from /login to / to match the updated login page route
     /// </summary>
     /// <remarks>
     /// Uses SignInManager.SignOutAsync() to:
@@ -140,7 +143,8 @@
     private async Task HandleLogout()
     {
         await SignInManager.SignOutAsync();
-        Navigation.NavigateTo("/login", forceLoad: true);
+        // Updated: 2402513 - Changed redirect from /login to / to match the updated login page route
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 
     /// <summary>

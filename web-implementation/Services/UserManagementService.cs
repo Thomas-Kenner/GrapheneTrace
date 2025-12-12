@@ -1,5 +1,7 @@
 using GrapheneTrace.Web.Models;
+using GrapheneTrace.Web.Data;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrapheneTrace.Web.Services;
 
@@ -21,17 +23,27 @@ namespace GrapheneTrace.Web.Services;
 public class UserManagementService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ApplicationDbContext _context;
     private readonly ILogger<UserManagementService> _logger;
 
     /// <summary>
     /// Initializes the UserManagementService.
     /// Author: SID:2402513
+    /// Updated: 2402513 - Added ApplicationDbContext injection for PatientClinician operations
     /// </summary>
+    /// <remarks>
+    /// Database Context Addition (Updated: 2402513):
+    /// Added ApplicationDbContext injection to enable direct database access for
+    /// patient-clinician relationship management. This is needed because UserManager
+    /// doesn't provide direct access to PatientClinician entities.
+    /// </remarks>
     public UserManagementService(
         UserManager<ApplicationUser> userManager,
+        ApplicationDbContext context,
         ILogger<UserManagementService> logger)
     {
         _userManager = userManager;
+        _context = context;  // Updated: 2402513 - Added for PatientClinician operations
         _logger = logger;
     }
 
@@ -112,6 +124,12 @@ public class UserManagementService
             existingUser.LastName = user.LastName;
             existingUser.Email = user.Email;
             existingUser.UserName = user.Email; // Keep username in sync with email
+            // Updated: 2402513 - Include address fields in user updates
+            existingUser.Phone = user.Phone;
+            existingUser.Address = user.Address;
+            existingUser.City = user.City;
+            existingUser.Postcode = user.Postcode;
+            existingUser.Country = user.Country;
 
             var result = await _userManager.UpdateAsync(existingUser);
 
@@ -311,5 +329,246 @@ public class UserManagementService
         return allUsers
             .Where(u => u.UserType == "patient" && u.AssignedClinicianId == clinicianId)
             .ToList();
+    }
+
+    /// <summary>
+    /// Assigns a patient to a clinician (admin direct assignment).
+    /// Author: 2402513
+    /// </summary>
+    /// <param name="patientId">ID of the patient to assign</param>
+    /// <param name="clinicianId">ID of the clinician to assign to</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Purpose: Allows administrators to directly assign patients to clinicians without
+    /// requiring clinician approval. This bypasses the normal PatientClinicianRequest workflow.
+    ///
+    /// Workflow:
+    /// 1. Validates that both patient and clinician exist and have correct UserType
+    /// 2. Checks for existing active assignment (prevents duplicates)
+    /// 3. Creates new PatientClinician record with AssignedAt timestamp
+    /// 4. Saves to database and logs the action for audit trail
+    ///
+    /// Design Pattern: Direct database operation using ApplicationDbContext.
+    /// Admin assignments are immediate and don't require approval workflow.
+    /// </remarks>
+    public async Task<(bool Success, string Message)> AssignPatientToClinicianAsync(Guid patientId, Guid clinicianId)
+    {
+        try
+        {
+            // Check if patient exists
+            var patient = await _userManager.FindByIdAsync(patientId.ToString());
+            if (patient == null || patient.UserType != "patient")
+            {
+                return (false, "Patient not found");
+            }
+
+            // Check if clinician exists
+            var clinician = await _userManager.FindByIdAsync(clinicianId.ToString());
+            if (clinician == null || clinician.UserType != "clinician")
+            {
+                return (false, "Clinician not found");
+            }
+
+            // Check if assignment already exists (active)
+            var existingAssignment = await _context.PatientClinicians
+                .FirstOrDefaultAsync(pc => pc.PatientId == patientId 
+                    && pc.ClinicianId == clinicianId 
+                    && pc.UnassignedAt == null);
+
+            if (existingAssignment != null)
+            {
+                return (false, "Patient is already assigned to this clinician");
+            }
+
+            // Create new assignment
+            var assignment = new PatientClinician
+            {
+                Id = Guid.NewGuid(),
+                PatientId = patientId,
+                ClinicianId = clinicianId,
+                AssignedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.PatientClinicians.Add(assignment);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Patient {PatientId} assigned to clinician {ClinicianId} by admin", patientId, clinicianId);
+            return (true, "Patient assigned to clinician successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error assigning patient {PatientId} to clinician {ClinicianId}", patientId, clinicianId);
+            return (false, $"Error assigning patient: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Unassigns a patient from a clinician (soft delete).
+    /// Author: 2402513
+    /// </summary>
+    /// <param name="patientId">ID of the patient to unassign</param>
+    /// <param name="clinicianId">ID of the clinician to unassign from</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Purpose: Removes the relationship between a patient and clinician using soft delete.
+    ///
+    /// Soft Delete Pattern:
+    /// - Sets UnassignedAt timestamp instead of deleting the record
+    /// - Preserves historical data for HIPAA compliance and audit trail
+    /// - Active assignments are filtered by UnassignedAt == null
+    /// - Allows tracking of assignment history and duration
+    ///
+    /// Use Cases:
+    /// - Patient transfers to different clinician
+    /// - Clinician no longer treating patient
+    /// - Administrative corrections
+    /// </remarks>
+    public async Task<(bool Success, string Message)> UnassignPatientFromClinicianAsync(Guid patientId, Guid clinicianId)
+    {
+        try
+        {
+            var assignment = await _context.PatientClinicians
+                .FirstOrDefaultAsync(pc => pc.PatientId == patientId 
+                    && pc.ClinicianId == clinicianId 
+                    && pc.UnassignedAt == null);
+
+            if (assignment == null)
+            {
+                return (false, "Assignment not found");
+            }
+
+            assignment.UnassignedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Patient {PatientId} unassigned from clinician {ClinicianId}", patientId, clinicianId);
+            return (true, "Patient unassigned successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error unassigning patient {PatientId} from clinician {ClinicianId}", patientId, clinicianId);
+            return (false, $"Error unassigning patient: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Creates a new patient-clinician request.
+    /// Author: 2402513
+    /// </summary>
+    /// <param name="patientId">ID of the patient</param>
+    /// <param name="clinicianId">ID of the clinician</param>
+    /// <returns>Tuple containing success status and message</returns>
+    /// <remarks>
+    /// Purpose: Allows patients or clinicians to request assignment relationships.
+    /// 
+    /// Workflow:
+    /// 1. Validates that both patient and clinician exist and have correct UserType
+    /// 2. Checks for existing pending request (prevents duplicates)
+    /// 3. Checks for existing active assignment (prevents unnecessary requests)
+    /// 4. Creates new PatientClinicianRequest with pending status
+    /// 5. Saves to database and logs the action
+    ///
+    /// Design Pattern: Request-based workflow for patient-clinician relationships.
+    /// Requests require admin or clinician approval before assignment is created.
+    /// </remarks>
+    public async Task<(bool Success, string Message)> CreatePatientClinicianRequestAsync(Guid patientId, Guid clinicianId)
+    {
+        try
+        {
+            // Check if patient exists
+            var patient = await _userManager.FindByIdAsync(patientId.ToString());
+            if (patient == null || patient.UserType != "patient")
+            {
+                return (false, "Patient not found");
+            }
+
+            // Check if clinician exists
+            var clinician = await _userManager.FindByIdAsync(clinicianId.ToString());
+            if (clinician == null || clinician.UserType != "clinician")
+            {
+                return (false, "Clinician not found");
+            }
+
+            // Check if there's already a pending request
+            var existingPendingRequest = await _context.PatientClinicianRequests
+                .FirstOrDefaultAsync(pcr => pcr.PatientId == patientId 
+                    && pcr.ClinicianId == clinicianId 
+                    && pcr.Status == "pending");
+
+            if (existingPendingRequest != null)
+            {
+                return (false, "A pending request already exists for this patient-clinician pair");
+            }
+
+            // Check if there's already an active assignment
+            var existingAssignment = await _context.PatientClinicians
+                .FirstOrDefaultAsync(pc => pc.PatientId == patientId 
+                    && pc.ClinicianId == clinicianId 
+                    && pc.UnassignedAt == null);
+
+            if (existingAssignment != null)
+            {
+                return (false, "Patient is already assigned to this clinician");
+            }
+
+            // Create new request
+            var request = new PatientClinicianRequest
+            {
+                Id = Guid.NewGuid(),
+                PatientId = patientId,
+                ClinicianId = clinicianId,
+                Status = "pending",
+                RequestedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.PatientClinicianRequests.Add(request);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Patient-clinician request created: Patient {PatientId} -> Clinician {ClinicianId}", patientId, clinicianId);
+            return (true, "Request created successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating patient-clinician request for Patient {PatientId} and Clinician {ClinicianId}", patientId, clinicianId);
+            return (false, $"Error creating request: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves all patient-clinician assignments (active and inactive).
+    /// Author: 2402513
+    /// </summary>
+    /// <param name="activeOnly">If true, returns only active assignments (UnassignedAt == null)</param>
+    /// <returns>List of PatientClinician relationships</returns>
+    /// <remarks>
+    /// Purpose: Retrieves all patient-clinician assignment records for admin dashboard display.
+    ///
+    /// Features:
+    /// - Includes navigation properties (Patient, Clinician) for display
+    /// - Supports filtering by active/inactive status
+    /// - Ordered by AssignedAt descending (most recent first)
+    /// - Used by admin assignment management page
+    ///
+    /// Performance: Uses EF Core Include() to eagerly load related entities,
+    /// preventing N+1 query issues when displaying patient/clinician names.
+    /// </remarks>
+    public async Task<List<PatientClinician>> GetAllPatientClinicianAssignmentsAsync(bool activeOnly = false)
+    {
+        var query = _context.PatientClinicians
+            .Include(pc => pc.Patient)
+            .Include(pc => pc.Clinician)
+            .AsQueryable();
+
+        if (activeOnly)
+        {
+            query = query.Where(pc => pc.UnassignedAt == null);
+        }
+
+        return await query
+            .OrderByDescending(pc => pc.AssignedAt)
+            .ToListAsync();
     }
 }

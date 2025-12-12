@@ -31,9 +31,8 @@ public class AccountController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly ILogger<AccountController> _logger;
-
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         UserManager<ApplicationUser> userManager,
@@ -49,65 +48,73 @@ public class AccountController : ControllerBase
 
     /// <summary>
     /// Handles login via traditional HTTP POST.
+    /// Author: SID:2412494
+    /// Updated: 2402513 - Fixed error handling to use redirects instead of JSON responses
     /// </summary>
+    /// <remarks>
+    /// Error Handling Fix (Updated: 2402513):
+    /// Changed all error responses from JSON (Unauthorized/StatusCode) to HTTP redirects
+    /// with query parameters. This fixes the login flow after the login page route was
+    /// changed from /login to /. The Login.razor component expects redirects with error
+    /// messages in the query string (e.g., /?error=message) to display to users.
+    ///
+    /// Why Redirect Instead of JSON:
+    /// - Login form uses traditional HTML POST which expects HTTP redirects
+    /// - Browser handles redirects and preserves query parameters
+    /// - Login component reads error from URL query parameters
+    /// - Provides better UX with proper error display on the login page
+    /// </remarks>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromForm] LoginRequest request)
     {
         try
         {
             // Validate input
+            // Updated: 2402513 - Changed from BadRequest JSON to redirect with error query parameter
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
-                return Redirect("/login?error=" + Uri.EscapeDataString("Please enter both email and password"));
+                return Redirect("/?error=" + Uri.EscapeDataString("Please enter both email and password"));
             }
 
             // Find user
+            // Updated: 2402513 - Changed from Unauthorized JSON to redirect with error query parameter
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
             {
                 _logger.LogWarning("Login attempt for non-existent user: {Email}", request.Email);
-                return Redirect("/login?error=" + Uri.EscapeDataString("Invalid email or password"));
+                return Redirect("/?error=" + Uri.EscapeDataString("Invalid email or password"));
             }
 
             // Check if deactivated
+            // Updated: 2402513 - Changed from Unauthorized JSON to redirect with error query parameter
             if (user.DeactivatedAt != null)
             {
                 _logger.LogWarning("Login attempt for deactivated user: {UserId}", user.Id);
-                return Redirect("/login?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
+                return Redirect("/?error=" + Uri.EscapeDataString("This account has been deactivated. Please contact support."));
             }
 
-            // Check if account is approved (only applies to admin/clinician accounts)
+            // Updated: 2402513 - Block all unapproved accounts from logging in
+            // All accounts (including patients) require admin approval before access
             if (user.ApprovedAt == null)
             {
-                _logger.LogWarning("Login attempt for unapproved user: {UserId}", user.Id);
-                return Redirect("/login?error=" + Uri.EscapeDataString("Your account is pending approval. Please contact an administrator."));
+                _logger.LogWarning("Login attempt for unapproved user: {UserId} (Type: {UserType})", user.Id, user.UserType);
+                return Redirect("/?error=" + Uri.EscapeDataString("Your account is pending administrator approval. You will receive notification when approved."));
             }
 
-            // Check if account is locked out
-            if (await _userManager.IsLockedOutAsync(user))
-            {
-                _logger.LogWarning("Login attempt for locked out user: {UserId}", user.Id);
-                return Redirect("/login?error=" + Uri.EscapeDataString("Account locked due to multiple failed login attempts. Please try again in 15 minutes."));
-            }
+            // Attempt sign in
+            var result = await _signInManager.PasswordSignInAsync(
+                user.UserName!,
+                request.Password,
+                isPersistent: request.RememberMe,
+                lockoutOnFailure: true
+            );
 
-            // Validate password first
-            var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
-            if (!passwordValid)
+            if (result.Succeeded)
             {
-                // Record failed attempt for lockout
-                await _userManager.AccessFailedAsync(user);
-                _logger.LogWarning("Failed login attempt for user: {Email}", request.Email);
-                return Redirect("/login?error=" + Uri.EscapeDataString("Invalid email or password"));
-            }
+                _logger.LogInformation("User {UserId} logged in successfully", user.Id);
 
-            // Reset access failed count on successful password validation
-            await _userManager.ResetAccessFailedCountAsync(user);
-
-            // Ensure user has a role assigned (for existing users created before role system)
-            var userRoles = await _userManager.GetRolesAsync(user);
-            if (!userRoles.Any())
-            {
-                // Assign role based on UserType
+                // Assign Identity role based on UserType if user doesn't have one
+                // Author: 2402513 - Added role assignment during login for existing users without roles
                 var roleName = user.UserType switch
                 {
                     "admin" => "Admin",
@@ -116,22 +123,39 @@ public class AccountController : ControllerBase
                     _ => "Patient"
                 };
 
-                // Ensure role exists
-                if (!await _roleManager.RoleExistsAsync(roleName))
+                // Check if user already has the role
+                var isInRole = await _userManager.IsInRoleAsync(user, roleName);
+                if (!isInRole)
                 {
-                    await _roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
-                    _logger.LogInformation("Created role: {RoleName}", roleName);
+                    // Ensure the role exists
+                    if (!await _roleManager.RoleExistsAsync(roleName))
+                    {
+                        var roleResult = await _roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                        if (roleResult.Succeeded)
+                        {
+                            _logger.LogInformation("Created role {RoleName} during login", roleName);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to create role {RoleName} during login: {Errors}", 
+                                roleName, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+                        }
+                    }
+
+                    // Assign role to user
+                    var addRoleResult = await _userManager.AddToRoleAsync(user, roleName);
+                    if (addRoleResult.Succeeded)
+                    {
+                        _logger.LogInformation("Assigned role {Role} to existing user {UserId} during login", roleName, user.Id);
+                        // Refresh sign-in to update authentication cookie with new role claims
+                        await _signInManager.RefreshSignInAsync(user);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to assign role {Role} to user {UserId} during login: {Errors}", 
+                            roleName, user.Id, string.Join(", ", addRoleResult.Errors.Select(e => e.Description)));
+                    }
                 }
-
-                // Add user to role
-                await _userManager.AddToRoleAsync(user, roleName);
-                _logger.LogInformation("Assigned role {RoleName} to existing user {UserId}", roleName, user.Id);
-            }
-
-            // Sign in the user (this will include role claims in the authentication cookie)
-            await _signInManager.SignInAsync(user, isPersistent: request.RememberMe);
-
-            _logger.LogInformation("User {UserId} logged in successfully", user.Id);
 
             // Determine redirect path based on user type
             var redirectPath = user.UserType switch
@@ -142,13 +166,33 @@ public class AccountController : ControllerBase
                 _ => "/patient/dashboard"
             };
 
-            // Redirect via HTTP 302 so browser picks up authentication cookie
-            return Redirect(redirectPath);
+                // Redirect via HTTP 302 so browser picks up authentication cookie
+                return Redirect(redirectPath);
+            }
+
+            // Updated: 2402513 - Changed all error responses from JSON to redirects with error query parameters
+            // This ensures errors are displayed on the login page (/ route) instead of as JSON responses
+            
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("User {UserId} account locked out", user.Id);
+                return Redirect("/?error=" + Uri.EscapeDataString("Account locked due to multiple failed login attempts. Please try again in 15 minutes."));
+            }
+
+            if (result.IsNotAllowed)
+            {
+                _logger.LogWarning("User {UserId} login not allowed", user.Id);
+                return Redirect("/?error=" + Uri.EscapeDataString("Login not allowed. Please confirm your email address."));
+            }
+
+            _logger.LogWarning("Failed login attempt for user: {Email}", request.Email);
+            return Redirect("/?error=" + Uri.EscapeDataString("Invalid email or password"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during login for email: {Email}", request.Email);
-            return Redirect("/login?error=" + Uri.EscapeDataString("An error occurred during login. Please try again."));
+            // Updated: 2402513 - Changed from StatusCode(500) JSON to redirect with error query parameter
+            return Redirect("/?error=" + Uri.EscapeDataString("An error occurred during login. Please try again."));
         }
     }
 
@@ -180,8 +224,8 @@ public class AccountController : ControllerBase
                 LastName = request.LastName,
                 UserType = request.UserType,
                 EmailConfirmed = true,  // Skip email confirmation for now
-                // Auto-approve patient accounts - only admin/clinician accounts require manual approval
-                ApprovedAt = request.UserType == "patient" ? DateTime.UtcNow : null
+                // Updated: 2402513 - All accounts (including patients) require admin approval
+                ApprovedAt = null
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -220,29 +264,11 @@ public class AccountController : ControllerBase
                     return Ok(new { success = true, message = "Account created successfully" });
                 }
 
-                // Traditional form POST - handle sign-in based on approval status
-                if (user.ApprovedAt == null)
-                {
-                    // Admin/Clinician accounts require approval - redirect to login with success message
-                    _logger.LogInformation("Account created but requires approval: {UserId}", user.Id);
-                    var message = "Account created successfully! Your account is pending administrator approval. You will be notified when you can log in.";
-                    return Redirect("/login?success=" + Uri.EscapeDataString(message));
-                }
-
-                // Patient accounts are auto-approved - sign in immediately
-                await _signInManager.SignInAsync(user, isPersistent: false);
-
-                // Determine redirect path
-                var redirectPath = user.UserType switch
-                {
-                    "admin" => "/admin/dashboard",
-                    "clinician" => "/clinician/dashboard",
-                    "patient" => "/patient/dashboard",
-                    _ => "/patient/dashboard"
-                };
-
-                // Redirect via HTTP 302 so browser picks up authentication cookie
-                return Redirect(redirectPath);
+                // Updated: 2402513 - All accounts require admin approval before login
+                // Redirect to login with success message
+                _logger.LogInformation("Account created but requires approval: {UserId} (Type: {UserType})", user.Id, user.UserType);
+                var message = "Account created successfully! Your account is pending administrator approval. You will be notified when you can log in.";
+                return Redirect("/login?success=" + Uri.EscapeDataString(message));
             }
 
             // Return validation errors
@@ -259,6 +285,9 @@ public class AccountController : ControllerBase
 
     /// <summary>
     /// Handles logout via traditional HTTP POST.
+    /// Author: SID:2412494
+    /// Updated: 2402513 - Changed redirect URL from /login to / to match updated login page route
+    /// Updated: 2402513 - Changed from JSON response to HTTP redirect for form submissions
     /// </summary>
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
@@ -267,13 +296,13 @@ public class AccountController : ControllerBase
         {
             await _signInManager.SignOutAsync();
             _logger.LogInformation("User logged out successfully");
-            // Redirect via HTTP 302 so browser clears authentication cookie
-            return Redirect("/login");
+            // Updated: 2402513 - Return HTTP redirect instead of JSON for form submissions
+            return Redirect("/");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
-            return StatusCode(500, new { error = "An error occurred during logout" });
+            return Redirect("/?error=" + Uri.EscapeDataString("An error occurred during logout"));
         }
     }
 }

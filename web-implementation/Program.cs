@@ -130,7 +130,10 @@ builder.Services.ConfigureApplicationCookie(options =>
     // Countdown resets with each page navigation or interaction
     options.SlidingExpiration = true;
 
-    options.LoginPath = "/login";
+    // Updated: 2402513 - Changed LoginPath from /login to / to match the login page route change
+    // The Login.razor component is now at @page "/" instead of @page "/login"
+    // This ensures authentication middleware redirects unauthenticated users to the correct route
+    options.LoginPath = "/";
     options.LogoutPath = "/logout";
     options.AccessDeniedPath = "/access-denied";
 });

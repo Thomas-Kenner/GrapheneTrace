@@ -1,0 +1,226 @@
+@page "/clinician/patient-details/{patientId:guid}"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Clinician")]
+@using GrapheneTrace.Web.Models
+@using GrapheneTrace.Web.Components.Layout
+@using GrapheneTrace.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@implements IAsyncDisposable
+
+@*
+    Clinician Patient Details Page
+    Author: 2402513
+
+    Purpose:
+    Displays comprehensive patient information including personal details,
+    pressure monitoring sessions with heatmap visualization, pressure metrics,
+    and comments. Allows clinicians to view detailed patient data and monitor
+    their condition over time.
+
+    Features:
+    - Patient personal information (name, email, DOB, condition)
+    - Patient settings (pressure thresholds)
+    - Session history with heatmap playback
+    - Pressure metrics and statistics
+    - Comments and notes section
+    - Navigation back to Patient List
+*@
+
+<div class="patient-container">
+    <ClinicianHeader />
+
+    <div class="clinician-content">
+        @if (isLoading)
+        {
+            <div class="loading">Loading patient data...</div>
+        }
+        else if (patient == null)
+        {
+            <div class="error-state">
+                <p>Patient not found or you do not have access to this patient.</p>
+                <button class="btn-back" @onclick="GoBackToPatientList">Back to Patient List</button>
+            </div>
+        }
+        else
+        {
+            <div class="page-header">
+                <div>
+                    <h2 class="section-title">Patient Details</h2>
+                    <p class="patient-name">@patient.FirstName @patient.LastName</p>
+                </div>
+                <button class="btn-back" @onclick="GoBackToPatientList">← Back to Patient List</button>
+            </div>
+
+            <div class="patient-details-grid">
+                <!-- Patient Information Card -->
+                <div class="card patient-info-card">
+                    <h3 class="card-title">Patient Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">@patient.Email</span>
+                        </div>
+                        @if (patient.DateOfBirth.HasValue)
+                        {
+                            <div class="info-item">
+                                <span class="info-label">Date of Birth:</span>
+                                <span class="info-value">@patient.DateOfBirth.Value.ToString("MMM dd, yyyy")</span>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(patient.Condition))
+                        {
+                            <div class="info-item">
+                                <span class="info-label">Condition:</span>
+                                <span class="info-value">@patient.Condition</span>
+                            </div>
+                        }
+                        @if (patientSettings != null)
+                        {
+                            <div class="info-item">
+                                <span class="info-label">Low Threshold:</span>
+                                <span class="info-value">@patientSettings.LowPressureThreshold</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">High Threshold:</span>
+                                <span class="info-value">@patientSettings.HighPressureThreshold</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Session Selection and Heatmap -->
+                <div class="card heatmap-card">
+                    <h3 class="card-title">Pressure Heatmap</h3>
+                    @if (sessions == null || sessions.Count == 0)
+                    {
+                        <div class="empty-heatmap">
+                            <p>No sessions available for this patient.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="session-selector">
+                            <label class="session-label">Select Session:</label>
+                            <select class="session-dropdown" @bind="selectedSessionId" @bind:after="OnSessionChangedAsync">
+                                @foreach (var session in sessions)
+                                {
+                                    <option value="@session.SessionId">@session.Start.ToString("MMM dd, yyyy HH:mm")</option>
+                                }
+                            </select>
+                        </div>
+
+                        @if (selectedSession != null)
+                        {
+                            <div class="heatmap-container">
+                                <canvas id="@canvasId"></canvas>
+                            </div>
+                            @if (PlaybackService.TotalFrames > 0)
+                            {
+                                <div class="playback-controls">
+                                    <div class="progress-container @(isDragging ? "dragging" : "")"
+                                         @onmousedown="OnProgressMouseDown"
+                                         @onmousemove="OnProgressMouseMove"
+                                         @onmouseup="OnProgressMouseUp"
+                                         @onmouseleave="OnProgressMouseUp">
+                                        <div class="progress-track">
+                                            <div class="progress-fill" style="width: @(GetProgressPercent())%;"></div>
+                                        </div>
+                                        <div class="progress-label">
+                                            @(PlaybackService.CurrentFrameIndex + 1) / @PlaybackService.TotalFrames
+                                        </div>
+                                    </div>
+                                    <button class="playback-btn" @onclick="TogglePlayback">
+                                        @if (PlaybackService.IsPlaying)
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="6" y="4" width="4" height="16"></rect>
+                                                <rect x="14" y="4" width="4" height="16"></rect>
+                                            </svg>
+                                            <span>Pause</span>
+                                        }
+                                        else
+                                        {
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polygon points="5,3 19,12 5,21"></polygon>
+                                            </svg>
+                                            <span>Play</span>
+                                        }
+                                    </button>
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+
+                <!-- Pressure Metrics Card -->
+                @if (selectedSession != null)
+                {
+                    <div class="card metrics-card">
+                        <h3 class="card-title">Session Metrics</h3>
+                        <div class="metrics-grid">
+                            <div class="metric-item">
+                                <span class="metric-label">Peak Pressure:</span>
+                                <span class="metric-value @GetPressureClass(selectedSession.PeakSessionPressure ?? 0)">
+                                    @(selectedSession.PeakSessionPressure?.ToString() ?? "N/A")
+                                </span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Session Date:</span>
+                                <span class="metric-value">@selectedSession.Start.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Duration:</span>
+                                <span class="metric-value">@FormatDuration(selectedSession.Start, selectedSession.End)</span>
+                            </div>
+                            @if (selectedSession.ClinicianFlag)
+                            {
+                                <div class="metric-item">
+                                    <span class="metric-label">Status:</span>
+                                    <span class="metric-value flag-badge">Flagged</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Comments Card -->
+                <div class="card comments-card">
+                    <h3 class="card-title">Comments & Notes</h3>
+                    <div class="comments-list">
+                        @if (comments == null || comments.Count == 0)
+                        {
+                            <div class="comment-item">
+                                <div class="comment-text">No comments for this patient.</div>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var comment in comments)
+                            {
+                                <div class="comment-item">
+                                    <div class="comment-header">
+                                        <span class="comment-time">@comment.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                                    </div>
+                                    <div class="comment-text">@comment.Comment</div>
+                                    @if (!string.IsNullOrEmpty(comment.Reply))
+                                    {
+                                        <div class="comment-reply">
+                                            <span class="reply-label">Clinician Reply:</span>
+                                            <span class="reply-text">@comment.Reply</span>
+                                            @if (comment.RepliedAt.HasValue)
+                                            {
+                                                <span class="reply-time">@comment.RepliedAt.Value.ToString("MMM dd, yyyy HH:mm")</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
