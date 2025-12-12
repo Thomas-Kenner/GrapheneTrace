@@ -17,9 +17,17 @@ public class PressureDataService
     // to avoid "A second operation was started on this context" errors in Blazor Server.
     // Each method now creates its own short-lived DbContext instance.
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
-    public PressureDataService(IDbContextFactory<ApplicationDbContext> dbContextFactory)
+    // Author: SID:2412494
+    // Added PressureThresholdsConfig to use DefaultLowThreshold for Contact Area % calculation
+    // per client requirement: "percentage of pixels above lower threshold"
+    private readonly PressureThresholdsConfig _thresholdsConfig;
+
+    public PressureDataService(
+        IDbContextFactory<ApplicationDbContext> dbContextFactory,
+        PressureThresholdsConfig thresholdsConfig)
     {
         _dbContextFactory = dbContextFactory;
+        _thresholdsConfig = thresholdsConfig;
     }
 
     // Author 2414111
@@ -135,7 +143,11 @@ public class PressureDataService
             {
                 SessionId = sessionId,
                 SnapshotData = snapshot,
-                ContactAreaPercent = SensorsOverLimitInSession(snapshotInts, 0) * (100.0f / 1024.0f),
+                // Author: SID:2412494
+                // Contact Area % uses lower threshold per client requirement:
+                // "percentage of pixels above lower threshold, indicating how much of the square
+                // sensor mat is covered by the person sitting on it"
+                ContactAreaPercent = SensorsOverLimitInSession(snapshotInts, _thresholdsConfig.DefaultLowThreshold) * (100.0f / 1024.0f),
                 SnapshotTime = parsedDate,
                 // Author: SID:2412494
                 // Calculate and store Peak Pressure Index (excluding small clusters)

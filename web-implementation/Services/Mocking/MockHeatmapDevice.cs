@@ -513,8 +513,15 @@ public class MockHeatmapDevice : IAsyncDisposable
 
     private HeatmapFrame CreateFrame(int[] pressureData, DeviceFault faults, MedicalAlert alerts)
     {
-        var peakPressure = pressureData.Max();
-        var contactCells = pressureData.Count(p => p > BasePressure);
+        // Author: SID:2412494
+        // Use proper Peak Pressure Index calculation that excludes clusters < 10 pixels
+        // per client requirement in Requirements/ClientRequest.md
+        var peakPressure = PressureDataService.CalculatePeakPressureIndex(pressureData);
+        // Author: SID:2412494
+        // Contact Area % uses lower threshold per client requirement:
+        // "percentage of pixels above lower threshold, indicating how much of the square
+        // sensor mat is covered by the person sitting on it"
+        var contactCells = pressureData.Count(p => p > LowAlertThreshold);
         var contactPercent = (float)contactCells / TotalCells * 100f;
 
         return new HeatmapFrame
@@ -814,7 +821,9 @@ public class MockHeatmapDevice : IAsyncDisposable
     private MedicalAlert DetectAlerts(int[] pressureData)
     {
         var alerts = MedicalAlert.None;
-        var peakPressure = pressureData.Max();
+        // Author: SID:2412494
+        // Use proper Peak Pressure Index calculation that excludes clusters < 10 pixels
+        var peakPressure = PressureDataService.CalculatePeakPressureIndex(pressureData);
 
         // High pressure alert
         if (peakPressure >= AlertThreshold)

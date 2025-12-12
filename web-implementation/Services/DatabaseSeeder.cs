@@ -54,6 +54,9 @@ public class DatabaseSeeder
     private readonly ILogger<DatabaseSeeder> _logger;
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _context;
+    // Author: SID:2412494
+    // Added PressureThresholdsConfig to use DefaultLowThreshold for Contact Area % calculation
+    private readonly PressureThresholdsConfig _thresholdsConfig;
 
     // Role names must match the Authorize attributes on pages (e.g., [Authorize(Roles = "Patient")])
     // Author: SID:2412494
@@ -109,13 +112,15 @@ public class DatabaseSeeder
         RoleManager<IdentityRole<Guid>> roleManager,
         ILogger<DatabaseSeeder> logger,
         IConfiguration configuration,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        PressureThresholdsConfig thresholdsConfig)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _logger = logger;
         _configuration = configuration;
         _context = context;
+        _thresholdsConfig = thresholdsConfig;
     }
 
     /// <summary>
@@ -635,7 +640,10 @@ public class DatabaseSeeder
                     {
                         SessionId = sessionData.SessionId,
                         SnapshotData = snapshot,
-                        ContactAreaPercent = PressureDataService.SensorsOverLimitInSession(snapshotInts, 0) * (100.0f / 1024.0f),
+                        // Author: SID:2412494
+                        // Contact Area % uses lower threshold per client requirement:
+                        // "percentage of pixels above lower threshold"
+                        ContactAreaPercent = PressureDataService.SensorsOverLimitInSession(snapshotInts, _thresholdsConfig.DefaultLowThreshold) * (100.0f / 1024.0f),
                         SnapshotTime = snapshotTime,
                     };
 
