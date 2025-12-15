@@ -272,29 +272,7 @@ public class PressureDataService
     }
 
     // Author: 2414111
-    // Function for finding highest number in snapshot
-    // Was used for summarising test data and may be useful later
-    // TODO if not used later remove the function
-    public static int GetBiggestNumber(List<int[]> snapshot)
-    {
-        int biggest = 0;
-        foreach (int[] j in snapshot)
-        {
-            foreach (int i in j)
-            {
-                if (i > biggest)
-                {
-                    biggest = i;
-                }
-            }
-        }
-        return biggest;
-    }
-
-    // Author: 2414111
     // Function to count the number of sensors over a limit (e.g. max expected value) in snapshot
-    // Was used to count sensors over 255 in single snapshot of test data
-    // TODO if not used later remove
     public static int SensorsOverLimitInSession(List<int[]> snapshot, int limit)
     {
         int count = 0;
@@ -309,39 +287,6 @@ public class PressureDataService
             }
         }
         return count;
-    }
-
-    // Author: 2414111
-    // Function to count how many sensors over a limit across all sessions
-    // Most useful for evaluating data for number of potential errors
-    // TODO if not used later remove
-    public static void AllSensorsOverLimit(List<List<int[]>> sessionSnapshotInts, int limit)
-    {
-        int counter = 0;
-        int overLimit = 0;
-        int biggest = 0;
-        foreach (List<int[]> snapshot in sessionSnapshotInts)
-        {
-            counter++;
-            overLimit += SensorsOverLimitInSession(snapshot, limit);
-            int newBiggest = GetBiggestNumber(snapshot);
-            if (newBiggest > biggest)
-            {
-                biggest = newBiggest;
-            }
-        }
-        double percentOver = (overLimit / (counter * 32.0 * 32.0)) * 100.0;
-        Console.WriteLine(overLimit + " over the 255 limit out of " + (counter * 32 * 32) + " (" + percentOver.ToString("n2") + "%) with the highest value being " + biggest);
-    }
-
-    // Author: 2414111
-    // Retrieve a list of all sessions from the database
-    // TODO remove if left unused
-    // Author: SID:2412494 - Use factory pattern
-    public async Task<List<PatientSessionData>> LoadSessionData()
-    {
-        await using var db = await _dbContextFactory.CreateDbContextAsync();
-        return await db.PatientSessionDatas.ToListAsync();
     }
 
     // Author: SID:2412494
@@ -365,27 +310,6 @@ public class PressureDataService
         var session = await db.PatientSessionDatas
             .FirstOrDefaultAsync(a => a.DeviceId == deviceId && a.Start == start);
         return session?.SessionId;
-    }
-
-    // Author: 2414111
-    // Retrieve a list of all snapshots from the database
-    // TODO remove if left unused
-    // Author: SID:2412494 - Use factory pattern
-    public async Task<List<PatientSnapshotData>> LoadSnapshotData()
-    {
-        await using var db = await _dbContextFactory.CreateDbContextAsync();
-        return await db.PatientSnapshotDatas.ToListAsync();
-    }
-
-    // Author: 2414111
-    // Find all snapshots from a session in the database
-    // Author: SID:2412494 - Use factory pattern
-    public async Task<List<PatientSnapshotData>> FindSnapshotsInSession(int sessionId)
-    {
-        await using var db = await _dbContextFactory.CreateDbContextAsync();
-        return await db.PatientSnapshotDatas
-            .Where(a => a.SessionId == sessionId)
-            .ToListAsync();
     }
 
     // Author: 2414111
